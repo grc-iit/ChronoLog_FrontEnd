@@ -1,4 +1,5 @@
 #include "ClockSync.h"
+#include <cmath>
 
 template<typename Clocksource>
 void ClockSynchronization<Clocksource>::SynchronizeClocks()
@@ -48,8 +49,9 @@ void ClockSynchronization<Clocksource>::SynchronizeClocks()
       
       uint64_t Tresp = Timestamp();
       int64_t offset1 = resp[0]-Treq;
-      int64_t offset2 = Tresp-resp[2];
-      int64_t m_offset = (offset1+offset2)/2;
+      int64_t offset2 = resp[2]-Tresp;
+      double diff = (double)(offset1+offset2)/(double)2;
+      int64_t m_offset = std::ceil(diff);
       if(m_offset < 0) 
       {
 	      m_offset = -1*m_offset;
@@ -82,18 +84,19 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval()
 
 	    MPI_Barrier(MPI_COMM_WORLD);
 
-	    uint64_t ts = Timestamp();
-	    tstamps[myrank] = ts;
+	    uint64_t ts;
 
 	    for(int i=1;i<numprocs;i++)
 	    {
 		MPI_Recv(&tstamps[i],1,MPI_UINT64_T,i,123,MPI_COMM_WORLD,&st);
+		tstamps[i] += delay;
+		ts = Timestamp();
+		if(ts > tstamps[i]) terr[i] = ts-tstamps[i];
+		else terr[i] = tstamps[i]-ts;
 	    }
 
 	    for(int i=0;i<numprocs;i++)
 	    {
-		if(tstamps[i] > tstamps[myrank]) terr[i] = tstamps[i]-tstamps[myrank];
-		else terr[i] = tstamps[myrank]-tstamps[i];
 		if(maxError < terr[i]) maxError = terr[i];
 	    }
 
@@ -134,6 +137,6 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval()
 	   if(times2[i]>times2[myrank]) e = times2[i]-times2[myrank];
 	   else e = times2[myrank]-times2[i];
 	   //if(myrank==0) std::cout <<" e = "<<e<<" epsilon = "<<epsilon<<std::endl;
-	   assert(e >= 0 && e < 2*maxError+epsilon);
+	   assert(e >= 0 && e <= 2*maxError+delay+epsilon);
 	}
 }

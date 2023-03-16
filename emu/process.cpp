@@ -25,7 +25,7 @@ void read_write_process::create_events(int num_events)
     for(int i=0;i<num_events;i++)
     {
 	event e;
-	std::fill(e.data,e.data+100,0);
+	std::fill(e.data,e.data+DATASIZE,0);
 	uint64_t ts = CM->Timestamp();
 	int pid = writer_id(ts);
 
@@ -49,7 +49,11 @@ void read_write_process::pwrite(const char *filename)
     hid_t       dataset5, dataset6, dataset7;           
     hid_t       datatype;
 
+    const char *attr_name[1];
     hsize_t     dims[1];                             
+    hid_t attr_id[1];
+    hsize_t attr_size[1];
+    hid_t attr_space[1];
 
     std::vector<char> *data_array1 = new std::vector<char> ();
 
@@ -71,7 +75,7 @@ void read_write_process::pwrite(const char *filename)
     std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
     std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
-    num_events_recorded_l[myrank] = dm->num_events();
+    num_events_recorded_l[myrank] = myevents.size();
 
     MPI_Allreduce(num_events_recorded_l.data(),num_events_recorded.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
@@ -79,9 +83,15 @@ void read_write_process::pwrite(const char *filename)
     for(int i=0;i<num_events_recorded.size();i++) total_records += num_events_recorded[i];
 
     int num_records = total_records;
-    int total_size = num_records*100+num_records*sizeof(uint64_t);
+    int total_size = num_records*DATASIZE+num_records*sizeof(uint64_t);
 
-    int record_size = 100+sizeof(uint64_t);
+    int record_size = DATASIZE+sizeof(uint64_t);
+    attr_size[0] = 3;
+
+    std::vector<int> attr_data;
+    attr_data.push_back(total_records);
+    attr_data.push_back(8);
+    attr_data.push_back(DATASIZE);
 
     int block_size = num_events_recorded[myrank]*record_size;
 
@@ -121,9 +131,8 @@ void read_write_process::pwrite(const char *filename)
 	    data_array1->push_back(key_t);
 	    key = key >> 8;
 	}
-	char *data_e = e.data;
-	for(int k=0;k<100;k++)
-		data_array1->push_back(data_e[k]);
+	for(int k=0;k<DATASIZE;k++)
+		data_array1->push_back(e.data[k]);
 
     }
 
@@ -137,10 +146,20 @@ void read_write_process::pwrite(const char *filename)
     H5Sclose(mem_dataspace);
     H5Pclose(xfer_plist);
 
+    attr_space[0] = H5Screate_simple(1, attr_size, NULL);
+
+    attr_name[0] = "Data Sizes";
+    attr_id[0] = H5Acreate2(dataset1, attr_name[0], H5T_NATIVE_INT, attr_space[0], H5P_DEFAULT, H5P_DEFAULT);
+    ret = H5Awrite(attr_id[0], H5T_NATIVE_INT, attr_data.data());
+
+    H5Sclose(attr_space[0]);
+    H5Aclose(attr_id[0]);
+
     ret = H5Dclose(dataset1);
     H5Fclose(fid); 
 
     data_array1->clear();
+    myevents.clear();
 }
 
 

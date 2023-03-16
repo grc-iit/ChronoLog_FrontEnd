@@ -29,7 +29,7 @@ int main(int argc,char **argv)
   rw->synchronize();
 
   rw->create_events(128);
-  //const char *filename = "file1.h5";
+  const char *filename = "file1.h5";
   //rw->pwrite(filename);
 
   //rw->pread();
@@ -38,8 +38,9 @@ int main(int argc,char **argv)
 
   rw->sort_events();
   /*std::vector<struct event> myevents = rw->get_events();
-
   std::cout <<" num_events = "<<myevents.size()<<std::endl;*/
+
+  rw->pwrite(filename);
 
   MPI_Barrier(MPI_COMM_WORLD);
   delete rw;

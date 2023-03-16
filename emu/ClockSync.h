@@ -52,6 +52,7 @@ class ClockSynchronization
      uint64_t myoffset;
      uint64_t unit;
      uint64_t epsilon;
+     uint64_t delay;
      bool is_less;
    public:
      ClockSynchronization(int n1,int n2,std::string &q) : myrank(n1), numprocs(n2)
@@ -62,7 +63,10 @@ class ClockSynchronization
 	 else unit = 1;
 	 myoffset = 0;
 	 maxError = 0;
-	 epsilon = 500;
+	 epsilon = 100000;  //100 microseconds (scheduling, measurement errors)
+	 delay = 200000; // 200 microseconds network delay for reasonably large messages
+	 delay = delay/unit;
+	 epsilon = epsilon/unit;
 	 is_less = false;
      }
      ~ClockSynchronization()
@@ -82,7 +86,7 @@ class ClockSynchronization
 	uint64_t diff = UINT64_MAX;
 	if(myts < ts) diff = ts-myts;
 	else diff = myts-ts;
-	if(diff < 2*maxError+epsilon) return true;
+	if(diff <= 2*maxError+delay+epsilon) return true;
 	else return false;
      }
      void SynchronizeClocks();

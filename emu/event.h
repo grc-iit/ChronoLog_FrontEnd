@@ -6,15 +6,17 @@
 #include <iostream>
 #include <string.h>
 
+#define DATASIZE 100
+
 struct event
 {
    uint64_t ts;
-   char data[100];
+   char data[DATASIZE];
 
    event& operator=(const struct event&e1)
    {
 	ts = e1.ts;
-	memcpy(data,e1.data,100);
+	memcpy(data,e1.data,DATASIZE);
 	return *this; 
    }
 };

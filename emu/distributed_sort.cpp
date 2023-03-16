@@ -155,9 +155,9 @@ void dsort::sort_data()
    std::vector<char> recv_buffer_char;
 
    for(int i=0;i<numprocs;i++)
-	   send_counts[i] *= 100;
+	   send_counts[i] *= DATASIZE;
    for(int i=0;i<numprocs;i++)
-	   recv_counts[i] *= 100;
+	   recv_counts[i] *= DATASIZE;
 
    std::fill(send_displ.begin(),send_displ.end(),0);
    std::fill(recv_displ.begin(),recv_displ.end(),0);
@@ -178,8 +178,8 @@ void dsort::sort_data()
    {
 	int dest = event_dest[i];
 	int start = send_displ[dest];
-	memcpy(send_buffer_char.data()+start,events[i].data,100);
-	send_displ[dest]+=100;
+	memcpy(send_buffer_char.data()+start,events[i].data,DATASIZE);
+	send_displ[dest]+=DATASIZE;
    }
 
    std::fill(send_displ.begin(),send_displ.end(),0);
@@ -196,11 +196,11 @@ void dsort::sort_data()
 
    for(int i=0;i<numprocs;i++)
    {
-	   for(int j=0,k=0;j<key_counts[i];j++,k+=100)
+	   for(int j=0,k=0;j<key_counts[i];j++,k+=DATASIZE)
 	   {
 		struct event e;   
 		e.ts = recv_buffer_u[key_displ[i]+j];
-		memcpy(e.data,&(recv_buffer_char[recv_displ[i]+k]),100);
+		memcpy(e.data,&(recv_buffer_char[recv_displ[i]+k]),DATASIZE);
 		events.push_back(e);
 	   }
    }
