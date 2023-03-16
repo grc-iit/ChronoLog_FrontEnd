@@ -36,6 +36,7 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
+  rw->sort_events();
   /*std::vector<struct event> myevents = rw->get_events();
 
   std::cout <<" num_events = "<<myevents.size()<<std::endl;*/

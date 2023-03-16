@@ -16,6 +16,8 @@ void dsort::sort_data()
 
    MPI_Allreduce(&local_events,&total_events,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
+   if(myrank==0) std::cout <<" total_events = "<<total_events<<std::endl;
+
    std::vector<uint64_t> mysplitters;
    if(local_events >= 2)
    {
@@ -46,6 +48,9 @@ void dsort::sort_data()
    int num_splitters = 0;
    for(int i=0;i<numprocs;i++) num_splitters += g_splitter_counts[i];
 
+   if(myrank==0)
+   std::cout <<" num_splitters = "<<num_splitters<<std::endl;
+   
    std::vector<uint64_t> splitters;
    splitters.resize(num_splitters);
 
@@ -72,7 +77,7 @@ void dsort::sort_data()
 
    for(int i=0;i<splitters.size();i++)
    {
-	int proc;
+	int proc=-1;
 	if(i < offset) 
 	{
 	   proc = i/(splitters_per_proc+1);
@@ -94,12 +99,12 @@ void dsort::sort_data()
         uint64_t ts = events[i].ts;
 	for(int j=0;j<splitters.size();j++)
 	{
-	    if(ts <= splitters[i])
+	    if(ts <= splitters[j])
 	    {
-		 dest = procs[i];
+		 dest = procs[j]; break;
 	    }
 	}
-	if(dest == -1) procs[splitters.size()-1];
+	if(dest == -1) dest = procs[splitters.size()-1];
         send_counts[dest]++;
 	event_dest.push_back(dest);	
    }
@@ -145,7 +150,7 @@ void dsort::sort_data()
 
    std::vector<int> key_displ;
    key_displ.assign(recv_displ.begin(),recv_displ.end());
-
+	   
    std::vector<char> send_buffer_char;
    std::vector<char> recv_buffer_char;
 
@@ -199,7 +204,6 @@ void dsort::sort_data()
 		events.push_back(e);
 	   }
    }
-
    std::sort(events.begin(),events.end(),compare_fn);
 
 }

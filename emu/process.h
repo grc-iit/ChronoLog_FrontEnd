@@ -99,6 +99,13 @@ public:
 	{
 		return myevents;
 	}
+	void sort_events()
+	{
+	    get_events_from_map();
+	    ds->get_unsorted_data(myevents);
+	    ds->sort_data(); 
+	    ds->get_sorted_data(myevents); 
+	}
 	void create_events(int num_events);
 	//void total_order_events();
         void pwrite(const char *);
