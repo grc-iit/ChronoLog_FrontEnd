@@ -94,7 +94,8 @@ class Chronicle
 
 };
 
-void add_story(Chronicle **);
+template<typename B>
+void add_story(Chronicle **,B&&);
 void increment_acquisition(Chronicle **);
 void decrement_acquisition(Chronicle **);
 bool acquisition_count_zero(Chronicle **);

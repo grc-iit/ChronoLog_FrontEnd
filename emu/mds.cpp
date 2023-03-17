@@ -1,8 +1,9 @@
 #include "Chronicle.h"
 
-void add_story(Chronicle **c)
+template<typename B>
+void add_story(Chronicle **c,B &&b)
 {
-
+   (*c)->add_story_to_chronicle(std::forward<B>(b));
 
 }
 

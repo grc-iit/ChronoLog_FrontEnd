@@ -156,10 +156,10 @@ class metadata_server
 	   return b;
 	}
 
-	/*bool LocalCreateStory(std::string &client_name,std::string &chronicle_name,std::string &story_name)
+	bool LocalCreateStory(std::string &client_name,std::string &chronicle_name,std::string &story_name)
 	{
-	     bool b = metadata_table->update_field(chronicle_name,add_story);
-	}*/
+	     bool b = metadata_table->update_field(chronicle_name,add_story,story_name);
+	}
 
 	 void ThalliumLocalConnect(const tl::request &req, std::string &client_name)
   	{
