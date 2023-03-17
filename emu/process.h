@@ -23,22 +23,31 @@ private:
       databuffer *dm;
       std::vector<struct event> myevents;
       dsort *ds;
+      metadata_server *mds;
 public:
 	read_write_process(int r,int np) : myrank(r), numprocs(np)
 	{
            H5open();
-           std::string unit = "nanosecond";
+           std::string unit = "microsecond";
 	   CM = new ClockSynchronization<ClocksourceCPPStyle> (myrank,numprocs,unit);
 	   dm = new databuffer(numprocs,myrank,CM);
 	   ds = new dsort(numprocs,myrank);
 	   nbits = 0;
-
+	   if(myrank==0)
+	   {
+		std::string serveraddr = "ofi+sockets://127.0.0.1:1234";
+		int portno = 1234;
+		mds = new metadata_server(numprocs,myrank,portno,serveraddr);
+		mds->bind_functions();
+	   }
+	   else mds = nullptr;
 	}
 	~read_write_process()
 	{
 	   delete CM;
 	   delete dm;
 	   delete ds;
+	   if(mds != nullptr) delete mds;
 	   H5close();
 
 	}

@@ -20,7 +20,7 @@ add_custom_command(
 #target_link_libraries(rw_process -L${HDF5_LIBS} -lhdf5 ${MPI_CXX_LIBRARIES} -lrt)
 #target_link_libraries(rw_process hcl)
 
-add_executable(engine main.cpp process.cpp distributed_sort.cpp util.h)
+add_executable(engine main.cpp process.cpp distributed_sort.cpp city.cpp mds.cpp util.h)
 add_dependencies(engine copy_hostfile)
 add_dependencies(engine copy_server_list_em)
 target_link_libraries(engine ${MPI_CXX_LIBRARIES} thallium -L${HDF5_LIBS} -lhdf5 -lpthread -lrt)

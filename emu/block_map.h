@@ -216,6 +216,40 @@ class BlockMap
 	    return found;
 	}
 
+	template<typename... Args>
+	bool erase_if(KeyT &k,bool(*fn)(ValueT *,Args&&... args),Args&&... args_)
+	{
+	  bool found = false;
+	  uint64_t pos = KeyToIndex(k);
+	  table[pos].mutex_t.lock();
+
+	  node_type *p = table[pos].head;
+	  node_type *n = table[pos].head->next;
+          bool b = false;
+
+	  while(n != nullptr)
+	  {
+	     if(EqualFcn()(n->key,k))
+	     {
+		  b = fn(&(n->value),std::forward<Args>(args_)...);
+	     }
+	     if(HashFcn()(n->key) > HashFcn()(k)) break;
+	     p = n;
+	     n = n->next;
+	  }
+	  
+	  if(n != nullptr)
+	  if(EqualFcn()(n->key,k) && b)
+	  {
+	     found = true;
+	     p->next = n->next;
+	     pl->memory_pool_push(n);
+	     table[pos].num_nodes--;
+	     removed.fetch_add(1);
+	  }
+	  table[pos].mutex_t.unlock();
+	  return found;
+	}
 	bool erase(KeyT &k)
 	{
 	   uint64_t pos = KeyToIndex(k);
