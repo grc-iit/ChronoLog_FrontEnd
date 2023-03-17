@@ -9,14 +9,23 @@ class Story
 {
    private :
 	 std::string name;
-
+	 int acquisition_count;
    public:
 	Story()
 	{
+	   acquisition_count = 0;
 	}
 	~Story()
 	{
 	}	
+	void increment_acquisition_count()
+	{
+	   acquisition_count++;
+	}
+	void decrement_acquisition_count()
+	{
+	   acquisition_count--;
+	}
 	void setname(std::string &s)
 	{
 		name = s;
@@ -91,12 +100,35 @@ class Chronicle
 	    }
 	    return ret;
 	}
+	bool acquire_story(std::string &story_name)
+	{
+		bool found = false;
+		for(int i=0;i<stories.size();i++)
+		{
+			if(stories[i].getname().compare(story_name)==0)
+			{
+			    found = true;
+			    stories[i].increment_acquisition_count();
+			    break;
+			}
+		}
+		return found;
+	}
+	bool release_story(std::string &story_name)
+	{
+		bool found = false;
+		for(int i=0;i<stories.size();i++)
+		{
+			if(stories[i].getname().compare(story_name)==0)
+			{
+			   found = true;
+			   stories[i].decrement_acquisition_count();
+			   break;
+			}
+		}
+		return found;
+	}
 
 };
 
-template<typename B>
-void add_story(Chronicle **,B&&);
-void increment_acquisition(Chronicle **);
-void decrement_acquisition(Chronicle **);
-bool acquisition_count_zero(Chronicle **);
 #endif

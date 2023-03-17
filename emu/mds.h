@@ -35,6 +35,43 @@ struct stringhash
    }
 };
 
+template<typename B>
+void add_story(Chronicle **c,B &&s)
+{
+    (*c)->add_story_to_chronicle(std::forward<B>(s));
+
+}
+
+bool acquisition_count_zero(Chronicle **c)
+{
+  if((*c)->get_acquisition_count()==0) return true;
+  return false;
+}
+
+void increment_acquisition_chronicle(Chronicle **c)
+{
+   (*c)->increment_acquisition_count();
+}
+
+void decrement_acquisition_chronicle(Chronicle **c)
+{
+   (*c)->decrement_acquisition_count();
+}
+template<typename B>
+void increment_acquisition_story(Chronicle **c,B &&b)
+{
+
+    (*c)->acquire_story(std::forward<B>(b));
+
+}
+template<typename B>
+void decrement_acquisition_story(Chronicle **c,B &&b)
+{
+
+  (*c)->release_story(std::forward<B>(b));
+
+}
+
 namespace tl=thallium;
 
 class metadata_server
@@ -101,12 +138,27 @@ class metadata_server
 	    std::bind(&metadata_server::ThalliumLocalReleaseChronicle,
 	    this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 
+	    std::function<void(const tl::request &,std::string &,std::string &,std::string &)> createstoryFunc(
+	    std::bind(&metadata_server::ThalliumLocalCreateStory,
+	    this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+
+	    std::function<void(const tl::request &,std::string &,std::string &,std::string &)> acquirestoryFunc(
+	    std::bind(&metadata_server::ThalliumLocalAcquireStory,
+	    this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+
+	    std::function<void(const tl::request &,std::string &,std::string &,std::string &)> releasestoryFunc(
+	    std::bind(&metadata_server::ThalliumLocalReleaseStory,
+	    this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+
 	    thallium_server->define("connect",connectFunc);
 	    thallium_server->define("disconnect",disconnectFunc);
 	    thallium_server->define("createchronicle",createchronicleFunc);
 	    thallium_server->define("destroychronicle",destroychronicleFunc);
 	    thallium_server->define("acquirechronicle",acquirechronicleFunc);
 	    thallium_server->define("releasechronicle",releasechronicleFunc);
+	    thallium_server->define("createstory",createstoryFunc);
+	    thallium_server->define("acquirestory",acquirestoryFunc);
+	    thallium_server->define("releasestory",releasestoryFunc);
 	}
 
 	bool LocalConnect(std::string &s)
@@ -135,13 +187,13 @@ class metadata_server
 
 	bool LocalAcquireChronicle(std::string &client_name,std::string &chronicle_name)
 	{
-	     bool b = metadata_table->update_field(chronicle_name,increment_acquisition); 
+	     bool b = metadata_table->update_field(chronicle_name,increment_acquisition_chronicle); 
 	     return b;
 	}
 
 	bool LocalReleaseChronicle(std::string &client_name,std::string &chronicle_name)
 	{
-	    bool b = metadata_table->update_field(chronicle_name,decrement_acquisition);
+	    bool b = metadata_table->update_field(chronicle_name,decrement_acquisition_chronicle);
 	    return b;
 	}
 	bool LocalDestroyChronicle(std::string &client_name,std::string &chronicle_name)
@@ -160,7 +212,14 @@ class metadata_server
 	{
 	     bool b = metadata_table->update_field(chronicle_name,add_story,story_name);
 	}
-
+	bool LocalAcquireStory(std::string &client_name,std::string &chronicle_name,std::string &story_name)
+	{
+	     bool b = metadata_table->update_field(chronicle_name,increment_acquisition_story,story_name);
+	}
+	bool LocalReleaseStory(std::string &client_name,std::string &chronicle_name,std::string &story_name)
+	{
+	     bool b = metadata_table->update_field(chronicle_name,decrement_acquisition_story,story_name);
+	}
 	 void ThalliumLocalConnect(const tl::request &req, std::string &client_name)
   	{
         	req.respond(LocalConnect(client_name));
@@ -185,6 +244,18 @@ class metadata_server
 	void ThalliumLocalReleaseChronicle(const tl::request &req,std::string &client_name,std::string &chronicle_name)
 	{
 		req.respond(LocalReleaseChronicle(client_name,chronicle_name));
+	}
+	void ThalliumLocalCreateStory(const tl::request &req,std::string &client_name,std::string &chronicle_name,std::string &story_name)
+	{
+		req.respond(LocalCreateStory(client_name,chronicle_name,story_name));
+	}
+	void ThalliumLocalAcquireStory(const tl::request &req,std::string &client_name,std::string &chronicle_name,std::string &story_name)
+	{
+		req.respond(LocalAcquireStory(client_name,chronicle_name,story_name));
+	}
+	void ThalliumLocalReleaseStory(const tl::request &req,std::string &client_name,std::string &chronicle_name,std::string &story_name)
+	{
+		req.respond(LocalReleaseStory(client_name,chronicle_name,story_name));
 	}
 };
 

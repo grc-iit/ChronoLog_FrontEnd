@@ -1,5 +1,0 @@
-/home/aparna/Desktop/frontend/Emulator/emu/build/CMakeFiles/copy_hostfile.dir
-/home/aparna/Desktop/frontend/Emulator/emu/build/CMakeFiles/copy_server_list_em.dir
-/home/aparna/Desktop/frontend/Emulator/emu/build/CMakeFiles/hashmap_test.dir
-/home/aparna/Desktop/frontend/Emulator/emu/build/CMakeFiles/edit_cache.dir
-/home/aparna/Desktop/frontend/Emulator/emu/build/CMakeFiles/rebuild_cache.dir

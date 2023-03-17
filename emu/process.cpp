@@ -15,6 +15,7 @@
 #define DATASETNAME8 "Data8"
 #define DATASETNAME9 "Data9"
 
+#include "mds.h"
 
 typedef int DATATYPE;
 

@@ -8,7 +8,6 @@
 #include <boost/container_hash/hash.hpp>
 #include "data_buffer.h"
 #include "distributed_sort.h"
-#include "mds.h"
 
 class read_write_process
 {
@@ -23,7 +22,6 @@ private:
       databuffer *dm;
       std::vector<struct event> myevents;
       dsort *ds;
-      metadata_server *mds;
 public:
 	read_write_process(int r,int np) : myrank(r), numprocs(np)
 	{
@@ -33,25 +31,24 @@ public:
 	   dm = new databuffer(numprocs,myrank,CM);
 	   ds = new dsort(numprocs,myrank);
 	   nbits = 0;
-	   if(myrank==0)
+	   /*if(myrank==0)
 	   {
 		std::string serveraddr = "ofi+sockets://127.0.0.1:1234";
 		int portno = 1234;
 		mds = new metadata_server(numprocs,myrank,portno,serveraddr);
 		mds->bind_functions();
 	   }
-	   else mds = nullptr;
+	   else mds = nullptr;*/
 	}
 	~read_write_process()
 	{
 	   delete CM;
 	   delete dm;
 	   delete ds;
-	   if(mds != nullptr) delete mds;
 	   H5close();
 
 	}
-
+	
 	int nearest_power_two(int n)
 	{
 	    int nn = 0;
