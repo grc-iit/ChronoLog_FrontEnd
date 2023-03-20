@@ -31,7 +31,7 @@ void read_write_process::create_events(int num_events)
 	      
 	dm->add_event(e);
     }
-   
+
 }
 
 void read_write_process::pwrite(const char *filename)
@@ -161,7 +161,7 @@ void read_write_process::pwrite(const char *filename)
 }
 
 
-void read_write_process::pread()
+void read_write_process::pread(const char *filename)
 {
 
     hid_t       fid;                                              
@@ -170,25 +170,12 @@ void read_write_process::pread()
     hid_t       file_dataspace;                                   
     hid_t       mem_dataspace;                                    
     hid_t       dataset1, dataset2, dataset5, dataset6, dataset7;
-    DATATYPE *  data_array1  = NULL;                              
-    DATATYPE *  data_origin1 = NULL;                             
-    const char *filename;
 
-    hsize_t start[RANK];               
-    hsize_t count[RANK], stride[RANK]; 
-    hsize_t block[RANK];               
-
+    const char *attr_name[1];
     size_t   num_points;    
-    hsize_t *coords = NULL; 
     int      i, j, k;
 
-
-    filename = "file1.h5";
-
-    coords     = (hsize_t *)malloc((size_t)DIM0 * (size_t)DIM1 * RANK * sizeof(hsize_t));
-
-    data_array1 = (int *)malloc((size_t)DIM0 * (size_t)DIM1 * sizeof(int));
-    data_origin1 = (int *)malloc((size_t)DIM0 * (size_t)DIM1 * sizeof(int));
+    std::vector<char> *data_array1 = nullptr;
 
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
@@ -196,57 +183,58 @@ void read_write_process::pread()
 
     hid_t ret = H5Pclose(fapl);
 
+    attr_name[0] = "Data Sizes";
+
     dataset1 = H5Dopen2(fid, DATASETNAME1, H5P_DEFAULT);
 
-    dataset2 = H5Dopen2(fid, DATASETNAME2, H5P_DEFAULT);
- 
-    block[0]  = (hsize_t)DIM0;
-    block[1]  = (hsize_t)(DIM1 / numprocs);
-    stride[0] = block[0];
-    stride[1] = block[1];
-    count[0]  = 1;
-    count[1]  = 1;
-    start[0]  = 0;
-    start[1]  = (hsize_t)myrank * block[1];
+    hid_t attr_id = H5Aopen(dataset1,attr_name[0],H5P_DEFAULT);
+    std::vector<int> attrs;
+    attrs.resize(3);
+
+    ret = H5Aread(attr_id,H5T_NATIVE_INT,attrs.data());
+
+    int total_k = attrs[0];
+    int k_size = attrs[1];
+    int data_size = attrs[2];
+
+    int k_per_process = total_k/numprocs;
+    int rem = total_k%numprocs;
+
+    hsize_t offset = 0;
+
+    for(int i=0;i<myrank;i++)
+    {
+	    if(i < rem) offset += k_per_process+1;
+	    else offset += k_per_process;
+    }
+
+    offset *= (k_size+data_size);
+
+    int num_events = 0;
+    if(myrank < rem) num_events = k_per_process+1;
+    else num_events = k_per_process;
+
+    hsize_t block_size = (hsize_t)(num_events*(data_size+k_size));
+
+    data_array1 = new std::vector<char> ();
+
+    data_array1->resize(block_size);
 
     file_dataspace = H5Dget_space(dataset1);
-    ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET, start, stride, count, block);
-    mem_dataspace = H5Screate_simple(RANK, block, NULL);
+    ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&block_size,NULL);
+    mem_dataspace = H5Screate_simple(1,&block_size, NULL);
     xfer_plist = H5Pcreate(H5P_DATASET_XFER);
     ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
-    ret = H5Dread(dataset1, H5T_NATIVE_INT, mem_dataspace, file_dataspace, xfer_plist, data_array1);
+    ret = H5Dread(dataset1, H5T_NATIVE_CHAR, mem_dataspace, file_dataspace, xfer_plist, data_array1->data());
      
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
     H5Pclose(xfer_plist);
 
-    block[0]  = (hsize_t)DIM0/numprocs;
-    block[1]  = (hsize_t)DIM1;
-    stride[0] = block[0];
-    stride[1] = block[1];
-    count[0]  = 1;
-    count[1]  = 1;
-    start[0]  = (hsize_t)myrank*block[0];
-    start[1]  = 0;
-
-    file_dataspace = H5Dget_space(dataset2);
-    ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET, start, stride, count, block);
-    mem_dataspace = H5Screate_simple(RANK, block, NULL);
-    xfer_plist = H5Pcreate(H5P_DATASET_XFER);
-    ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
-    ret = H5Dread(dataset2, H5T_NATIVE_INT, mem_dataspace, file_dataspace, xfer_plist, data_array1);
-
-
-    H5Sclose(file_dataspace);
-    H5Sclose(mem_dataspace);
-    H5Pclose(xfer_plist);
-
+    ret = H5Aclose(attr_id);
     ret = H5Dclose(dataset1);
-    ret = H5Dclose(dataset2);
+    delete data_array1;
 
-   free(data_array1);
-   free(data_origin1);
-   free(coords);
    H5Fclose(fid);  
 
 }

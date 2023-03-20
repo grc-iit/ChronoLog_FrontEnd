@@ -323,6 +323,7 @@ class BlockMap
 
 	bool get_map(std::vector<ValueT> &values)
 	{
+	   int num_entries = 0;
 	   for(int i=0;i<maxSize;i++)
 	   {
 	     node_type *n = table[i].head->next;
@@ -331,8 +332,10 @@ class BlockMap
 	     {
 		values.push_back(n->value);
 		n = n->next;
+		num_entries++;
 	     }
 	   }
+	   //std::cout <<" num_entries = "<<num_entries<<" allocated = "<<allocated.load()<<std::endl;
 	   return true;
 	}
 		

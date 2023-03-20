@@ -87,7 +87,10 @@ class ClockSynchronization
 	if(myts < ts) diff = ts-myts;
 	else diff = myts-ts;
 	if(diff <= 2*maxError+delay+epsilon) return true;
-	else return false;
+	else 
+	{
+		return false;
+	}
      }
      void SynchronizeClocks();
      void ComputeErrorInterval();

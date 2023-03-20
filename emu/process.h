@@ -116,7 +116,7 @@ public:
 	void create_events(int num_events);
 	//void total_order_events();
         void pwrite(const char *);
-	void pread();
+	void pread(const char*);
 };
 
 #endif

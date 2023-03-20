@@ -208,8 +208,11 @@ class distributed_hashmap
    bool LocalInsert(KeyT &k,ValueT &v)
   {
    uint32_t r = my_table->insert(k,v);
-   if(r != NOT_IN_TABLE) return true;
-   else return false;
+   if(r == INSERTED) return true;
+   else 
+   {
+	   return false;
+   }
   }
   bool LocalFind(KeyT &k)
   {
