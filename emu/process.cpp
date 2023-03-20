@@ -21,20 +21,17 @@ typedef int DATATYPE;
 
 void read_write_process::create_events(int num_events)
 {
-    dm->clear_buffer();
-
     for(int i=0;i<num_events;i++)
     {
 	event e;
 	std::fill(e.data,e.data+DATASIZE,0);
 	uint64_t ts = CM->Timestamp();
-	int pid = writer_id(ts);
 
 	e.ts = ts;
 	      
 	dm->add_event(e);
     }
-
+   
 }
 
 void read_write_process::pwrite(const char *filename)

@@ -24,6 +24,10 @@
 #include <thallium/serialization/stl/unordered_set.hpp>
 #include <thallium/serialization/stl/vector.hpp>
 #include "event.h"
+#include <unistd.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 namespace tl=thallium;
 
@@ -57,6 +61,9 @@ class distributed_hashmap
 	tl::engine *thallium_server;
 	tl::engine *thallium_client;
 	std::vector<tl::endpoint> serveraddrs;
+	std::string myhostname;
+	std::vector<std::string> ipaddrs;
+	std::string myipaddr;
  public: 
 
    uint64_t serverLocation(KeyT &k)
@@ -104,22 +111,55 @@ class distributed_hashmap
         pl = new pool_type(100);
         my_table = new map_type(maxSize,pl,emptyKey);
 
-	int port_addr = 5555+rank;
-  	std::string server_addr = "ofi+sockets://127.0.0.1:";
+	std::vector<int> strlens;
+	strlens.resize(nservers);
+	int l = myipaddr.length();
+	MPI_Allgather(&l,1,MPI_INT,strlens.data(),1,MPI_INT,MPI_COMM_WORLD);
+	std::vector<char> ipstrings;
+        int total_length = 0;
+	for(int i=0;i<strlens.size();i++) 
+		total_length += strlens[i];
+	ipstrings.resize(total_length);
+	std::vector<int> recv_counts;
+	recv_counts.assign(strlens.begin(),strlens.end());
+	std::vector<int> recv_displ;
+	recv_displ.resize(nservers);
+	std::fill(recv_displ.begin(),recv_displ.end(),0);
+
+	for(int i=1;i<nservers;i++)
+		recv_displ[i] = recv_displ[i-1]+recv_counts[i-1];
+	
+	MPI_Allgatherv(myipaddr.data(),l,MPI_CHAR,ipstrings.data(),recv_counts.data(),recv_displ.data(),MPI_CHAR,MPI_COMM_WORLD);
+
+	for(int i=0;i<nservers;i++)
+	{
+	   std::string s;
+	   s.assign(ipstrings.data()+recv_displ[i],ipstrings.data()+recv_displ[i]+recv_counts[i]);
+	   ipaddrs.push_back(s);
+	}
+	
+	int port_addr = 5555;
+  	std::string server_addr = "ofi+sockets://";
+	server_addr += myipaddr;
   	std::string base_addr = server_addr;
-  	server_addr = server_addr+std::to_string(port_addr);
+  	server_addr = server_addr+":"+std::to_string(port_addr);
 
   	thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,4);
 
+	//std::cout <<" server_addr = "<<server_addr<<std::endl;
 	MPI_Barrier(MPI_COMM_WORLD);
 
+	
 	thallium_client = new tl::engine("ofi+sockets",THALLIUM_CLIENT_MODE,true,4);
 
   	for(int i=0;i<nservers;i++)
   	{
-        	int portno = 5555+i;
-        	std::string serveraddr = base_addr+std::to_string(portno);
-        	tl::endpoint ep = thallium_client->lookup(serveraddr.c_str());
+        	int portno = 5555;
+        	std::string serveraddr_1 = "ofi+sockets://";
+		serveraddr_1 += ipaddrs[i];
+		serveraddr_1 += ":";
+		serveraddr_1 += std::to_string(portno);
+        	tl::endpoint ep = thallium_client->lookup(serveraddr_1.c_str());
         	serveraddrs.push_back(ep);
   	}
 
@@ -144,6 +184,15 @@ class distributed_hashmap
   {
 	pl = nullptr;
 	my_table = nullptr;
+        char processor_name[1024];
+	int len = 0;
+	MPI_Get_processor_name(processor_name, &len);
+	myhostname.assign(processor_name);
+	char ip[16];
+        struct hostent *he = gethostbyname(myhostname.c_str());
+        auto **addr_list = (struct in_addr **) he->h_addr_list;
+        strcpy(ip, inet_ntoa(*addr_list[0]));
+	myipaddr.assign(ip);
 
   }
  ~distributed_hashmap()
