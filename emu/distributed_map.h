@@ -64,6 +64,8 @@ class distributed_hashmap
 	std::string myhostname;
 	std::vector<std::string> ipaddrs;
 	std::string myipaddr;
+	ClockSynchronization<ClocksourceCPPStyle> *CM;
+	int dropped_events;
  public: 
 
    uint64_t serverLocation(KeyT &k)
@@ -131,20 +133,25 @@ class distributed_hashmap
 	
 	MPI_Allgatherv(myipaddr.data(),l,MPI_CHAR,ipstrings.data(),recv_counts.data(),recv_displ.data(),MPI_CHAR,MPI_COMM_WORLD);
 
+	std::set<std::string> node_ips;
+
 	for(int i=0;i<nservers;i++)
 	{
 	   std::string s;
 	   s.assign(ipstrings.data()+recv_displ[i],ipstrings.data()+recv_displ[i]+recv_counts[i]);
 	   ipaddrs.push_back(s);
+	   node_ips.insert(s);
 	}
-	
-	int port_addr = 5555;
+
+	int pos = std::distance(ipaddrs.begin(),std::find(ipaddrs.begin(),ipaddrs.end(),myipaddr));
+
+	int port_addr = 5555+serverid-pos;
   	std::string server_addr = "ofi+sockets://";
 	server_addr += myipaddr;
   	std::string base_addr = server_addr;
   	server_addr = server_addr+":"+std::to_string(port_addr);
 
-  	thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,4);
+  	thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,8);
 
 	//std::cout <<" server_addr = "<<server_addr<<std::endl;
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -158,7 +165,8 @@ class distributed_hashmap
         	std::string serveraddr_1 = "ofi+sockets://";
 		serveraddr_1 += ipaddrs[i];
 		serveraddr_1 += ":";
-		serveraddr_1 += std::to_string(portno);
+		int spos = std::distance(ipaddrs.begin(),std::find(ipaddrs.begin(),ipaddrs.end(),ipaddrs[i]));
+		serveraddr_1 += std::to_string(portno+i-spos);
         	tl::endpoint ep = thallium_client->lookup(serveraddr_1.c_str());
         	serveraddrs.push_back(ep);
   	}
@@ -193,6 +201,7 @@ class distributed_hashmap
         auto **addr_list = (struct in_addr **) he->h_addr_list;
         strcpy(ip, inet_ntoa(*addr_list[0]));
 	myipaddr.assign(ip);
+	dropped_events = 0;
 
   }
  ~distributed_hashmap()
@@ -205,14 +214,23 @@ class distributed_hashmap
     delete thallium_client; 
   }
 
+   void setClock(ClockSynchronization<ClocksourceCPPStyle> *C)
+   {
+
+	 CM = C;
+   }
    bool LocalInsert(KeyT &k,ValueT &v)
   {
-   uint32_t r = my_table->insert(k,v);
-   if(r == INSERTED) return true;
-   else 
-   {
+      if(!CM->NearTime(k))
+      {
+	      dropped_events++;
+	      return false;
+      }
+
+      uint32_t r = my_table->insert(k,v);
+      if(r == INSERTED) return true;
+      else 
 	   return false;
-   }
   }
   bool LocalFind(KeyT &k)
   {
@@ -249,6 +267,7 @@ class distributed_hashmap
   bool LocalClearMap()
   {
 	my_table->clear_map();
+	dropped_events = 0;
 	return true;
   }
 
@@ -268,7 +287,10 @@ class distributed_hashmap
      return my_table->removed_nodes();
   }
 
-
+  int num_dropped()
+  {
+	 return dropped_events;
+  }
   void ThalliumLocalInsert(const tl::request &req, KeyT &k, ValueT &v)
   {
 	req.respond(LocalInsert(k,v));

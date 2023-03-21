@@ -113,6 +113,15 @@ public:
 	    ds->sort_data(); 
 	    ds->get_sorted_data(myevents); 
 	}
+
+	int num_events()
+	{
+		return myevents.size();
+	}
+	int dropped_events()
+	{
+	    return dm->num_dropped_events();
+	}
 	void create_events(int num_events);
 	//void total_order_events();
         void pwrite(const char *);

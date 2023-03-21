@@ -165,10 +165,10 @@ void dsort::sort_data()
    for(int i=1;i<numprocs;i++)
 	   send_displ[i] = send_displ[i-1]+send_counts[i-1];
 
-   int total_recv_size_data = 0;
+   uint64_t total_recv_size_data = 0;
    for(int i=0;i<numprocs;i++) total_recv_size_data += recv_counts[i];
 
-   int total_send_size_data = 0;
+   uint64_t total_send_size_data = 0;
    for(int i=0;i<numprocs;i++) total_send_size_data += send_counts[i];
 
    send_buffer_char.resize(total_send_size_data);

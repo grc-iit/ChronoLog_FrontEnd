@@ -80,8 +80,10 @@ void read_write_process::pwrite(const char *filename)
     int total_records = 0;
     for(int i=0;i<num_events_recorded.size();i++) total_records += num_events_recorded[i];
 
-    int num_records = total_records;
-    int total_size = num_records*DATASIZE+num_records*sizeof(uint64_t);
+    if(myrank==0) std::cout <<" total bytes = "<<(uint64_t)total_records*(DATASIZE+8)<<std::endl;
+
+    uint64_t num_records = total_records;
+    uint64_t total_size = num_records*DATASIZE+num_records*sizeof(uint64_t);
 
     int record_size = DATASIZE+sizeof(uint64_t);
     attr_size[0] = 3;
@@ -91,9 +93,10 @@ void read_write_process::pwrite(const char *filename)
     attr_data.push_back(8);
     attr_data.push_back(DATASIZE);
 
-    int block_size = num_events_recorded[myrank]*record_size;
+    uint64_t block_size = num_events_recorded[myrank]*record_size;
 
-    std::cout <<" block_size = "<<block_size<<" total_size = "<<total_size<<std::endl;
+
+
     dims[0] = (hsize_t)(total_size);
     sid     = H5Screate_simple(1, dims, NULL);
 

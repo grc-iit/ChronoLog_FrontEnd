@@ -16,9 +16,10 @@ class databuffer
      {
 	event_count = 0;
 	dmap = new distributed_hashmap<uint64_t,struct event> ();
-	int total_size = 8192;
+	int total_size = 65536*2;
 	dmap->initialize_tables(total_size,numprocs,myrank,UINT64_MAX);
 	CM = C;
+	dmap->setClock(CM);
      }
      ~databuffer() 
      {
@@ -30,15 +31,16 @@ class databuffer
 	  return event_count;
   }
 
+  int num_dropped_events()
+  {
+	  return dmap->num_dropped();
+  }
+
   void add_event(event &e)
   {
       uint64_t key = e.ts;
-      bool b = CM->NearTime(key);
-      if(b)
-      {
-        b = dmap->Insert(key,e);   
+      bool b = dmap->Insert(key,e);   
         if(b) event_count++; 
-      }
   }
 
   bool get_buffer(std::vector<struct event> &events)
