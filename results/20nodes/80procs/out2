@@ -1,0 +1,6 @@
+maxError = 35398
+ numprocs = 80 sync time = 0.277894
+ dropped events = 1
+ total_events = 517294
+ num_splitters = 160
+ total bytes = 2590608352

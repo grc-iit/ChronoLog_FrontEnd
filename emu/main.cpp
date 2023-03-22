@@ -34,9 +34,9 @@ int main(int argc,char **argv)
 
   if(rank==0) std::cout <<" numprocs = "<<size<<" sync time = "<<total_time<<std::endl;
 
-  /*t1 = std::chrono::high_resolution_clock::now();
+  t1 = std::chrono::high_resolution_clock::now();
 
-  int total_events = 65536;
+  int total_events = 65536*2*2*2;
 
   int events_per_proc = total_events/size;
   int rem = total_events%size;
@@ -49,11 +49,8 @@ int main(int argc,char **argv)
 
   const char *filename = "file1.h5";
   np->write_events(filename);
-*/
-  /*int de = rw->dropped_events();
-  rw->sort_events();
 
-  t2 = std::chrono::high_resolution_clock::now();
+  /*t2 = std::chrono::high_resolution_clock::now();
 
   t = std::chrono::duration<double> (t2-t1).count();
 

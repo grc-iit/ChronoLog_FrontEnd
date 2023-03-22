@@ -7,7 +7,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-
+#include "client.h"
 
 class emu_process
 {
@@ -19,7 +19,7 @@ private:
       ClockSynchronization<ClocksourceCPPStyle> *CM;
       std::string server_addr;
       metadata_server *MS; 	
-
+      metadata_client *MC;
 public:
 
       emu_process(int np,int r) : numprocs(np), myrank(r)
@@ -65,6 +65,7 @@ public:
 
 	}	
 	MPI_Barrier(MPI_COMM_WORLD);
+        MC = new metadata_client(server_addr);
 
       }
 
@@ -82,6 +83,12 @@ public:
       void create_events(int num_events)
       {
 	rwp->create_events(num_events);
+
+	MPI_Barrier(MPI_COMM_WORLD);
+	int de = rwp->dropped_events();
+	int total_de = 0;
+	MPI_Allreduce(&de,&total_de,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+	if(myrank==0) std::cout <<" dropped events = "<<total_de<<std::endl;
       }
 
       void write_events(const char *filename)
@@ -100,6 +107,7 @@ public:
       ~emu_process()
       {
 	if(MS != nullptr) delete MS;
+	delete MC;
 	delete rwp;
 	delete CM;
       }
