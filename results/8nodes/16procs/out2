@@ -1,0 +1,12 @@
+payload 1000 bytes per event
+
+maxError = 20028
+numprocs = 16 sync time = 0.16288
+total_events = 518982
+num_splitters = 32
+total_events = 524288 num_events = 518982
+total_order_time = 26.5867
+dropped events = 0
+total bytes = 523133856
+hdf5 parallel write time = 4.48503
+

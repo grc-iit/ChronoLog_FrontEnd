@@ -1,0 +1,32 @@
+
+payload 100 bytes per event
+
+maxError = 10760
+numprocs = 8 sync time = 0.116536
+total_events = 519619
+num_splitters = 16
+total_events = 524288 num_events = 519619
+total_order_time = 28.0406
+dropped events = 9
+total bytes = 56118852
+hdf5 parallel write time = 2.63927
+
+maxError = 11255
+numprocs = 8 sync time = 0.136185
+total_events = 519698
+num_splitters = 16
+total_events = 524288 num_events = 519698
+total_order_time = 28.4485
+dropped events = 10
+total bytes = 56127384
+hdf5 parallel write time = 1.7138
+
+numprocs = 8 sync time = 0.139407
+total_events = 519524
+num_splitters = 16
+total_events = 524288 num_events = 519524
+total_order_time = 26.6566
+dropped events = 10
+total bytes = 56108592
+hdf5 parallel write time = 0.858578
+

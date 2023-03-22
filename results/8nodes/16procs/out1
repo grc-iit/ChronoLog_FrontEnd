@@ -1,0 +1,30 @@
+maxError = 23359
+numprocs = 16 sync time = 0.13717
+total_events = 514626
+num_splitters = 32
+total_events = 524288 num_events = 514626
+total_order_time = 14.5071
+dropped events = 6
+total bytes = 55579608
+hdf5 parallel write time = 0.97127
+
+maxError = 17781
+numprocs = 16 sync time = 0.131466
+total_events = 514933
+num_splitters = 32
+total_events = 524288 num_events = 514933
+total_order_time = 15.7704
+dropped events = 13
+total bytes = 55612764
+hdf5 parallel write time = 0.779236
+
+maxError = 14942
+numprocs = 16 sync time = 0.122028
+total_events = 515569
+num_splitters = 32
+total_events = 524288 num_events = 515569
+total_order_time = 16.2826
+dropped events = 15
+total bytes = 55681452
+hdf5 parallel write time = 1.14351
+

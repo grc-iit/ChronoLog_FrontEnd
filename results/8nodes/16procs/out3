@@ -1,0 +1,10 @@
+maxError = 15928
+numprocs = 16 sync time = 0.26903
+total_events = 522484
+num_splitters = 32
+total_events = 524288 num_events = 522484
+total_order_time = 79.5816
+dropped events = 25
+total bytes = 2616599872
+hdf5 parallel write time = 16.7443
+

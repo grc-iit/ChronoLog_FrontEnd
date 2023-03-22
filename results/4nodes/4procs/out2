@@ -1,0 +1,32 @@
+one per node
+
+maxError = 2519
+numprocs = 4 sync time = 0.056302
+total_events = 130446
+num_splitters = 8
+total_events = 131072 num_events = 130446
+total_order_time = 10.1627
+dropped events = 3
+total bytes = 14088168
+hdf5 parallel write time = 0.363157
+
+maxError = 1274
+numprocs = 4 sync time = 0.0472812
+total_events = 130364
+num_splitters = 8
+total_events = 131072 num_events = 130364
+total_order_time = 10.283
+dropped events = 3
+total bytes = 14079312
+hdf5 parallel write time = 0.329604
+
+maxError = 7056
+numprocs = 4 sync time = 0.0669886
+total_events = 130406
+num_splitters = 8
+total_events = 131072 num_events = 130406
+total_order_time = 10.3075
+dropped events = 3
+total bytes = 14083848
+hdf5 parallel write time = 0.356431
+

@@ -1,7 +1,6 @@
 #include "process.h"
 #include <cassert>
 #include <thallium.hpp>
-#include "distributed_map.h"
 #include <chrono>
 
 namespace tl=thallium;
@@ -22,9 +21,9 @@ int main(int argc,char **argv)
 
   auto t1 = std::chrono::high_resolution_clock::now();
 
-  read_write_process *rw = new read_write_process(rank,size); 
+  emu_process *np = new emu_process(size,rank);
 
-  rw->synchronize();
+  np->synchronize();
 
   auto t2 = std::chrono::high_resolution_clock::now();
 
@@ -35,20 +34,23 @@ int main(int argc,char **argv)
 
   if(rank==0) std::cout <<" numprocs = "<<size<<" sync time = "<<total_time<<std::endl;
 
-  t1 = std::chrono::high_resolution_clock::now();
+  /*t1 = std::chrono::high_resolution_clock::now();
 
-  int total_events = 65536*2*2*2;
+  int total_events = 65536;
 
   int events_per_proc = total_events/size;
   int rem = total_events%size;
 
   if(rank < rem) events_per_proc++;
 
-  rw->create_events(events_per_proc);
+  np->create_events(events_per_proc);
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  int de = rw->dropped_events();
+  const char *filename = "file1.h5";
+  np->write_events(filename);
+*/
+  /*int de = rw->dropped_events();
   rw->sort_events();
 
   t2 = std::chrono::high_resolution_clock::now();
@@ -83,11 +85,11 @@ int main(int argc,char **argv)
 
   if(rank==0) std::cout <<" hdf5 parallel write time = "<<total_time<<std::endl;
 
-  rw->pread(filename);
+  rw->pread(filename);*/
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  delete rw;
+  delete np;
   MPI_Finalize();
 
 }

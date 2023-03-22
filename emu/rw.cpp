@@ -1,4 +1,4 @@
-#include "process.h"
+#include "rw.h"
 
 #define RANK 2
 #define DIM0 600
@@ -14,8 +14,6 @@
 #define DATASETNAME7 "Data7"
 #define DATASETNAME8 "Data8"
 #define DATASETNAME9 "Data9"
-
-#include "mds.h"
 
 typedef int DATATYPE;
 

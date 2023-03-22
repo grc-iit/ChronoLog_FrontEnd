@@ -86,11 +86,10 @@ class metadata_server
 
 	  int numprocs;
 	  int myrank;
-	  int portno;
 	  std::string serveraddr;
 
    public:
-	metadata_server(int np,int p,int port,std::string &s) : numprocs(np), myrank(p), portno(port), serveraddr(s)
+	metadata_server(int np,int p,std::string &s) : numprocs(np), myrank(p), serveraddr(s)
 	{
 	    thallium_server = new tl::engine(serveraddr.c_str(),THALLIUM_SERVER_MODE,true,4);
 	    int tablesize = 1024;

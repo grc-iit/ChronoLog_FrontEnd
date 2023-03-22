@@ -1,131 +1,110 @@
 #ifndef __PROCESS_H_
 #define __PROCESS_H_
 
-#include <abt.h>
-#include <mpi.h>
-#include "ClockSync.h"
-#include "/home/asasidharan/spack/opt/spack/linux-ubuntu22.04-skylake_avx512/gcc-11.3.0/hdf5-1.14.0-pa3hja77wn44jewrnsfojlfn46y6iukr/include/hdf5.h"
-#include <boost/container_hash/hash.hpp>
-#include "data_buffer.h"
-#include "distributed_sort.h"
+#include "mds.h"
+#include "rw.h"
+#include <unistd.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
-class read_write_process
+
+class emu_process
 {
 
 private:
-      ClockSynchronization<ClocksourceCPPStyle> *CM;
-      int myrank;
       int numprocs;
-      boost::hash<uint64_t> hasher;
-      uint64_t seed = 1;
-      int nbits;
-      databuffer *dm;
-      std::vector<struct event> myevents;
-      dsort *ds;
-public:
-	read_write_process(int r,int np) : myrank(r), numprocs(np)
-	{
-           H5open();
-           std::string unit = "microsecond";
-	   CM = new ClockSynchronization<ClocksourceCPPStyle> (myrank,numprocs,unit);
-	   dm = new databuffer(numprocs,myrank,CM);
-	   ds = new dsort(numprocs,myrank);
-	   nbits = 0;
-	   /*if(myrank==0)
-	   {
-		std::string serveraddr = "ofi+sockets://127.0.0.1:1234";
-		int portno = 1234;
-		mds = new metadata_server(numprocs,myrank,portno,serveraddr);
-		mds->bind_functions();
-	   }
-	   else mds = nullptr;*/
-	}
-	~read_write_process()
-	{
-	   delete CM;
-	   delete dm;
-	   delete ds;
-	   H5close();
+      int myrank;
+      read_write_process *rwp;
+      ClockSynchronization<ClocksourceCPPStyle> *CM;
+      std::string server_addr;
+      metadata_server *MS; 	
 
+public:
+
+      emu_process(int np,int r) : numprocs(np), myrank(r)
+      {
+	std::string unit = "microsecond";
+	CM = new ClockSynchronization<ClocksourceCPPStyle> (myrank,numprocs,unit);
+	rwp = new read_write_process(r,np,CM);
+	int nchars;
+	std::vector<char> addr_string;
+
+	if(myrank==0)
+	{
+	  char processor_name[1024];
+          int len = 0;
+          MPI_Get_processor_name(processor_name, &len);
+	  std::string myhostname;
+          myhostname.assign(processor_name);
+          char ip[16];
+          struct hostent *he = gethostbyname(myhostname.c_str());
+          auto **addr_list = (struct in_addr **) he->h_addr_list;
+          strcpy(ip, inet_ntoa(*addr_list[0]));
+	  std::string myipaddr;
+          myipaddr.assign(ip);
+	  nchars = myipaddr.length();
+	  for(int i=0;i<myipaddr.length();i++)
+		  addr_string.push_back(myipaddr[i]);
 	}
 	
-	int nearest_power_two(int n)
-	{
-	    int nn = 0;
-	    int v = 0;
+	MPI_Bcast(&nchars,1,MPI_INT,0,MPI_COMM_WORLD);
 
-	    while(n > v)
-	    {
-		v = pow(2,nn);
-		nn++;
-	    }
-	    return v;
-	}
-	int numbits(int n)
-	{
-	  int pn = nearest_power_two(n);
-	  int c = 0;
-   	  int nn = pn;
+	if(myrank != 0) addr_string.resize(nchars);
 
-	  nbits = 1;
+	MPI_Bcast(addr_string.data(),nchars,MPI_CHAR,0,MPI_COMM_WORLD);
+	std::string addr_ip(addr_string.data());
 
-   	  while(nn > 1)
-          {
-      		nn = nn/2;
-      		int rem = nn%2;
-      		c++;
-   	  }
-	  if(c > 0) nbits = c;
-   	  return c;
-	}
+	int port_no = 1234;
+	server_addr = "ofi+sockets://"+addr_ip+":"+std::to_string(port_no);
 
-	int writer_id(uint64_t ts)
+	MS = nullptr;
+	if(myrank==0)
 	{
-	   uint64_t key = seed;
-    	   boost::hash_combine(key,ts);
-	   uint64_t mask = UINT64_MAX;
-	   mask = mask << (64-nbits);
-	   uint64_t key1 = key & mask;
-	   key1 = key1 >> (64-nbits);
-	   int id = key1%numprocs;
-	   return id;
-	}
+	   MS = new metadata_server(numprocs,myrank,server_addr);
 
-	void synchronize()
-	{
-	   CM->SynchronizeClocks();
-	   CM->ComputeErrorInterval();
+	}	
+	MPI_Barrier(MPI_COMM_WORLD);
 
-	}
-	void get_events_from_map()
-	{
-	   myevents.clear();
-	   bool b = dm->get_buffer(myevents);
-	}
-	std::vector<struct event> & get_events()
-	{
-		return myevents;
-	}
-	void sort_events()
-	{
-	    get_events_from_map();
-	    ds->get_unsorted_data(myevents);
-	    ds->sort_data(); 
-	    ds->get_sorted_data(myevents); 
-	}
+      }
 
-	int num_events()
-	{
-		return myevents.size();
-	}
-	int dropped_events()
-	{
-	    return dm->num_dropped_events();
-	}
-	void create_events(int num_events);
-	//void total_order_events();
-        void pwrite(const char *);
-	void pread(const char*);
+      void synchronize()
+      {
+	CM->SynchronizeClocks();
+	CM->ComputeErrorInterval();
+
+      }
+
+      std::string & get_serveraddr()
+      {
+	      return server_addr;
+      }
+      void create_events(int num_events)
+      {
+	rwp->create_events(num_events);
+      }
+
+      void write_events(const char *filename)
+      {
+	rwp->sort_events();
+
+	rwp->pwrite(filename);
+
+      }
+
+      void read_events(const char *filename)
+      {
+	rwp->pread(filename);
+
+      }
+      ~emu_process()
+      {
+	if(MS != nullptr) delete MS;
+	delete rwp;
+	delete CM;
+      }
+
+
 };
 
 #endif
