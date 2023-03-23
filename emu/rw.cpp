@@ -127,7 +127,10 @@ void read_write_process::pwrite(const char *filename)
 	for(int k=0;k<numchars;k++)
 	{
 	    uint64_t key_t = key&mask;
-	    data_array1->push_back(key_t);
+	    char c = (char)key_t;
+	    uint64_t u = (uint64_t)c;
+	    uint64_t v = u & mask;
+	    data_array1->push_back(c);
 	    key = key >> 8;
 	}
 	for(int k=0;k<DATASIZE;k++)
@@ -234,6 +237,28 @@ void read_write_process::pread(const char *filename)
 
     ret = H5Aclose(attr_id);
     ret = H5Dclose(dataset1);
+
+    readevents.clear();
+
+    for(int i=0;i<data_array1->size();)
+    {
+	struct event e;
+	uint64_t key = 0;
+	uint64_t mask = 255;
+	for(int k=0;k<8;k++)
+	{
+	     char c = (*data_array1)[i+k];
+	     uint64_t u = (uint64_t)c;
+	     uint64_t v = mask & u;
+ 	     v = v << (k*8);	     
+	     key = key | v; 
+	}
+	i+=8;
+	memcpy(e.data,data_array1->data()+i,DATASIZE);
+	i+=DATASIZE;
+	readevents.push_back(e);
+    }
+
     delete data_array1;
 
    H5Fclose(fid);  

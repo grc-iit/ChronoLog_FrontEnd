@@ -20,6 +20,7 @@ private:
       uint64_t seed = 1;
       databuffer *dm;
       std::vector<struct event> myevents;
+      std::vector<struct event> readevents;
       dsort *ds;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C) : myrank(r), numprocs(np)
@@ -64,7 +65,6 @@ public:
 	    return dm->num_dropped_events();
 	}
 	void create_events(int num_events);
-	//void total_order_events();
         void pwrite(const char *);
 	void pread(const char*);
 };

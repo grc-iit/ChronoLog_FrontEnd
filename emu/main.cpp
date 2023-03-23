@@ -36,7 +36,7 @@ int main(int argc,char **argv)
 
   t1 = std::chrono::high_resolution_clock::now();
 
-  int total_events = 65536*2*2*2;
+  int total_events = 65536;
 
   int events_per_proc = total_events/size;
   int rem = total_events%size;
@@ -50,39 +50,7 @@ int main(int argc,char **argv)
   const char *filename = "file1.h5";
   np->write_events(filename);
 
-  /*t2 = std::chrono::high_resolution_clock::now();
-
-  t = std::chrono::duration<double> (t2-t1).count();
-
-  total_time = 0;
-
-  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-  int total_de = 0;
-  MPI_Allreduce(&de,&total_de,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-
-  int num_events = rw->num_events();
-
-  int num_events_t = 0;
-  MPI_Allreduce(&num_events,&num_events_t,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-
-  if(rank==0) std::cout <<" total_events = "<<total_events<<" num_events = "<<num_events_t<<std::endl;
-  if(rank==0) std::cout <<" total_order_time = "<<total_time<<std::endl;
-  if(rank==0) std::cout <<" dropped events = "<<total_de<<std::endl;
-
-  t1 = std::chrono::high_resolution_clock::now();
-
-  const char *filename = "file1.h5";
-  rw->pwrite(filename);
-
-  t2 = std::chrono::high_resolution_clock::now();
-
-  t = std::chrono::duration<double> (t2-t1).count();
-
-  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-
-  if(rank==0) std::cout <<" hdf5 parallel write time = "<<total_time<<std::endl;
-
-  rw->pread(filename);*/
+  np->read_events(filename);
 
   MPI_Barrier(MPI_COMM_WORLD);
 
