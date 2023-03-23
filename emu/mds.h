@@ -262,11 +262,6 @@ class metadata_server
 	{
 		req.respond(LocalReleaseStory(client_name,chronicle_name,story_name));
 	}
-	void Connect(tl::engine *thallium_client, std::vector<tl::endpoint> &endpoints, std::string &client_id)
-	{	
-	    tl::remote_procedure rp = thallium_client->define("connect");
-	    rp.on(endpoints[0])(client_id);
-	}
 };
 
 #endif
