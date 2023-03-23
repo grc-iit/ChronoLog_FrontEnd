@@ -16,6 +16,7 @@ private:
       ClockSynchronization<ClocksourceCPPStyle> *CM;
       int myrank;
       int numprocs;
+      int numcores;
       boost::hash<uint64_t> hasher;
       uint64_t seed = 1;
       databuffer *dm;
@@ -23,12 +24,12 @@ private:
       std::vector<struct event> readevents;
       dsort *ds;
 public:
-	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C) : myrank(r), numprocs(np)
+	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n) : myrank(r), numprocs(np), numcores(n)
 	{
            H5open();
            std::string unit = "microsecond";
 	   CM = C;
-	   dm = new databuffer(numprocs,myrank,CM);
+	   dm = new databuffer(numprocs,myrank,numcores,CM);
 	   ds = new dsort(numprocs,myrank);
 	}
 	~read_write_process()

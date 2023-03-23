@@ -12,12 +12,12 @@ class databuffer
      distributed_hashmap<uint64_t,struct event> *dmap;
       ClockSynchronization<ClocksourceCPPStyle> *CM;
   public:
-     databuffer(int numprocs,int myrank,ClockSynchronization<ClocksourceCPPStyle> *C) 
+     databuffer(int numprocs,int myrank,int numcores,ClockSynchronization<ClocksourceCPPStyle> *C) 
      {
 	event_count = 0;
 	dmap = new distributed_hashmap<uint64_t,struct event> ();
 	int total_size = 65536*2;
-	dmap->initialize_tables(total_size,numprocs,myrank,UINT64_MAX);
+	dmap->initialize_tables(total_size,numprocs,numcores,myrank,UINT64_MAX);
 	CM = C;
 	dmap->setClock(CM);
      }

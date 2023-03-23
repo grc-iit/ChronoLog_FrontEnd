@@ -84,14 +84,15 @@ class metadata_server
 	  memory_pool<std::string,ClientInfo,stringhash> *pl1;
 	  memory_pool<std::string,Chronicle*,stringhash> *pl2;
 
+	  int numcores;
 	  int numprocs;
 	  int myrank;
 	  std::string serveraddr;
 
    public:
-	metadata_server(int np,int p,std::string &s) : numprocs(np), myrank(p), serveraddr(s)
+	metadata_server(int np,int p,std::string &s,int n) : numprocs(np), myrank(p), serveraddr(s), numcores(n)
 	{
-	    thallium_server = new tl::engine(serveraddr.c_str(),THALLIUM_SERVER_MODE,true,4);
+	    thallium_server = new tl::engine(serveraddr.c_str(),THALLIUM_SERVER_MODE,true,numcores);
 	    int tablesize = 1024;
             pl1 = new memory_pool<std::string,ClientInfo,stringhash> (128);
 	    pl2 = new memory_pool<std::string,Chronicle*,stringhash> (128);	

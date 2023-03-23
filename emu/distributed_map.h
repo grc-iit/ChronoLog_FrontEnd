@@ -55,6 +55,7 @@ class distributed_hashmap
         uint64_t max_range;
         uint32_t nservers;
         uint32_t serverid;
+	int numcores;
         KeyT emptyKey;
         pool_type *pl;
         map_type *my_table;
@@ -87,10 +88,11 @@ class distributed_hashmap
    }
 
 
-   void initialize_tables(uint64_t n,uint32_t np,uint32_t rank,KeyT maxKey)
+   void initialize_tables(uint64_t n,uint32_t np,int nc,uint32_t rank,KeyT maxKey)
     {
         totalSize = n;
         nservers = np;
+	numcores = nc;
         serverid = rank;
         emptyKey = maxKey;
         my_table = nullptr;
@@ -151,13 +153,13 @@ class distributed_hashmap
   	std::string base_addr = server_addr;
   	server_addr = server_addr+":"+std::to_string(port_addr);
 
-  	thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,8);
+  	thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,numcores);
 
 	//std::cout <<" server_addr = "<<server_addr<<std::endl;
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	
-	thallium_client = new tl::engine("ofi+sockets",THALLIUM_CLIENT_MODE,true,4);
+	thallium_client = new tl::engine("ofi+sockets",THALLIUM_CLIENT_MODE,true,1);
 
   	for(int i=0;i<nservers;i++)
   	{

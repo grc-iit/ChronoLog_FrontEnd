@@ -15,6 +15,7 @@ class emu_process
 private:
       int numprocs;
       int myrank;
+      int numcores;
       read_write_process *rwp;
       ClockSynchronization<ClocksourceCPPStyle> *CM;
       std::string server_addr;
@@ -22,11 +23,15 @@ private:
       metadata_client *MC;
 public:
 
-      emu_process(int np,int r) : numprocs(np), myrank(r)
+      emu_process(int np,int r,int n) : numprocs(np), myrank(r), numcores(n)
       {
 	std::string unit = "microsecond";
 	CM = new ClockSynchronization<ClocksourceCPPStyle> (myrank,numprocs,unit);
-	rwp = new read_write_process(r,np,CM);
+
+	int num_cores_rw = std::ceil(0.5*(double)numcores);
+	int num_cores_ms = std::ceil(0.5*(double)numcores);
+
+	rwp = new read_write_process(r,np,CM,num_cores_rw);
 	int nchars;
 	std::vector<char> addr_string;
 
@@ -61,7 +66,7 @@ public:
 	MS = nullptr;
 	if(myrank==0)
 	{
-	   MS = new metadata_server(numprocs,myrank,server_addr);
+	   MS = new metadata_server(numprocs,myrank,server_addr,num_cores_ms);
 	   MS->bind_functions();
 	}	
 	MPI_Barrier(MPI_COMM_WORLD);

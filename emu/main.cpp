@@ -2,6 +2,8 @@
 #include <cassert>
 #include <thallium.hpp>
 #include <chrono>
+#include <sched.h>
+#include "pthread.h"
 
 namespace tl=thallium;
 
@@ -19,9 +21,20 @@ int main(int argc,char **argv)
   MPI_Comm_size(MPI_COMM_WORLD,&size);
   MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 
+  cpu_set_t cpu;
+  pthread_t self = pthread_self();
+
+  pthread_getaffinity_np(self, sizeof(cpu_set_t), &cpu);
+
+  int num_cores = 0;
+  for(int i=0;i<CPU_SETSIZE;i++)
+  {
+	if(CPU_ISSET(i,&cpu)) num_cores++;
+  }
+
   auto t1 = std::chrono::high_resolution_clock::now();
 
-  emu_process *np = new emu_process(size,rank);
+  emu_process *np = new emu_process(size,rank,num_cores);
 
   np->synchronize();
 
