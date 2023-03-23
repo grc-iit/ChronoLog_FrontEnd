@@ -232,6 +232,7 @@ class BlockMap
 	     if(EqualFcn()(n->key,k))
 	     {
 		  b = fn(&(n->value),std::forward<Args>(args_)...);
+		  break;
 	     }
 	     if(HashFcn()(n->key) > HashFcn()(k)) break;
 	     p = n;

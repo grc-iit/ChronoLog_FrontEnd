@@ -165,7 +165,7 @@ class metadata_server
 	    ClientInfo ci;
 	    ci.setname(s);
 	    uint32_t v = client_table->insert(s,ci);
-	    if(v != NOT_IN_TABLE) return true;
+	    if(v == INSERTED) return true;
 	    else return false;
 	}
 
@@ -180,7 +180,10 @@ class metadata_server
 	    c->setname(chronicle_name);
 
 	    uint32_t v = metadata_table->insert(chronicle_name,c);
-	    if(v != NOT_IN_TABLE) return true;
+	    if(v == INSERTED) 
+	    {
+		  return true;
+	    }
 	    else return false;
 	}
 
@@ -202,7 +205,10 @@ class metadata_server
 	   if(b)
 	   {
 		b = metadata_table->erase_if(chronicle_name,acquisition_count_zero);
-		if(b) delete c;
+		if(b) 
+		{
+		   delete c;
+		}
 	   }	
 	   return b;
 	}
@@ -255,6 +261,11 @@ class metadata_server
 	void ThalliumLocalReleaseStory(const tl::request &req,std::string &client_name,std::string &chronicle_name,std::string &story_name)
 	{
 		req.respond(LocalReleaseStory(client_name,chronicle_name,story_name));
+	}
+	void Connect(tl::engine *thallium_client, std::vector<tl::endpoint> &endpoints, std::string &client_id)
+	{	
+	    tl::remote_procedure rp = thallium_client->define("connect");
+	    rp.on(endpoints[0])(client_id);
 	}
 };
 

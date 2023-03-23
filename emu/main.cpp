@@ -34,7 +34,27 @@ int main(int argc,char **argv)
 
   if(rank==0) std::cout <<" numprocs = "<<size<<" sync time = "<<total_time<<std::endl;
 
-  t1 = std::chrono::high_resolution_clock::now();
+  metadata_client *CC = np->getclientobj();
+
+
+  if(rank != 0)
+  {
+
+  std::string client_id = "client";
+  client_id += std::to_string(rank);
+  CC->Connect(client_id);
+
+  std::string chronicle_name = "record";
+  CC->CreateChronicle(client_id,chronicle_name);
+
+  CC->AcquireChronicle(client_id,chronicle_name);
+
+  CC->ReleaseChronicle(client_id,chronicle_name);
+
+  CC->DestroyChronicle(client_id,chronicle_name);
+
+  }
+  /*t1 = std::chrono::high_resolution_clock::now();
 
   int total_events = 65536;
 
@@ -50,7 +70,7 @@ int main(int argc,char **argv)
   const char *filename = "file1.h5";
   np->write_events(filename);
 
-  np->read_events(filename);
+  np->read_events(filename);*/
 
   MPI_Barrier(MPI_COMM_WORLD);
 

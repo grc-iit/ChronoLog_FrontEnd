@@ -48,13 +48,66 @@ class metadata_client
 	       delete thallium_client;
 	   }
 
+	   tl::engine *getClient()
+	   {
+		   return thallium_client;
+	   }
+	   std::vector<tl::endpoint> &getEndpoints()
+	   {
+		   return endpoint;
+	   }
 	   void Connect(std::string &client_id)
 	   {
 		tl::remote_procedure rp = thallium_client->define("connect");
 		rp.on(endpoint[0])(client_id);
 	   }
 
-
+	   void Disconnect(std::string &client_id)
+	   {
+		tl::remote_procedure rp = thallium_client->define("disconnect");
+		rp.on(endpoint[0])(client_id);
+	   }
+	
+	   void CreateChronicle(std::string &client_id,std::string &chronicle_name)
+	   {
+		tl::remote_procedure rp = thallium_client->define("createchronicle");
+		rp.on(endpoint[0])(client_id,chronicle_name);
+	   }
+	   void DestroyChronicle(std::string &client_id,std::string &chronicle_name)
+	   {
+		 tl::remote_procedure rp = thallium_client->define("destroychronicle");
+		 rp.on(endpoint[0])(client_id,chronicle_name);
+	   }
+	   void AcquireChronicle(std::string &client_id,std::string &chronicle_name)
+	   {
+		tl::remote_procedure rp = thallium_client->define("acquirechronicle");
+		rp.on(endpoint[0])(client_id,chronicle_name);
+	   }
+	   void ReleaseChronicle(std::string &client_id,std::string &chronicle_name)
+	   {
+		tl::remote_procedure rp = thallium_client->define("releasechronicle");
+		rp.on(endpoint[0])(client_id,chronicle_name);
+	   }
+	   void CreateStory(std::string &client_id,std::string &chronicle_name,std::string &story_name)
+	   {
+		tl::remote_procedure rp = thallium_client->define("createstory");
+		rp.on(endpoint[0])(client_id,chronicle_name,story_name);
+	   }
+	   void DestroyStory(std::string &client_id,std::string &chronicle_name,std::string &story_name)
+	   {
+		tl::remote_procedure rp = thallium_client->define("destroystory");
+		rp.on(endpoint[0])(client_id,chronicle_name,story_name);
+	   }
+	   void AcquireStory(std::string &client_id,std::string &chronicle_name,std::string &story_name)
+	   {
+		tl::remote_procedure rp = thallium_client->define("acquirestory");
+		rp.on(endpoint[0])(client_id,chronicle_name,story_name);
+	   }
+	   void ReleaseStory(std::string &client_id,std::string &chronicle_name,std::string &story_name)
+	   {
+		tl::remote_procedure rp = thallium_client->define("releasestory");
+		rp.on(endpoint[0])(client_id,chronicle_name,story_name);
+	   }
 };
 
 

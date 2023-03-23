@@ -62,13 +62,16 @@ public:
 	if(myrank==0)
 	{
 	   MS = new metadata_server(numprocs,myrank,server_addr);
-
+	   MS->bind_functions();
 	}	
 	MPI_Barrier(MPI_COMM_WORLD);
         MC = new metadata_client(server_addr);
-
       }
 
+      metadata_client *getclientobj()
+      {
+	return MC;
+      }
       void synchronize()
       {
 	CM->SynchronizeClocks();
