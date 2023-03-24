@@ -67,6 +67,7 @@ class distributed_hashmap
 	std::string myipaddr;
 	ClockSynchronization<ClocksourceCPPStyle> *CM;
 	int dropped_events;
+	double time_m;
  public: 
 
    uint64_t serverLocation(KeyT &k)
@@ -112,7 +113,7 @@ class distributed_hashmap
 
         max_range = min_range + maxSize;
 
-        pl = new pool_type(100);
+        pl = new pool_type(200);
         my_table = new map_type(maxSize,pl,emptyKey);
 
 	std::vector<int> strlens;
@@ -153,7 +154,16 @@ class distributed_hashmap
   	std::string base_addr = server_addr;
   	server_addr = server_addr+":"+std::to_string(port_addr);
 
-  	thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,numcores);
+	struct hg_init_info hi = HG_INIT_INFO_INITIALIZER;
+	hi.request_post_init = 256;
+	hi.request_post_incr = 256;
+	hi.auto_sm = true;
+	hi.no_bulk_eager = false;
+	hi.no_loopback = false;
+	hi.stats = false;
+	hi.na_class = nullptr;
+	hi.sm_info_string = "shm";
+  	thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,8,&hi);
 
 	//std::cout <<" server_addr = "<<server_addr<<std::endl;
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -204,6 +214,7 @@ class distributed_hashmap
         strcpy(ip, inet_ntoa(*addr_list[0]));
 	myipaddr.assign(ip);
 	dropped_events = 0;
+	time_m = 0;
 
   }
  ~distributed_hashmap()
@@ -228,7 +239,6 @@ class distributed_hashmap
 	      dropped_events++;
 	      return false;
       }
-
       uint32_t r = my_table->insert(k,v);
       if(r == INSERTED) return true;
       else 

@@ -31,6 +31,7 @@ public:
 	int num_cores_rw = std::ceil(0.5*(double)numcores);
 	int num_cores_ms = std::ceil(0.5*(double)numcores);
 
+	if(myrank!=0) num_cores_rw = numcores;
 	rwp = new read_write_process(r,np,CM,num_cores_rw);
 	int nchars;
 	std::vector<char> addr_string;
@@ -90,9 +91,17 @@ public:
       }
       void create_events(int num_events)
       {
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	rwp->create_events(num_events);
 
 	MPI_Barrier(MPI_COMM_WORLD);
+	auto t2 = std::chrono::high_resolution_clock::now();
+	double t = std::chrono::duration<double>(t2-t1).count();
+
+	double et = 0;
+	MPI_Allreduce(&t,&et,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+	if(myrank==0) std::cout <<" event_creation time = "<<et<<std::endl;
 	int de = rwp->dropped_events();
 	int total_de = 0;
 	MPI_Allreduce(&de,&total_de,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
@@ -101,7 +110,20 @@ public:
 
       void write_events(const char *filename)
       {
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	rwp->sort_events();
+        int nevents = rwp->num_events();
+
+	auto t2 = std::chrono::high_resolution_clock::now();
+	double stime = std::chrono::duration<double>(t2-t1).count();
+
+	int events_t = 0;
+	MPI_Allreduce(&nevents,&events_t,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+	if(myrank==0) std::cout <<" num_events = "<<events_t<<std::endl;
+	double stime_t = 0;
+	MPI_Allreduce(&stime,&stime_t,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+	if(myrank==0) std::cout <<" sorting time = "<<stime_t<<std::endl;
 
 	rwp->pwrite(filename);
 

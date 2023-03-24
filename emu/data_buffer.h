@@ -9,17 +9,24 @@ class databuffer
 
   private:
      int event_count;
-     distributed_hashmap<uint64_t,struct event> *dmap;
-      ClockSynchronization<ClocksourceCPPStyle> *CM;
+     distributed_hashmap<uint64_t,int> *dmap;
+     std::vector<struct event> equeue;
+     ClockSynchronization<ClocksourceCPPStyle> *CM;
+     double max_t;
+     double max_time;
+     int myrank;
   public:
-     databuffer(int numprocs,int myrank,int numcores,ClockSynchronization<ClocksourceCPPStyle> *C) 
+     databuffer(int numprocs,int rank,int numcores,ClockSynchronization<ClocksourceCPPStyle> *C) 
      {
 	event_count = 0;
-	dmap = new distributed_hashmap<uint64_t,struct event> ();
+	dmap = new distributed_hashmap<uint64_t,int> ();
 	int total_size = 65536*2;
-	dmap->initialize_tables(total_size,numprocs,numcores,myrank,UINT64_MAX);
+	dmap->initialize_tables(total_size,numprocs,numcores,rank,UINT64_MAX);
 	CM = C;
 	dmap->setClock(CM);
+	max_t = 0;
+	max_time = 0;
+	myrank = rank;
      }
      ~databuffer() 
      {
@@ -39,15 +46,28 @@ class databuffer
   void add_event(event &e)
   {
       uint64_t key = e.ts;
-      bool b = dmap->Insert(key,e);   
-        if(b) event_count++; 
+      int v = 1;
+
+      auto t1 = std::chrono::high_resolution_clock::now();
+
+      bool b = dmap->Insert(key,v);   
+
+      auto t2 = std::chrono::high_resolution_clock::now();
+      double t = std::chrono::duration<double> (t2-t1).count();
+      if(max_t < t) max_t = t;
+      
+
+      if(b) 
+      {
+	      equeue.push_back(e);
+	      event_count++; 
+      }
   }
 
-  bool get_buffer(std::vector<struct event> &events)
+  std::vector<struct event> & get_buffer()
   {
-	  bool b = dmap->LocalGetMap(events);
-	  b = dmap->LocalClearMap();
-	  return b;
+	  bool b = dmap->LocalClearMap();
+	  return equeue;
   }
   void clear_buffer()
   {

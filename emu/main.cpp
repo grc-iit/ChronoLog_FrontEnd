@@ -32,6 +32,8 @@ int main(int argc,char **argv)
 	if(CPU_ISSET(i,&cpu)) num_cores++;
   }
 
+  //std::cout <<" rank = "<<rank<<" num_cores = "<<num_cores<<std::endl;
+
   auto t1 = std::chrono::high_resolution_clock::now();
 
   emu_process *np = new emu_process(size,rank,num_cores);
@@ -45,7 +47,7 @@ int main(int argc,char **argv)
   double total_time = 0;
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  if(rank==0) std::cout <<" numprocs = "<<size<<" sync time = "<<total_time<<std::endl;
+  /*if(rank==0) std::cout <<" numprocs = "<<size<<" sync time = "<<total_time<<std::endl;
 
   metadata_client *CC = np->getclientobj();
 
@@ -66,10 +68,10 @@ int main(int argc,char **argv)
 
   CC->DestroyChronicle(client_id,chronicle_name);
 
-  }
-  /*t1 = std::chrono::high_resolution_clock::now();
+  }*/
+  t1 = std::chrono::high_resolution_clock::now();
 
-  int total_events = 65536;
+  int total_events = 65536*2*2;
 
   int events_per_proc = total_events/size;
   int rem = total_events%size;
@@ -83,7 +85,7 @@ int main(int argc,char **argv)
   const char *filename = "file1.h5";
   np->write_events(filename);
 
-  np->read_events(filename);*/
+  /*np->read_events(filename);*/
 
   MPI_Barrier(MPI_COMM_WORLD);
 

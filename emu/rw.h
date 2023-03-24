@@ -42,8 +42,7 @@ public:
 	
 	void get_events_from_map()
 	{
-	   myevents.clear();
-	   bool b = dm->get_buffer(myevents);
+	   myevents = dm->get_buffer();
 	}
 	std::vector<struct event> & get_events()
 	{
