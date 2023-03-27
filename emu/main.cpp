@@ -71,7 +71,7 @@ int main(int argc,char **argv)
   }*/
   t1 = std::chrono::high_resolution_clock::now();
 
-  int total_events = 65536*2*2;
+  int total_events = 65536*8;
 
   int events_per_proc = total_events/size;
   int rem = total_events%size;

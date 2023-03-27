@@ -60,10 +60,13 @@ class distributed_hashmap
         pool_type *pl;
         map_type *my_table;
 	tl::engine *thallium_server;
+	tl::engine *thallium_shm_server;
 	tl::engine *thallium_client;
+	tl::engine *thallium_shm_client;
 	std::vector<tl::endpoint> serveraddrs;
 	std::string myhostname;
 	std::vector<std::string> ipaddrs;
+	std::vector<std::string> shmaddrs;
 	std::string myipaddr;
 	ClockSynchronization<ClocksourceCPPStyle> *CM;
 	int dropped_events;
@@ -149,28 +152,41 @@ class distributed_hashmap
 	int pos = std::distance(ipaddrs.begin(),std::find(ipaddrs.begin(),ipaddrs.end(),myipaddr));
 
 	int port_addr = 5555+serverid-pos;
-  	std::string server_addr = "ofi+sockets://";
+  	std::string server_addr = "na+sm://";
+
+  	thallium_shm_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,8);
+        std::string server_shm_addr = thallium_shm_server->self();
+	l = server_shm_addr.length();
+	strlens.clear();
+	strlens.resize(nservers);
+	MPI_Allgather(&l,1,MPI_INT,strlens.data(),1,MPI_INT,MPI_COMM_WORLD);
+	recv_counts.assign(strlens.begin(),strlens.end());
+	total_length = 0;
+	for(int i=0;i<nservers;i++) total_length += strlens[i];
+	ipstrings.resize(total_length);
+	recv_displ[0] = 0;
+	for(int i=1;i<nservers;i++) recv_displ[i] = recv_displ[i-1]+recv_counts[i-1];
+
+	MPI_Allgatherv(server_shm_addr.data(),l,MPI_CHAR,ipstrings.data(),recv_counts.data(),recv_displ.data(),MPI_CHAR,MPI_COMM_WORLD);
+	for(int i=0;i<nservers;i++)
+	{
+	   std::string addr;
+	   addr.assign(ipstrings.data()+recv_displ[i],ipstrings.data()+recv_displ[i]+recv_counts[i]);
+	   shmaddrs.push_back(addr);
+	}
+
+	server_addr = "ofi+sockets://";
 	server_addr += myipaddr;
-  	std::string base_addr = server_addr;
-  	server_addr = server_addr+":"+std::to_string(port_addr);
-
-	struct hg_init_info hi = HG_INIT_INFO_INITIALIZER;
-	hi.request_post_init = 256;
-	hi.request_post_incr = 256;
-	hi.auto_sm = true;
-	hi.no_bulk_eager = false;
-	hi.no_loopback = false;
-	hi.stats = false;
-	hi.na_class = nullptr;
-	hi.sm_info_string = "shm";
-  	thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,8,&hi);
-
+	server_addr = server_addr+":"+std::to_string(port_addr);
+	thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,8);
 	//std::cout <<" server_addr = "<<server_addr<<std::endl;
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	
 	thallium_client = new tl::engine("ofi+sockets",THALLIUM_CLIENT_MODE,true,1);
+	thallium_shm_client = new tl::engine("na+sm",THALLIUM_CLIENT_MODE,true,1);
 
+	
   	for(int i=0;i<nservers;i++)
   	{
         	int portno = 5555;
@@ -198,6 +214,9 @@ class distributed_hashmap
 	thallium_server->define("RemoteInsert",insertFunc);
 	thallium_server->define("RemoteFind",findFunc);
 	thallium_server->define("RemoteErase",eraseFunc);
+	thallium_shm_server->define("RemoteInsert",insertFunc);
+	thallium_shm_server->define("RemoteFind",findFunc);
+	thallium_shm_server->define("RemoteErase",eraseFunc);
    }
 
   distributed_hashmap()
@@ -223,8 +242,11 @@ class distributed_hashmap
     if(pl != nullptr) delete pl;
     serveraddrs.clear();
     thallium_server->finalize();
+    thallium_shm_server->finalize();
     delete thallium_server;
+    delete thallium_shm_server;
     delete thallium_client; 
+    delete thallium_shm_client;
   }
 
    void setClock(ClockSynchronization<ClocksourceCPPStyle> *C)
@@ -319,21 +341,48 @@ class distributed_hashmap
   }
   bool Insert(KeyT &k, ValueT &v)
   {
-    tl::remote_procedure rp = thallium_client->define("RemoteInsert");
     int destid = serverLocation(k);
-    return rp.on(serveraddrs[destid])(k,v);
+    if(ipaddrs[destid].compare(myipaddr)==0)
+    {
+	tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
+	tl::remote_procedure rp = thallium_shm_client->define("RemoteInsert");
+	return rp.on(ep)(k,v);
+    }
+    else
+    {
+      tl::remote_procedure rp = thallium_client->define("RemoteInsert");
+      return rp.on(serveraddrs[destid])(k,v);
+    }
   }
   bool Find(KeyT &k)
   {
-    tl::remote_procedure rp = thallium_client->define("RemoteFind");
     int destid = serverLocation(k);
-    return rp.on(serveraddrs[destid])(k);
+    if(ipaddrs[destid].compare(myipaddr)==0)
+    {
+	tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
+	tl::remote_procedure rp = thallium_shm_client->define("RemoteFind");
+	return rp.on(ep)(k);
+    }
+    else
+    {
+      tl::remote_procedure rp = thallium_client->define("RemoteFind");
+      return rp.on(serveraddrs[destid])(k);
+    }
   }
   bool Erase(KeyT &k)
   {
-     tl::remote_procedure rp = thallium_client->define("RemoteErase");
      int destid = serverLocation(k);
-     return rp.on(serveraddrs[destid])(k);
+     if(ipaddrs[destid].compare(myipaddr)==0)
+     {
+	tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
+	tl::remote_procedure rp = thallium_shm_client->define("RemoteErase");
+	return rp.on(ep)(k);
+     }
+     else
+     {
+       tl::remote_procedure rp = thallium_client->define("RemoteErase");
+       return rp.on(serveraddrs[destid])(k);
+     }
   }  
 };
 
