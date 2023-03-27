@@ -8,6 +8,7 @@
 #include <boost/container_hash/hash.hpp>
 #include "data_buffer.h"
 #include "distributed_sort.h"
+#include "data_server_client.h"
 
 class read_write_process
 {
@@ -23,19 +24,30 @@ private:
       std::vector<struct event> myevents;
       std::vector<struct event> readevents;
       dsort *ds;
+      data_server_client *dsc;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n) : myrank(r), numprocs(np), numcores(n)
 	{
            H5open();
            std::string unit = "microsecond";
 	   CM = C;
+	   dsc = new data_server_client(numprocs,myrank);
+	   tl::engine *t_server = dsc->get_thallium_server();
+	   tl::engine *t_server_shm = dsc->get_thallium_shm_server();
+	   tl::engine *t_client = dsc->get_thallium_client();
+	   tl::engine *t_client_shm = dsc->get_thallium_shm_client();
+           std::vector<tl::endpoint> serveraddrs = dsc->get_serveraddrs();
+	   std::vector<std::string> ipaddrs = dsc->get_ipaddrs();
+	   std::vector<std::string> shmaddrs = dsc->get_shm_addrs();
 	   dm = new databuffer(numprocs,myrank,numcores,CM);
+	   dm->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,serveraddrs,ipaddrs,shmaddrs);
 	   ds = new dsort(numprocs,myrank);
 	}
 	~read_write_process()
 	{
 	   delete dm;
 	   delete ds;
+	   delete dsc;
 	   H5close();
 
 	}
