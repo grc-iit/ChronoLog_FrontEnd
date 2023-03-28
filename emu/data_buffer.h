@@ -102,13 +102,13 @@ class databuffers
       if(max_t < t) max_t = t;
       
 
-      /*if(b) 
+      if(b) 
       {
 	      auto r = q_names.find(s);
 	      int index = r->second;
 	      equeues[index].push_back(e);
 	      event_count++; 
-      }*/
+      }
   }
 
   std::vector<struct event> & get_buffer(std::string &s)

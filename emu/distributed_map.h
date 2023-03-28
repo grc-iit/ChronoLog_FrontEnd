@@ -232,26 +232,42 @@ class distributed_hashmap
      name_lock.unlock();
      return my_tables[index]->erase(k);
   }
-  bool LocalUpdate(KeyT &k,ValueT &v,int i)
+  bool LocalUpdate(KeyT &k,ValueT &v,std::string &s)
   {
-       return my_tables[i]->update(k,v);
+       int index = -1;
+       name_lock.lock();
+       auto r = table_names.find(s);
+       if(r != table_names.end()) index = r->second;
+       name_lock.unlock();
+       return my_tables[index]->update(k,v);
   }
-  bool LocalGet(KeyT &k,ValueT* v,int i)
+  bool LocalGet(KeyT &k,ValueT* v,std::string &s)
   {
-       return my_tables[i]->get(k,v);
+       int index = -1;
+       name_lock.lock();
+       auto r = table_names.find(s);
+       if(r != table_names.end()) index = r->second;
+       name_lock.unlock();
+
+       return my_tables[index]->get(k,v);
   }
 
-  ValueT LocalGetValue(KeyT &k,int i)
+  ValueT LocalGetValue(KeyT &k,std::string &s)
   {
         ValueT v;
         new (&v) ValueT();
-        bool b = LocalGet(k,&v,i);
+        bool b = LocalGet(k,&v,s);
         return v;
   }
   
-  bool LocalGetMap(std::vector<ValueT> &values,int i)
+  bool LocalGetMap(std::vector<ValueT> &values,std::string &s)
   {
-	my_tables[i]->get_map(values);
+	int index = -1;
+	name_lock.lock();
+	auto r = table_names.find(s);
+	if(r != table_names.end()) index = r->second;
+	name_lock.unlock();
+	my_tables[index]->get_map(values);
 	return true;
   }
 
@@ -268,19 +284,34 @@ class distributed_hashmap
   }
 
   template<typename... Args>
-  bool LocalUpdateField(KeyT &k,int i,void(*f)(ValueT*,Args&&... args),Args&&...args_)
+  bool LocalUpdateField(KeyT &k,std::string &s,void(*f)(ValueT*,Args&&... args),Args&&...args_)
   {
-     return my_tables->update_field(k,f,std::forward<Args>(args_)...);
+     int index = -1;
+     name_lock.lock();
+     auto r = table_names.find(s);
+     if(r != table_names.end()) index = r->second;
+     name_lock.unlock();
+     return my_tables[index]->update_field(k,f,std::forward<Args>(args_)...);
   }
 
-  uint64_t allocated(int i)
+  uint64_t allocated(std::string &s)
   {
-     return my_tables[i]->allocated_nodes();
+     int index = -1;
+     name_lock.lock();
+     auto r = table_names.find(s);
+     if(r != table_names.end()) index = r->second;
+     name_lock.unlock();
+     return my_tables[index]->allocated_nodes();
   }
 
-  uint64_t removed(int i)
+  uint64_t removed(std::string &s)
   {
-     return my_tables[i]->removed_nodes();
+     int index = -1;
+     name_lock.lock();
+     auto r = table_names.find(s);
+     if(r != table_names.end()) index = r->second;
+     name_lock.unlock();
+     return my_tables[index]->removed_nodes();
   }
 
   int num_dropped()

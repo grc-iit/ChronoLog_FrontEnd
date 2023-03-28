@@ -104,18 +104,18 @@ public:
 	double et = 0;
 	MPI_Allreduce(&t,&et,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 	if(myrank==0) std::cout <<" event_creation time = "<<et<<std::endl;
-	/*int de = rwp->dropped_events();
+	int de = rwp->dropped_events();
 	int total_de = 0;
 	MPI_Allreduce(&de,&total_de,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-	if(myrank==0) std::cout <<" dropped events = "<<total_de<<std::endl;*/
+	if(myrank==0) std::cout <<" dropped events = "<<total_de<<std::endl;
       }
 
-      void write_events(const char *filename)
+      void write_events(const char *filename,std::string &s)
       {
 	auto t1 = std::chrono::high_resolution_clock::now();
 
-	/*rwp->sort_events();
-        int nevents = rwp->num_events();
+	rwp->sort_events(s);
+        int nevents = rwp->num_write_events(s);
 
 	auto t2 = std::chrono::high_resolution_clock::now();
 	double stime = std::chrono::duration<double>(t2-t1).count();
@@ -125,15 +125,15 @@ public:
 	if(myrank==0) std::cout <<" num_events = "<<events_t<<std::endl;
 	double stime_t = 0;
 	MPI_Allreduce(&stime,&stime_t,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-	if(myrank==0) std::cout <<" sorting time = "<<stime_t<<std::endl;*/
+	if(myrank==0) std::cout <<" sorting time = "<<stime_t<<std::endl;
 
-	rwp->pwrite(filename);
+	rwp->pwrite(filename,s);
 
       }
 
-      void read_events(const char *filename)
+      void read_events(const char *filename,std::string &s)
       {
-	rwp->pread(filename);
+	rwp->pread(filename,s);
 
       }
       ~emu_process()

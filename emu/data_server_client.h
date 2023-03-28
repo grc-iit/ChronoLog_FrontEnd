@@ -97,7 +97,7 @@ class data_server_client
         int port_addr = 5555+serverid-pos;
         std::string server_addr = "na+sm://";
 	
-	thallium_shm_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,8);
+	thallium_shm_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,4);
         std::string server_shm_addr = thallium_shm_server->self();
         l = server_shm_addr.length();
         strlens.clear();
@@ -121,7 +121,7 @@ class data_server_client
 	server_addr = "ofi+sockets://";
         server_addr += myipaddr;
         server_addr = server_addr+":"+std::to_string(port_addr);
-        thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,8);
+        thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,4);
         //std::cout <<" server_addr = "<<server_addr<<std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
 

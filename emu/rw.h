@@ -21,8 +21,10 @@ private:
       boost::hash<uint64_t> hasher;
       uint64_t seed = 1;
       databuffers *dm;
-      std::vector<struct event> myevents;
-      std::vector<struct event> readevents;
+      std::unordered_map<std::string,int> write_names;
+      std::unordered_map<std::string,int> read_names;
+      std::vector<std::vector<struct event>> myevents;
+      std::vector<std::vector<struct event>> readevents;
       dsort *ds;
       data_server_client *dsc;
 public:
@@ -55,34 +57,41 @@ public:
 	void create_buffer(std::string &s)
 	{
 	    dm->create_data_buffer(s);
+	    std::vector<struct event> ev;
+	    myevents.push_back(ev);
+	    std::pair<std::string,int> p(s,myevents.size()-1);
+	    write_names.insert(p);
 	}	
 	void get_events_from_map(std::string &s)
 	{
-	   myevents = dm->get_buffer(s);
+           auto r = write_names.find(s);
+	   int index = r->second;
+	   myevents[index] = dm->get_buffer(s);
 	}
-	std::vector<struct event> & get_events()
-	{
-		return myevents;
-	}
+	
 	void sort_events(std::string &s)
 	{
+	    auto r = write_names.find(s);
+	    int index = r->second;
 	    get_events_from_map(s);
-	    ds->get_unsorted_data(myevents);
+	    ds->get_unsorted_data(myevents[index]);
 	    ds->sort_data(); 
-	    ds->get_sorted_data(myevents); 
+	    ds->get_sorted_data(myevents[index]); 
 	}
 
-	int num_events()
+	int num_write_events(std::string &s)
 	{
-		return myevents.size();
+		auto r = write_names.find(s);
+		int index = r->second;
+		return myevents[index].size();
 	}
 	int dropped_events()
 	{
 	    return dm->num_dropped_events();
 	}
 	void create_events(int num_events,std::string &s);
-        void pwrite(const char *);
-	void pread(const char*);
+        void pwrite(const char *,std::string &s);
+	void pread(const char*,std::string &s);
 };
 
 #endif

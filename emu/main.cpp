@@ -83,9 +83,9 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  /*
-  const char *filename = "file1.h5";
-  np->write_events(filename);*/
+  
+  //const char *filename = "file1.h5";
+  //np->write_events(filename,name);
 
   /*np->read_events(filename);*/
 

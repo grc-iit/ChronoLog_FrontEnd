@@ -32,7 +32,7 @@ void read_write_process::create_events(int num_events,std::string &s)
 
 }
 
-void read_write_process::pwrite(const char *filename)
+void read_write_process::pwrite(const char *filename,std::string &name)
 {
 
     hid_t       fid;                                    
@@ -65,13 +65,16 @@ void read_write_process::pwrite(const char *filename)
 
     H5Pclose(fapl);
 
+    auto r = write_names.find(name);
+    int index = r->second;
+
     std::vector<int> num_events_recorded_l,num_events_recorded;
     num_events_recorded_l.resize(numprocs);
     num_events_recorded.resize(numprocs);
     std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
     std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
-    num_events_recorded_l[myrank] = myevents.size();
+    num_events_recorded_l[myrank] = myevents[index].size();
 
     MPI_Allreduce(num_events_recorded_l.data(),num_events_recorded.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
@@ -118,9 +121,9 @@ void read_write_process::pwrite(const char *filename)
 
     data_array1 = new std::vector<char> ();
 
-    for(int i=0;i<myevents.size();i++)
+    for(int i=0;i<myevents[index].size();i++)
     {
-	event e = myevents[i];
+	event e = myevents[index][i];
 	uint64_t key = e.ts;
 	uint64_t mask = 255;
 	int numchars = sizeof(uint64_t);
@@ -161,11 +164,11 @@ void read_write_process::pwrite(const char *filename)
     H5Fclose(fid); 
 
     data_array1->clear();
-    myevents.clear();
+    myevents[index].clear();
 }
 
 
-void read_write_process::pread(const char *filename)
+void read_write_process::pread(const char *filename,std::string &name)
 {
 
     hid_t       fid;                                              
@@ -238,7 +241,19 @@ void read_write_process::pread(const char *filename)
     ret = H5Aclose(attr_id);
     ret = H5Dclose(dataset1);
 
-    readevents.clear();
+    auto r = read_names.find(name);
+    int index = -1;
+    if(r == read_names.end())
+    {
+	std::vector<struct event> rvec;
+	readevents.push_back(rvec);
+	std::pair<std::string,int> p(name,readevents.size()-1);
+	read_names.insert(p);
+	index = readevents.size()-1;
+    }
+    else index = r->second;
+
+    readevents[index].clear();
 
     for(int i=0;i<data_array1->size();)
     {
@@ -256,7 +271,7 @@ void read_write_process::pread(const char *filename)
 	i+=8;
 	memcpy(e.data,data_array1->data()+i,DATASIZE);
 	i+=DATASIZE;
-	readevents.push_back(e);
+	readevents[index].push_back(e);
     }
 
     delete data_array1;
