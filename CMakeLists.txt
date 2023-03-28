@@ -24,8 +24,8 @@ if (MPI_FOUND)
 endif ()
 include_directories(${MPI_CXX_INCLUDE_DIRS})
 set(LIB_FLAGS ${RPC_LIB_FLAGS} ${MPI_CXX_LIBRARIES} -lpthread -lrt)
-set(HDF5_INCLUDE_DIRS "/home/asasidharan/spack/opt/spack/linux-ubuntu22.04-skylake_avx512/gcc-11.3.0/hdf5-1.14.0-pa3hja77wn44jewrnsfojlfn46y6iukr/include")
-set(HDF5_LIBS "/home/asasidharan/spack/opt/spack/linux-ubuntu22.04-skylake_avx512/gcc-11.3.0/hdf5-1.14.0-pa3hja77wn44jewrnsfojlfn46y6iukr/lib")
+set(HDF5_INCLUDE_DIRS "/home/asasidharan/spack/opt/spack/linux-ubuntu22.04-skylake_avx512/gcc-11.3.0/hdf5-1.14.0-7bydlvjs3fctofgghxi5lyfvnyio5jlr/include")
+set(HDF5_LIBS "/home/asasidharan/spack/opt/spack/linux-ubuntu22.04-skylake_avx512/gcc-11.3.0/hdf5-1.14.0-7bydlvjs3fctofgghxi5lyfvnyio5jlr/lib")
 
 include_directories(${HDF5_INCLUDE_DIRS})
 
