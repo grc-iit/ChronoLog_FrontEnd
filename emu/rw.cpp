@@ -17,7 +17,7 @@
 
 typedef int DATATYPE;
 
-void read_write_process::create_events(int num_events)
+void read_write_process::create_events(int num_events,std::string &s)
 {
     for(int i=0;i<num_events;i++)
     {
@@ -27,7 +27,7 @@ void read_write_process::create_events(int num_events)
 
 	e.ts = ts;
 	      
-	dm->add_event(e);
+	dm->add_event(e,s);
     }
 
 }

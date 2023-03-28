@@ -33,39 +33,38 @@
 
 namespace tl=thallium;
 
-class databuffer
+class databuffers
 {
 
   private:
      int event_count;
      distributed_hashmap<uint64_t,int> *dmap;
-     std::vector<struct event> equeue;
+     std::unordered_map<std::string,int> q_names;
+     std::vector<std::vector<struct event>> equeues;
      ClockSynchronization<ClocksourceCPPStyle> *CM;
      double max_t;
      double max_time;
      int myrank;
   public:
-     databuffer(int numprocs,int rank,int numcores,ClockSynchronization<ClocksourceCPPStyle> *C) 
+     databuffers(int numprocs,int rank,int numcores,ClockSynchronization<ClocksourceCPPStyle> *C) 
      {
 	event_count = 0;
-	dmap = new distributed_hashmap<uint64_t,int> ();
-	int total_size = 65536*2;
-	dmap->initialize_tables(total_size,numprocs,numcores,rank,UINT64_MAX);
+	dmap = new distributed_hashmap<uint64_t,int> (numprocs,numcores,rank);
 	CM = C;
 	dmap->setClock(CM);
 	max_t = 0;
 	max_time = 0;
 	myrank = rank;
      }
-     ~databuffer() 
+     ~databuffers() 
      {
 	 delete dmap;
      }
 
-    void  server_client_addrs(tl::engine *t_server,tl::engine *t_client,tl::engine *t_server_shm, tl::engine *t_client_shm,std::vector<tl::endpoint> &s_addrs,std::vector<std::string> &ips,std::vector<std::string> &shm_addrs)
+    void  server_client_addrs(tl::engine *t_server,tl::engine *t_client,tl::engine *t_server_shm, tl::engine *t_client_shm,std::vector<std::string> &ips,std::vector<std::string> &shm_addrs,std::vector<tl::endpoint> &serveraddrs)
     {
 
-	dmap->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,s_addrs,ips,shm_addrs);
+	dmap->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ips,shm_addrs,serveraddrs);
 	dmap->bind_functions();
 	MPI_Barrier(MPI_COMM_WORLD);
     }
@@ -79,32 +78,45 @@ class databuffer
   {
 	  return dmap->num_dropped();
   }
-
-  void add_event(event &e)
+  void create_data_buffer(std::string &s)
+  {
+	int total_size = 65536*2;
+	uint64_t maxkey = UINT64_MAX;
+	dmap->create_table(total_size,maxkey,s);
+	std::vector<struct event> q;
+	equeues.push_back(q);
+	std::pair<std::string,int> p(s,equeues.size()-1);
+	q_names.insert(p);
+  }
+  void add_event(event &e,std::string &s)
   {
       uint64_t key = e.ts;
       int v = 1;
 
       auto t1 = std::chrono::high_resolution_clock::now();
 
-      bool b = dmap->Insert(key,v);   
+      bool b = dmap->Insert(key,v,s);   
 
       auto t2 = std::chrono::high_resolution_clock::now();
       double t = std::chrono::duration<double> (t2-t1).count();
       if(max_t < t) max_t = t;
       
 
-      if(b) 
+      /*if(b) 
       {
-	      equeue.push_back(e);
+	      auto r = q_names.find(s);
+	      int index = r->second;
+	      equeues[index].push_back(e);
 	      event_count++; 
-      }
+      }*/
   }
 
-  std::vector<struct event> & get_buffer()
+  std::vector<struct event> & get_buffer(std::string &s)
   {
-	  bool b = dmap->LocalClearMap();
-	  return equeue;
+	  bool b = dmap->LocalClearMap(s);
+	  auto r = q_names.find(s);
+	  int index = r->second;
+	  return equeues[index];
   }
   void clear_buffer()
   {

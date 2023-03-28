@@ -27,8 +27,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <mpi.h>
+#include "distributed_map.h"
 
 namespace tl = thallium;
+
 
 class data_server_client
 {
@@ -122,7 +124,6 @@ class data_server_client
         thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,8);
         //std::cout <<" server_addr = "<<server_addr<<std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
-
 
         thallium_client = new tl::engine("ofi+sockets",THALLIUM_CLIENT_MODE,true,1);
         thallium_shm_client = new tl::engine("na+sm",THALLIUM_CLIENT_MODE,true,1);

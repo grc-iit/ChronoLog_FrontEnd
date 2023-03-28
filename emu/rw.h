@@ -20,7 +20,7 @@ private:
       int numcores;
       boost::hash<uint64_t> hasher;
       uint64_t seed = 1;
-      databuffer *dm;
+      databuffers *dm;
       std::vector<struct event> myevents;
       std::vector<struct event> readevents;
       dsort *ds;
@@ -36,11 +36,11 @@ public:
 	   tl::engine *t_server_shm = dsc->get_thallium_shm_server();
 	   tl::engine *t_client = dsc->get_thallium_client();
 	   tl::engine *t_client_shm = dsc->get_thallium_shm_client();
-           std::vector<tl::endpoint> serveraddrs = dsc->get_serveraddrs();
+	   std::vector<tl::endpoint> server_addrs = dsc->get_serveraddrs();
 	   std::vector<std::string> ipaddrs = dsc->get_ipaddrs();
 	   std::vector<std::string> shmaddrs = dsc->get_shm_addrs();
-	   dm = new databuffer(numprocs,myrank,numcores,CM);
-	   dm->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,serveraddrs,ipaddrs,shmaddrs);
+	   dm = new databuffers(numprocs,myrank,numcores,CM);
+	   dm->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 	   ds = new dsort(numprocs,myrank);
 	}
 	~read_write_process()
@@ -51,18 +51,22 @@ public:
 	   H5close();
 
 	}
-	
-	void get_events_from_map()
+
+	void create_buffer(std::string &s)
 	{
-	   myevents = dm->get_buffer();
+	    dm->create_data_buffer(s);
+	}	
+	void get_events_from_map(std::string &s)
+	{
+	   myevents = dm->get_buffer(s);
 	}
 	std::vector<struct event> & get_events()
 	{
 		return myevents;
 	}
-	void sort_events()
+	void sort_events(std::string &s)
 	{
-	    get_events_from_map();
+	    get_events_from_map(s);
 	    ds->get_unsorted_data(myevents);
 	    ds->sort_data(); 
 	    ds->get_sorted_data(myevents); 
@@ -76,7 +80,7 @@ public:
 	{
 	    return dm->num_dropped_events();
 	}
-	void create_events(int num_events);
+	void create_events(int num_events,std::string &s);
         void pwrite(const char *);
 	void pread(const char*);
 };

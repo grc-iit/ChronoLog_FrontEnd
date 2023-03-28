@@ -89,11 +89,13 @@ public:
       {
 	      return server_addr;
       }
-      void create_events(int num_events)
+      void create_events(int num_events,std::string &s)
       {
 	auto t1 = std::chrono::high_resolution_clock::now();
 
-	rwp->create_events(num_events);
+	rwp->create_buffer(s);
+	MPI_Barrier(MPI_COMM_WORLD);
+	rwp->create_events(num_events,s);
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	auto t2 = std::chrono::high_resolution_clock::now();
@@ -102,17 +104,17 @@ public:
 	double et = 0;
 	MPI_Allreduce(&t,&et,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 	if(myrank==0) std::cout <<" event_creation time = "<<et<<std::endl;
-	int de = rwp->dropped_events();
+	/*int de = rwp->dropped_events();
 	int total_de = 0;
 	MPI_Allreduce(&de,&total_de,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-	if(myrank==0) std::cout <<" dropped events = "<<total_de<<std::endl;
+	if(myrank==0) std::cout <<" dropped events = "<<total_de<<std::endl;*/
       }
 
       void write_events(const char *filename)
       {
 	auto t1 = std::chrono::high_resolution_clock::now();
 
-	rwp->sort_events();
+	/*rwp->sort_events();
         int nevents = rwp->num_events();
 
 	auto t2 = std::chrono::high_resolution_clock::now();
@@ -123,7 +125,7 @@ public:
 	if(myrank==0) std::cout <<" num_events = "<<events_t<<std::endl;
 	double stime_t = 0;
 	MPI_Allreduce(&stime,&stime_t,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-	if(myrank==0) std::cout <<" sorting time = "<<stime_t<<std::endl;
+	if(myrank==0) std::cout <<" sorting time = "<<stime_t<<std::endl;*/
 
 	rwp->pwrite(filename);
 

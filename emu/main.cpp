@@ -78,7 +78,8 @@ int main(int argc,char **argv)
 
   if(rank < rem) events_per_proc++;
 
-  np->create_events(events_per_proc);
+  std::string name = "table1";
+  np->create_events(events_per_proc,name);
 
   MPI_Barrier(MPI_COMM_WORLD);
 
