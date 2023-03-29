@@ -6,7 +6,7 @@
 #include "ClockSync.h"
 #include "hdf5.h"
 #include <boost/container_hash/hash.hpp>
-#include "data_buffer.h"
+#include "write_buffer.h"
 #include "distributed_sort.h"
 #include "data_server_client.h"
 
@@ -54,19 +54,50 @@ public:
 
 	}
 
-	void create_buffer(std::string &s)
+	void prepare(std::string &name, std::string &op)
 	{
-	    dm->create_data_buffer(s);
-	    std::vector<struct event> ev;
-	    myevents.push_back(ev);
-	    std::pair<std::string,int> p(s,myevents.size()-1);
-	    write_names.insert(p);
+	    if(op.compare("read")==0)
+	    {
+
+
+
+	    }
+	    else if(op.compare("write")==0)
+	    {
+
+
+
+	    }
+	}
+
+	void create_write_buffer(std::string &s)
+	{
+	    dm->create_write_buffer(s);
+	    if(write_names.find(s)==write_names.end())
+	    {
+	      std::vector<struct event> ev;
+	      myevents.push_back(ev);
+	      std::pair<std::string,int> p(s,myevents.size()-1);
+	      write_names.insert(p);
+	    }
 	}	
+	void create_read_buffer(std::string &s)
+	{
+	    auto r = read_names.find(s);;
+	    if(r==read_names.end())
+	    {
+	        std::vector<struct event> ev;	    
+		readevents.push_back(ev);
+		std::pair<std::string,int> p(s,readevents.size()-1);
+		read_names.insert(p);
+	    }	
+
+	}
 	void get_events_from_map(std::string &s)
 	{
            auto r = write_names.find(s);
 	   int index = r->second;
-	   myevents[index] = dm->get_buffer(s);
+	   myevents[index] = dm->get_write_buffer(s);
 	}
 	
 	void sort_events(std::string &s)
@@ -90,6 +121,7 @@ public:
 	    return dm->num_dropped_events();
 	}
 	void create_events(int num_events,std::string &s);
+	void clear_events(std::string &s);
         void pwrite(const char *,std::string &s);
 	void pread(const char*,std::string &s);
 };

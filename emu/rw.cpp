@@ -31,6 +31,26 @@ void read_write_process::create_events(int num_events,std::string &s)
 
 }
 
+void read_write_process::clear_events(std::string &s)
+{
+   auto r = read_names.find(s);
+   if(r!=read_names.end())
+   {
+	int index = r->second;
+	readevents[index].clear();
+   }
+   
+   r = write_names.find(s);
+
+   if(r != write_names.end())
+   {
+	int index = r->second;
+	myevents[index].clear();
+	dm->clear_write_buffer(s);
+   }
+
+}
+
 void read_write_process::pwrite(const char *filename,std::string &name)
 {
 
@@ -94,8 +114,6 @@ void read_write_process::pwrite(const char *filename,std::string &name)
     attr_data.push_back(DATASIZE);
 
     uint64_t block_size = num_events_recorded[myrank]*record_size;
-
-
 
     dims[0] = (hsize_t)(total_size);
     sid     = H5Screate_simple(1, dims, NULL);
@@ -163,7 +181,6 @@ void read_write_process::pwrite(const char *filename,std::string &name)
     H5Fclose(fid); 
 
     data_array1->clear();
-    myevents[index].clear();
 }
 
 
@@ -241,18 +258,12 @@ void read_write_process::pread(const char *filename,std::string &name)
     ret = H5Dclose(dataset1);
 
     auto r = read_names.find(name);
-    int index = -1;
     if(r == read_names.end())
     {
-	std::vector<struct event> rvec;
-	readevents.push_back(rvec);
-	std::pair<std::string,int> p(name,readevents.size()-1);
-	read_names.insert(p);
-	index = readevents.size()-1;
+	create_read_buffer(name);
+        r = read_names.find(name);	
     }
-    else index = r->second;
-
-    readevents[index].clear();
+    int index = r->second;
 
     for(int i=0;i<data_array1->size();)
     {

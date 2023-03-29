@@ -57,7 +57,9 @@ class distributed_hashmap
 	std::vector<KeyT> emptyKeys;
 	std::vector<pool_type *>pls;
 	std::vector<map_type *>my_tables;
-	std::unordered_map<std::string,int> table_names;
+	BlockMap<std::string,int> *table_names;
+	memory_pool<std::string,int> *t_pool;
+	//std::unordered_map<std::string,int> table_names;
 	tl::engine *thallium_server;
 	tl::engine *thallium_shm_server;
 	tl::engine *thallium_client;
@@ -70,7 +72,6 @@ class distributed_hashmap
 	ClockSynchronization<ClocksourceCPPStyle> *CM;
 	std::atomic<int> dropped_events;
 	double time_m;
-	std::mutex name_lock;
 	int maxtables;
 	std::atomic<int> num_tables;
  public: 
@@ -116,13 +117,22 @@ class distributed_hashmap
 	  	emptyKeys[pv] = emptyKey;
           	my_tables[pv] = my_table;
           	pls[pv] = pl;
-	        name_lock.lock();
-		std::pair<std::string,int> p(table_name,pv);
-		table_names.insert(p);
-		name_lock.unlock();	
+		table_names->insert(table_name,pv);
 	  }
 
     }
+   void remove_table(std::string &table_name)
+   {
+	int index = -1;
+	bool bt = table_names->get(table_name,&index);
+
+	if(!bt) return;
+	
+	delete my_tables[index];
+	delete pls[index];
+	my_tables[index] = nullptr;
+	pls[index] = nullptr;
+   }
 
    void server_client_addrs(tl::engine *t_server,tl::engine *t_client,tl::engine *t_server_shm, tl::engine *t_client_shm,std::vector<std::string> &ips,std::vector<std::string> &shm_addrs,std::vector<tl::endpoint> &saddrs)
    {
@@ -179,6 +189,9 @@ class distributed_hashmap
 	  my_tables[i] = nullptr;
 	  pls[i] = nullptr;
 	}
+	std::string emptystring = "NULL";
+	t_pool = new memory_pool<std::string,int> (100);
+	table_names = new BlockMap<std::string,int> (maxtables,t_pool,emptystring);
   }
  ~distributed_hashmap()
   {
@@ -187,6 +200,8 @@ class distributed_hashmap
 		if(my_tables[i] != nullptr)  delete my_tables[i];
 		if(pls[i] != nullptr) delete pls[i];
 	  }
+	  delete table_names;
+	  delete t_pool;
   }
 
    void setClock(ClockSynchronization<ClocksourceCPPStyle> *C)
@@ -201,55 +216,42 @@ class distributed_hashmap
 	   return false;
       }
       int index = -1;
-      name_lock.lock();
-      auto r = table_names.find(s);
-      if(r != table_names.end()) index = r->second;
-      name_lock.unlock();
-      if(index != -1)
-      {
-        uint32_t b = my_tables[index]->insert(k,v);
-        if(b == INSERTED) return true;
-        else 
-	   return false;
-      }
+      bool bt = table_names->get(s,&index);
+      if(!bt) return false;
+        
+      uint32_t b = my_tables[index]->insert(k,v);
+      if(b == INSERTED) return true;
+      else return false;
       return false;
   }
   bool LocalFind(KeyT &k,std::string &s)
   {
     int index = -1;
-    name_lock.lock();
-    auto r = table_names.find(s);
-    if(r != table_names.end()) index = r->second;
-    name_lock.unlock();
+    bool bt = table_names->get(s,&index);
+    if(!bt) return false;
+      
     if(my_tables[index]->find(k) != NOT_IN_TABLE) return true;
     else return false;
   }
   bool LocalErase(KeyT &k,std::string &s)
   {
      int index = -1;
-     name_lock.lock();
-     auto r = table_names.find(s);
-     if(r != table_names.end()) index = r->second;
-     name_lock.unlock();
+     bool bt = table_names->get(s,&index);
+     if(!bt) return false;
      return my_tables[index]->erase(k);
   }
   bool LocalUpdate(KeyT &k,ValueT &v,std::string &s)
   {
        int index = -1;
-       name_lock.lock();
-       auto r = table_names.find(s);
-       if(r != table_names.end()) index = r->second;
-       name_lock.unlock();
+       bool bt = table_names->get(s,&index);
+       if(!bt) return false;
        return my_tables[index]->update(k,v);
   }
   bool LocalGet(KeyT &k,ValueT* v,std::string &s)
   {
        int index = -1;
-       name_lock.lock();
-       auto r = table_names.find(s);
-       if(r != table_names.end()) index = r->second;
-       name_lock.unlock();
-
+       bool bt = table_names->get(s,&index);
+       if(!bt) return false;
        return my_tables[index]->get(k,v);
   }
 
@@ -264,10 +266,8 @@ class distributed_hashmap
   bool LocalGetMap(std::vector<ValueT> &values,std::string &s)
   {
 	int index = -1;
-	name_lock.lock();
-	auto r = table_names.find(s);
-	if(r != table_names.end()) index = r->second;
-	name_lock.unlock();
+	bool bt = table_names->get(s,&index);
+	if(!bt) return false;
 	my_tables[index]->get_map(values);
 	return true;
   }
@@ -275,10 +275,8 @@ class distributed_hashmap
   bool LocalClearMap(std::string &s)
   {
 	int index = -1;
-	name_lock.lock();
-	auto r = table_names.find(s);
-	if(r != table_names.end()) index = r->second;
-	name_lock.unlock();
+	bool bt = table_names->get(s,&index);
+	if(!bt) return false;
 	my_tables[index]->clear_map();
 	dropped_events = 0;
 	return true;
@@ -288,30 +286,24 @@ class distributed_hashmap
   bool LocalUpdateField(KeyT &k,std::string &s,void(*f)(ValueT*,Args&&... args),Args&&...args_)
   {
      int index = -1;
-     name_lock.lock();
-     auto r = table_names.find(s);
-     if(r != table_names.end()) index = r->second;
-     name_lock.unlock();
+     bool bt = table_names->get(s,&index);
+     if(!bt) return false;
      return my_tables[index]->update_field(k,f,std::forward<Args>(args_)...);
   }
 
   uint64_t allocated(std::string &s)
   {
      int index = -1;
-     name_lock.lock();
-     auto r = table_names.find(s);
-     if(r != table_names.end()) index = r->second;
-     name_lock.unlock();
+     bool bt = table_names->get(s,&index);
+     if(!bt) return false;
      return my_tables[index]->allocated_nodes();
   }
 
   uint64_t removed(std::string &s)
   {
      int index = -1;
-     name_lock.lock();
-     auto r = table_names.find(s);
-     if(r != table_names.end()) index = r->second;
-     name_lock.unlock();
+     bool bt = table_names->get(s,&index);
+     if(!bt) return false;
      return my_tables[index]->removed_nodes();
   }
 
@@ -335,11 +327,9 @@ class distributed_hashmap
   }
   bool Insert(KeyT &k, ValueT &v,std::string &s)
   {
-    name_lock.lock();
     int index = -1;
-    auto r = table_names.find(s);
-    if(r != table_names.end()) index = r->second;
-    name_lock.unlock();
+    bool bt = table_names->get(s,&index);
+    if(!bt) return false;
     int destid = serverLocation(k,index);
     if(ipaddrs[destid].compare(myipaddr)==0)
     {
@@ -356,10 +346,8 @@ class distributed_hashmap
   bool Find(KeyT &k,std::string &s)
   {
     int index = -1;
-    name_lock.lock();
-    auto r = table_names.find(s);
-    if(r != table_names.end()) index = r->second;
-    name_lock.unlock();
+    bool bt = table_names->get(s,&index);
+    if(!bt) return false;
     int destid = serverLocation(k,index);
     if(ipaddrs[destid].compare(myipaddr)==0)
     {
@@ -376,10 +364,8 @@ class distributed_hashmap
   bool Erase(KeyT &k,std::string &s)
   {
      int index = -1;
-     name_lock.lock();
-     auto r = table_names.find(s);
-     if(r != table_names.end()) index = r->second;
-     name_lock.unlock();
+     bool bt = table_names->get(s,&index);
+     if(!bt) return false;
      int destid = serverLocation(k,index);
      if(ipaddrs[destid].compare(myipaddr)==0)
      {

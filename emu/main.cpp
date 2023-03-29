@@ -71,7 +71,7 @@ int main(int argc,char **argv)
   }*/
   t1 = std::chrono::high_resolution_clock::now();
 
-  int total_events = 65536*8;
+  int total_events = 65536;
 
   int events_per_proc = total_events/size;
   int rem = total_events%size;
@@ -83,8 +83,8 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  const char *filename = "file1.h5";
-  np->write_events(filename,name);
+  std::string filename = "file"+name+".h5";
+  np->write_events(filename.c_str(),name);
 
   t2 = std::chrono::high_resolution_clock::now();
 
@@ -93,7 +93,11 @@ int main(int argc,char **argv)
   double e_time;
   MPI_Allreduce(&t,&e_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   if(rank==0) std::cout <<" e_time = "<<e_time<<std::endl; 
+
+
   /*np->read_events(filename);*/
+
+  np->clear_events(name);
 
   MPI_Barrier(MPI_COMM_WORLD);
 

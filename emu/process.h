@@ -89,11 +89,16 @@ public:
       {
 	      return server_addr;
       }
+      void prepare_service(std::string &name,std::string &op)
+      {
+	   rwp->prepare(name,op);
+
+      }
       void create_events(int num_events,std::string &s)
       {
 	auto t1 = std::chrono::high_resolution_clock::now();
 
-	rwp->create_buffer(s);
+	rwp->create_write_buffer(s);
 	MPI_Barrier(MPI_COMM_WORLD);
 	rwp->create_events(num_events,s);
 
@@ -127,10 +132,14 @@ public:
 	MPI_Allreduce(&stime,&stime_t,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 	if(myrank==0) std::cout <<" sorting time = "<<stime_t<<std::endl;
 
-	//rwp->pwrite(filename,s);
+	rwp->pwrite(filename,s);
 
       }
 
+      void clear_events(std::string &s)
+      {
+	rwp->clear_events(s);
+      }
       void read_events(const char *filename,std::string &s)
       {
 	rwp->pread(filename,s);
