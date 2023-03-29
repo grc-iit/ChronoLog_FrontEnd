@@ -106,6 +106,7 @@ class databuffers
       {
 	      auto r = q_names.find(s);
 	      int index = r->second;
+	      std::fill(e.data,e.data+DATASIZE,0);
 	      equeues[index].push_back(e);
 	      event_count++; 
       }

@@ -127,7 +127,7 @@ public:
 	MPI_Allreduce(&stime,&stime_t,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 	if(myrank==0) std::cout <<" sorting time = "<<stime_t<<std::endl;
 
-	rwp->pwrite(filename,s);
+	//rwp->pwrite(filename,s);
 
       }
 

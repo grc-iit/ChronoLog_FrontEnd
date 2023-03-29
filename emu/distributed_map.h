@@ -68,7 +68,7 @@ class distributed_hashmap
 	std::string myipaddr;
 	std::string myhostname;
 	ClockSynchronization<ClocksourceCPPStyle> *CM;
-	int dropped_events;
+	std::atomic<int> dropped_events;
 	double time_m;
 	std::mutex name_lock;
 	int maxtables;
@@ -173,6 +173,7 @@ class distributed_hashmap
 	emptyKeys.resize(maxtables);
 	my_tables.resize(maxtables);
 	pls.resize(maxtables);
+	dropped_events.store(0);
 	for(int i=0;i<maxtables;i++)
 	{
 	  my_tables[i] = nullptr;
@@ -194,16 +195,16 @@ class distributed_hashmap
    }
    bool LocalInsert(KeyT &k,ValueT &v,std::string &s)
   {
+      if(!CM->NearTime(k))
+      {
+	   dropped_events.fetch_add(1);
+	   return false;
+      }
       int index = -1;
       name_lock.lock();
       auto r = table_names.find(s);
       if(r != table_names.end()) index = r->second;
       name_lock.unlock();
-      if(!CM->NearTime(k))
-      {
-	      dropped_events++;
-	      return false;
-      }
       if(index != -1)
       {
         uint32_t b = my_tables[index]->insert(k,v);

@@ -22,7 +22,6 @@ void read_write_process::create_events(int num_events,std::string &s)
     for(int i=0;i<num_events;i++)
     {
 	event e;
-	//std::fill(e.data,e.data+DATASIZE,0);
 	uint64_t ts = CM->Timestamp();
 
 	e.ts = ts;

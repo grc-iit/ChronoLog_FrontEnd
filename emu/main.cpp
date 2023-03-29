@@ -83,10 +83,16 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  
-  //const char *filename = "file1.h5";
-  //np->write_events(filename,name);
+  const char *filename = "file1.h5";
+  np->write_events(filename,name);
 
+  t2 = std::chrono::high_resolution_clock::now();
+
+  t = std::chrono::duration<double> (t2-t1).count();
+
+  double e_time;
+  MPI_Allreduce(&t,&e_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+  if(rank==0) std::cout <<" e_time = "<<e_time<<std::endl; 
   /*np->read_events(filename);*/
 
   MPI_Barrier(MPI_COMM_WORLD);

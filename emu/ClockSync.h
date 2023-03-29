@@ -63,7 +63,7 @@ class ClockSynchronization
 	 else unit = 1;
 	 myoffset = 0;
 	 maxError = 0;
-	 epsilon = 400000;  //100 microseconds (scheduling, measurement errors)
+	 epsilon = 80000000;  //400 microseconds (scheduling, measurement errors)
 	 delay = 500000; // 200 microseconds network delay for reasonably large messages
 	 delay = delay/unit;
 	 epsilon = epsilon/unit;
@@ -89,6 +89,7 @@ class ClockSynchronization
 	if(diff <= 2*maxError+delay+epsilon) return true;
 	else 
 	{
+		std::cout <<" diff = "<<diff<<" err = "<<2*maxError+delay+epsilon<<std::endl;
 		return false;
 	}
      }
