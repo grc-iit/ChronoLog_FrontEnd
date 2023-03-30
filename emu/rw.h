@@ -58,6 +58,7 @@ public:
 	{
           
 	    dm->create_write_buffer(s);
+	    ds->create_sort_buffer(s);
 	    if(write_names.find(s)==write_names.end())
 	    {
 	      std::vector<struct event> *ev = nullptr;
@@ -90,8 +91,8 @@ public:
 	    auto r = write_names.find(s);
 	    int index = r->second;
 	    get_events_from_map(s);
-	    ds->get_unsorted_data(myevents[index]);
-	    ds->sort_data(); 
+	    ds->get_unsorted_data(myevents[index],s);
+	    ds->sort_data(s); 
 	}
 
 	int num_write_events(std::string &s)
