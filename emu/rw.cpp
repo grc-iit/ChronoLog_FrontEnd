@@ -45,7 +45,7 @@ void read_write_process::clear_events(std::string &s)
    if(r != write_names.end())
    {
 	int index = r->second;
-	myevents[index].clear();
+	myevents[index]->clear();
 	dm->clear_write_buffer(s);
    }
 
@@ -93,7 +93,7 @@ void read_write_process::pwrite(const char *filename,std::string &name)
     std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
     std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
-    num_events_recorded_l[myrank] = myevents[index].size();
+    num_events_recorded_l[myrank] = myevents[index]->size();
 
     MPI_Allreduce(num_events_recorded_l.data(),num_events_recorded.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
@@ -138,9 +138,9 @@ void read_write_process::pwrite(const char *filename,std::string &name)
 
     data_array1 = new std::vector<char> ();
 
-    for(int i=0;i<myevents[index].size();i++)
+    for(int i=0;i<myevents[index]->size();i++)
     {
-	event e = myevents[index][i];
+	event e = (*myevents[index])[i];
 	uint64_t key = e.ts;
 	uint64_t mask = 255;
 	int numchars = sizeof(uint64_t);

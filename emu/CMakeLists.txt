@@ -6,6 +6,6 @@
 #target_link_libraries(rw_process -L${HDF5_LIBS} -lhdf5 ${MPI_CXX_LIBRARIES} -lrt)
 #target_link_libraries(rw_process hcl)
 
-add_executable(engine main.cpp city.cpp rw.cpp distributed_sort.cpp util.h)
+add_executable(engine main.cpp city.cpp rw.cpp distributed_sort.cpp rw_request.cpp util.h)
 target_link_libraries(engine ${MPI_CXX_LIBRARIES} thallium -L${HDF5_LIBS} -lhdf5 -lpthread -lrt)
 set_target_properties(engine PROPERTIES FOLDER emu)

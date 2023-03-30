@@ -3,7 +3,8 @@
 #include <thallium.hpp>
 #include <chrono>
 #include <sched.h>
-#include "pthread.h"
+#include <thread>
+#include "rw_request.h"
 
 namespace tl=thallium;
 
@@ -69,7 +70,68 @@ int main(int argc,char **argv)
   CC->DestroyChronicle(client_id,chronicle_name);
 
   }*/
+
+  int numstories = 8;
+  std::vector<std::string> story_names;
+  std::vector<int> total_events;
+
+  for(int i=0;i<numstories;i++)
+  {
+	std::string name = "table"+std::to_string(i);
+	story_names.push_back(name);
+	total_events.push_back(65536*8);
+	np->prepare_service(name);
+  }
+
+  int num_threads = 8;
+
   t1 = std::chrono::high_resolution_clock::now();
+
+  std::vector<struct thread_arg> t_args(num_threads);
+  std::vector<std::thread> workers(num_threads);
+
+  for(int i=0;i<num_threads;i++)
+  {
+      int events_per_proc = total_events[i]/size;
+      int rem = total_events[i]%size;
+      if(rank < rem) events_per_proc++;
+      t_args[i].tid = i; 
+      t_args[i].np = np->get_rw_object();
+      t_args[i].num_events = events_per_proc;
+      t_args[i].name = story_names[i];
+  }
+
+  
+  for(int i=0;i<num_threads;i++)
+  {
+	  std::thread t{create_events_total_order,&t_args[i]};
+	  workers[i] = std::move(t);
+  }
+
+  for(int i=0;i<num_threads;i++)
+	  workers[i].join();
+
+  t2 = std::chrono::high_resolution_clock::now();
+
+  t = std::chrono::duration<double> (t2-t1).count();
+
+  total_time = 0;
+
+ MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
+ if(rank==0) std::cout <<" num_stories = "<<num_threads<<" time taken = "<<total_time<<std::endl; 
+
+ for(int i=0;i<num_threads;i++)
+ {
+	read_write_process *rp = np->get_rw_object();
+	rp->get_events_from_map(story_names[i]);
+	int nevents = rp->num_write_events(story_names[i]);
+        int tevents = 0;
+	MPI_Allreduce(&nevents,&tevents,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+	if(rank==0) std::cout <<" i = "<<i<<" name = "<<story_names[i]<<" total_events = "<<tevents<<std::endl;
+ }
+
+  /*t1 = std::chrono::high_resolution_clock::now();
 
   int total_events = 65536;
 
@@ -81,8 +143,9 @@ int main(int argc,char **argv)
   std::string name = "table1";
   np->create_events(events_per_proc,name);
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD);*/
 
+  /*
   std::string filename = "file"+name+".h5";
   np->write_events(filename.c_str(),name);
 
@@ -93,11 +156,11 @@ int main(int argc,char **argv)
   double e_time;
   MPI_Allreduce(&t,&e_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   if(rank==0) std::cout <<" e_time = "<<e_time<<std::endl; 
-
+  */
 
   /*np->read_events(filename);*/
 
-  np->clear_events(name);
+  /*np->clear_events(name);*/
 
   MPI_Barrier(MPI_COMM_WORLD);
 

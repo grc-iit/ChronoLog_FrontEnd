@@ -12,7 +12,7 @@ void dsort::sort_data()
 
    int total_events = 0;
 
-   int local_events = events.size();
+   int local_events = events->size();
 
    MPI_Allreduce(&local_events,&total_events,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
@@ -30,8 +30,8 @@ void dsort::sort_data()
 	r2 = random()%local_events;
      }while(r2==r1);
    
-     mysplitters.push_back(events[r1].ts);
-     mysplitters.push_back(events[r2].ts);
+     mysplitters.push_back((*events)[r1].ts);
+     mysplitters.push_back((*events)[r2].ts);
    }
 
    std::vector<int> splitter_counts(numprocs);
@@ -93,10 +93,10 @@ void dsort::sort_data()
    
    std::vector<int> event_dest;
 
-   for(int i=0;i<events.size();i++)
+   for(int i=0;i<events->size();i++)
    {
 	int dest = -1;
-        uint64_t ts = events[i].ts;
+        uint64_t ts = (*events)[i].ts;
 	for(int j=0;j<splitters.size();j++)
 	{
 	    if(ts <= splitters[j])
@@ -124,12 +124,12 @@ void dsort::sort_data()
    for(int i=0;i<numprocs;i++)
 	   total_recv_size += recv_counts[i];
 
-   send_buffer_u.resize(events.size());
+   send_buffer_u.resize(events->size());
    recv_buffer_u.resize(total_recv_size);
 
-   for(int i=0;i<events.size();i++)
+   for(int i=0;i<events->size();i++)
    {
-	uint64_t ts = events[i].ts;
+	uint64_t ts = (*events)[i].ts;
 	int dest = event_dest[i];
 	send_buffer_u[send_displ[dest]] = ts;
 	send_displ[dest]++;
@@ -174,11 +174,11 @@ void dsort::sort_data()
    send_buffer_char.resize(total_send_size_data);
    recv_buffer_char.resize(total_recv_size_data);
 
-   for(int i=0;i<events.size();i++)
+   for(int i=0;i<events->size();i++)
    {
 	int dest = event_dest[i];
 	int start = send_displ[dest];
-	memcpy(send_buffer_char.data()+start,events[i].data,DATASIZE);
+	memcpy(send_buffer_char.data()+start,(*events)[i].data,DATASIZE);
 	send_displ[dest]+=DATASIZE;
    }
 
@@ -192,7 +192,7 @@ void dsort::sort_data()
 
    MPI_Alltoallv(send_buffer_char.data(),send_counts.data(),send_displ.data(),MPI_CHAR,recv_buffer_char.data(),recv_counts.data(),recv_displ.data(),MPI_CHAR,MPI_COMM_WORLD);
 
-   events.clear();
+   events->clear();
 
    for(int i=0;i<numprocs;i++)
    {
@@ -201,9 +201,9 @@ void dsort::sort_data()
 		struct event e;   
 		e.ts = recv_buffer_u[key_displ[i]+j];
 		memcpy(e.data,&(recv_buffer_char[recv_displ[i]+k]),DATASIZE);
-		events.push_back(e);
+		events->push_back(e);
 	   }
    }
-   std::sort(events.begin(),events.end(),compare_fn);
+   std::sort(events->begin(),events->end(),compare_fn);
 
 }

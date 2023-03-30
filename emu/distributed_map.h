@@ -217,12 +217,13 @@ class distributed_hashmap
       }
       int index = -1;
       bool bt = table_names->get(s,&index);
-      if(!bt) return false;
-        
+      if(!bt) 
+      {
+	   return false;
+      }
       uint32_t b = my_tables[index]->insert(k,v);
       if(b == INSERTED) return true;
       else return false;
-      return false;
   }
   bool LocalFind(KeyT &k,std::string &s)
   {
@@ -329,6 +330,7 @@ class distributed_hashmap
   {
     int index = -1;
     bool bt = table_names->get(s,&index);
+    //if(s.compare("table3")==0) std::cout <<" s = "<<s<<" index = "<<index<<std::endl;
     if(!bt) return false;
     int destid = serverLocation(k,index);
     if(ipaddrs[destid].compare(myipaddr)==0)

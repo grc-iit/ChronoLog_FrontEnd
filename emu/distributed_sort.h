@@ -10,7 +10,7 @@ class dsort
 {
 
    private: 
-	   std::vector<struct event> events;
+	   std::vector<struct event>* events;
 	   int numprocs;
 	   int myrank;
  
@@ -23,17 +23,16 @@ class dsort
 	   {
 		
 	   }
-	   void get_unsorted_data(std::vector<struct event> &inp)
+	   void get_unsorted_data(std::vector<struct event> *inp)
 	   {
-		events.assign(inp.begin(),inp.end());
+		events = inp;
 	   }
 
 	   void sort_data();
 
-	   void get_sorted_data(std::vector<struct event> &oup)
+	   std::vector<struct event> * get_sorted_data()
 	   {
-		   oup.assign(events.begin(),events.end());
-		   events.clear();
+	       return events;
 	   }
 
 };

@@ -23,7 +23,7 @@ private:
       databuffers *dm;
       std::unordered_map<std::string,int> write_names;
       std::unordered_map<std::string,int> read_names;
-      std::vector<std::vector<struct event>> myevents;
+      std::vector<std::vector<struct event>*> myevents;
       std::vector<std::vector<struct event>> readevents;
       dsort *ds;
       data_server_client *dsc;
@@ -54,28 +54,13 @@ public:
 
 	}
 
-	void prepare(std::string &name, std::string &op)
-	{
-	    if(op.compare("read")==0)
-	    {
-
-
-
-	    }
-	    else if(op.compare("write")==0)
-	    {
-
-
-
-	    }
-	}
-
 	void create_write_buffer(std::string &s)
 	{
+          
 	    dm->create_write_buffer(s);
 	    if(write_names.find(s)==write_names.end())
 	    {
-	      std::vector<struct event> ev;
+	      std::vector<struct event> *ev = nullptr;
 	      myevents.push_back(ev);
 	      std::pair<std::string,int> p(s,myevents.size()-1);
 	      write_names.insert(p);
@@ -107,14 +92,13 @@ public:
 	    get_events_from_map(s);
 	    ds->get_unsorted_data(myevents[index]);
 	    ds->sort_data(); 
-	    ds->get_sorted_data(myevents[index]); 
 	}
 
 	int num_write_events(std::string &s)
 	{
 		auto r = write_names.find(s);
 		int index = r->second;
-		return myevents[index].size();
+		return myevents[index]->size();
 	}
 	int dropped_events()
 	{

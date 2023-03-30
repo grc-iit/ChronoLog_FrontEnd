@@ -172,7 +172,7 @@ class BlockMap
 
 	    table[pos].mutex_t.lock();
 
-	    node_type *n = table[pos].head;
+	    node_type *n = table[pos].head->next;
 
 	    while(n != nullptr)
 	    {
@@ -180,6 +180,7 @@ class BlockMap
 		{
 		   found = true;
 		   *v = n->value;
+		   break;
 		}
 		if(HashFcn()(n->key) > HashFcn()(k)) break;
 		n = n->next;

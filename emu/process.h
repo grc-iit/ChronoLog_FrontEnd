@@ -89,17 +89,19 @@ public:
       {
 	      return server_addr;
       }
-      void prepare_service(std::string &name,std::string &op)
+      void prepare_service(std::string &name)
       {
-	   rwp->prepare(name,op);
+	   rwp->create_write_buffer(name);
 
+      }
+      read_write_process* get_rw_object()
+      {
+	      return rwp;
       }
       void create_events(int num_events,std::string &s)
       {
 	auto t1 = std::chrono::high_resolution_clock::now();
 
-	rwp->create_write_buffer(s);
-	MPI_Barrier(MPI_COMM_WORLD);
 	rwp->create_events(num_events,s);
 
 	MPI_Barrier(MPI_COMM_WORLD);
