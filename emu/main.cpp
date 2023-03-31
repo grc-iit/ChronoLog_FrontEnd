@@ -79,11 +79,11 @@ int main(int argc,char **argv)
   {
 	std::string name = "table"+std::to_string(i);
 	story_names.push_back(name);
-	total_events.push_back(65536);
+	total_events.push_back(65536*8);
 	np->prepare_service(name);
   }
 
-  int num_threads = 8;
+  int num_threads = 4;
 
   t1 = std::chrono::high_resolution_clock::now();
 

@@ -16,24 +16,10 @@ void dsort::sort_data(std::string &s)
    int total_events = 0;
 
    int local_events = events[index]->size();
-
-
-   MPI_Request *reqs = (MPI_Request *)malloc(numprocs*2*sizeof(MPI_Request));
-   MPI_Status *stats = (MPI_Status *)malloc(numprocs*2*sizeof(MPI_Status));
+   
+   MPI_Request *reqs = (MPI_Request *)std::malloc(numprocs*2*sizeof(MPI_Request));
+   MPI_Status *stats = (MPI_Status *)std::malloc(numprocs*2*sizeof(MPI_Status));
   
-/*   for(int i=0;i<numprocs;i++)
-   {
-      MPI_Isend(&local_events,1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[i]);
-   }
-
-   for(int i=0;i<numprocs;i++)
-   {
-      MPI_Irecv(&evenc[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[numprocs+i]);
-   }
-
-   MPI_Waitall(2*numprocs,reqs,stats); 
-*/
-
    std::vector<uint64_t> mysplitters;
    if(local_events >= 2)
    {
@@ -50,9 +36,8 @@ void dsort::sort_data(std::string &s)
      mysplitters.push_back((*events[index])[r2].ts);
    }
 
-   int *splitter_counts = (int*)malloc(numprocs*sizeof(int));
-
-   memset(splitter_counts,0,numprocs*sizeof(int));
+   std::vector<int> splitter_counts(numprocs);
+   std::fill(splitter_counts.begin(),splitter_counts.end(),0);
 
    splitter_counts[myrank] = mysplitters.size();
 
@@ -70,7 +55,6 @@ void dsort::sort_data(std::string &s)
 
    int num_splitters = 0;
    for(int i=0;i<numprocs;i++) num_splitters += splitter_counts[i];
-
 
    if(myrank==0)
    std::cout <<" num_splitters = "<<num_splitters<<std::endl;
@@ -271,5 +255,6 @@ void dsort::sort_data(std::string &s)
 	   }
    }
    std::sort(events[index]->begin(),events[index]->end(),compare_fn);
-
+   
+   std::free(reqs); std::free(stats);
 }
