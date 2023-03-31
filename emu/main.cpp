@@ -79,7 +79,7 @@ int main(int argc,char **argv)
   {
 	std::string name = "table"+std::to_string(i);
 	story_names.push_back(name);
-	total_events.push_back(65536*8);
+	total_events.push_back(65536);
 	np->prepare_service(name);
   }
 
@@ -128,25 +128,21 @@ int main(int argc,char **argv)
 	int nevents = rp->num_write_events(story_names[i]);
         int tevents = 0;
 	MPI_Allreduce(&nevents,&tevents,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-	if(rank==0) std::cout <<" i = "<<i<<" name = "<<story_names[i]<<" total_events = "<<tevents<<std::endl;
+	//if(rank==0) std::cout <<" i = "<<i<<" name = "<<story_names[i]<<" total_events = "<<tevents<<std::endl;
  }
 
-  /*t1 = std::chrono::high_resolution_clock::now();
+  t1 = std::chrono::high_resolution_clock::now();
 
-  int total_events = 65536;
+  for(int i=0;i<num_threads;i++)
+  {
+	std::thread t{sort_events,&t_args[i]};
+	workers[i] = std::move(t);
+  }
 
-  int events_per_proc = total_events/size;
-  int rem = total_events%size;
+  for(int i=0;i<num_threads;i++)
+	  workers[i].join();
 
-  if(rank < rem) events_per_proc++;
-
-  std::string name = "table1";
-  np->create_events(events_per_proc,name);
-
-  MPI_Barrier(MPI_COMM_WORLD);*/
-
-  /*
-  std::string filename = "file"+name+".h5";
+  /*std::string filename = "file"+name+".h5";
   np->write_events(filename.c_str(),name);
 
   t2 = std::chrono::high_resolution_clock::now();
