@@ -142,6 +142,27 @@ int main(int argc,char **argv)
   for(int i=0;i<num_threads;i++)
 	  workers[i].join();
 
+  t2 = std::chrono::high_resolution_clock::now();
+  t = std::chrono::duration<double> (t2-t1).count();
+  total_time = 0;
+  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+  if(rank==0) std::cout <<" sorting time = "<<total_time<<std::endl;
+
+  t1 = std::chrono::high_resolution_clock::now();
+
+  for(int i=0;i<num_threads;i++)
+  {
+	std::thread t{write_events,&t_args[i]};
+	workers[i] = std::move(t);
+	workers[i].join();
+  }
+
+  t2 = std::chrono::high_resolution_clock::now();
+  t = std::chrono::duration<double>(t2-t1).count();
+  total_time = 0;
+  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
+
   /*std::string filename = "file"+name+".h5";
   np->write_events(filename.c_str(),name);
 

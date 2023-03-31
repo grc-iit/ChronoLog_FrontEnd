@@ -11,3 +11,9 @@ void sort_events(struct thread_arg *t)
 {
 	t->np->sort_events(t->name);	
 }
+
+void write_events(struct thread_arg *t)
+{
+	std::string filename = "file"+t->name+".h5";
+ 	t->np->pwrite(filename.c_str(),t->name);
+}
