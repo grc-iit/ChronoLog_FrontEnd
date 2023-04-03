@@ -6,7 +6,8 @@
 #include <iostream>
 #include <string.h>
 
-#define DATASIZE 1000
+
+#define DATASIZE 100
 
 struct event
 {

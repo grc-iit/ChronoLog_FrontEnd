@@ -16,8 +16,8 @@ struct thread_arg
 void create_events_total_order(struct thread_arg *);
 void sort_events(struct thread_arg *);
 void write_events(struct thread_arg *t);
-
-
+void search_events(struct thread_arg *t);
+void get_event_range(struct thread_arg *t);
 
 
 #endif

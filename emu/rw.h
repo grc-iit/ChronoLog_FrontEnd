@@ -23,6 +23,8 @@ private:
       databuffers *dm;
       std::unordered_map<std::string,int> write_names;
       std::unordered_map<std::string,int> read_names;
+      std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> write_interval;
+      std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> read_interval;
       std::vector<std::vector<struct event>*> myevents;
       std::vector<std::vector<struct event>> readevents;
       dsort *ds;
@@ -92,7 +94,31 @@ public:
 	    int index = r->second;
 	    get_events_from_map(s);
 	    ds->get_unsorted_data(myevents[index],s);
-	    ds->sort_data(s); 
+	    uint64_t min_v,max_v;
+	    ds->sort_data(s,min_v,max_v);
+	    auto r1 = write_interval.find(s);
+	    if(r1 == write_interval.end())
+	    {
+		std::pair<uint64_t,uint64_t> p(min_v,max_v);
+		std::pair<std::string,std::pair<uint64_t,uint64_t>> q(s,p);
+		write_interval.insert(q);
+	    }
+	    else 
+	    {
+		(r1->second).first = min_v;
+		(r1->second).second = max_v;
+	    }
+	}
+        bool get_range(std::string &s,uint64_t &min_v,uint64_t &max_v)
+	{
+	    auto r = write_interval.find(s);
+	    if(r != write_interval.end())
+	    {
+	       min_v = (r->second).first;
+	       max_v = (r->second).second;
+	       return true;
+	    }
+	    return false;
 	}
 
 	int num_write_events(std::string &s)
@@ -107,6 +133,7 @@ public:
 	}
 	void create_events(int num_events,std::string &s);
 	void clear_events(std::string &s);
+	void get_range(std::string &s);
         void pwrite(const char *,std::string &s);
 	void pread(const char*,std::string &s);
 };

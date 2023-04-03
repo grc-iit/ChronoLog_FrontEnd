@@ -53,7 +53,7 @@ class dsort
 	      }
 	   }
 
-	   void sort_data(std::string &s);
+	   void sort_data(std::string &s,uint64_t&,uint64_t&);
 
 	   std::vector<struct event> * get_sorted_data(std::string &s)
 	   {

@@ -7,7 +7,7 @@ bool compare_fn(struct event &e1, struct event &e2)
     return e1.ts <= e2.ts;
 }
 
-void dsort::sort_data(std::string &s)
+void dsort::sort_data(std::string &s,uint64_t& min_v,uint64_t &max_v)
 {
 
    auto r = sort_names.find(s);
@@ -255,6 +255,39 @@ void dsort::sort_data(std::string &s)
 	   }
    }
    std::sort(events[index]->begin(),events[index]->end(),compare_fn);
-   
+
+   uint64_t min_ts, max_ts;
+   uint64_t min_ts_a, max_ts_a;
+
+   int nreqs = 0;
+   if(myrank==0||myrank==numprocs-1)
+   {
+     if(myrank==0)
+     {
+       min_ts = (*events[index])[0].ts;
+
+        for(int i=0;i<numprocs;i++)
+	  MPI_Isend(&min_ts,1,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[i]);
+     }
+     else
+     {
+	int n = events[index]->size();
+	max_ts = (*events[index])[n-1].ts;
+
+	for(int i=0;i<numprocs;i++)
+	   MPI_Isend(&max_ts,1,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[i]);
+     }
+     nreqs = numprocs;
+   }
+
+   MPI_Irecv(&min_ts_a,1,MPI_UINT64_T,0,index,MPI_COMM_WORLD,&reqs[nreqs]);
+   nreqs++;
+   MPI_Irecv(&max_ts_a,1,MPI_UINT64_T,numprocs-1,index,MPI_COMM_WORLD,&reqs[nreqs]);
+   nreqs++;
+   MPI_Waitall(nreqs,reqs,stats);
+
+   min_v = min_ts_a;
+   max_v = max_ts_a;
+
    std::free(reqs); std::free(stats);
 }

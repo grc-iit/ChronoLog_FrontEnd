@@ -5,6 +5,7 @@
 #include <sched.h>
 #include <thread>
 #include "rw_request.h"
+#include "event_metadata.h"
 
 namespace tl=thallium;
 
@@ -48,9 +49,9 @@ int main(int argc,char **argv)
   double total_time = 0;
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  /*if(rank==0) std::cout <<" numprocs = "<<size<<" sync time = "<<total_time<<std::endl;
+  if(rank==0) std::cout <<" numprocs = "<<size<<" sync time = "<<total_time<<std::endl;
 
-  metadata_client *CC = np->getclientobj();
+  /*metadata_client *CC = np->getclientobj();
 
 
   if(rank != 0)
@@ -79,7 +80,7 @@ int main(int argc,char **argv)
   {
 	std::string name = "table"+std::to_string(i);
 	story_names.push_back(name);
-	total_events.push_back(65536*8);
+	total_events.push_back(65536);
 	np->prepare_service(name);
   }
 
@@ -121,7 +122,7 @@ int main(int argc,char **argv)
 
  if(rank==0) std::cout <<" num_stories = "<<num_threads<<" time taken = "<<total_time<<std::endl; 
 
- for(int i=0;i<num_threads;i++)
+ /*for(int i=0;i<num_threads;i++)
  {
 	read_write_process *rp = np->get_rw_object();
 	rp->get_events_from_map(story_names[i]);
@@ -129,7 +130,7 @@ int main(int argc,char **argv)
         int tevents = 0;
 	MPI_Allreduce(&nevents,&tevents,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 	//if(rank==0) std::cout <<" i = "<<i<<" name = "<<story_names[i]<<" total_events = "<<tevents<<std::endl;
- }
+ }*/
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -148,7 +149,14 @@ int main(int argc,char **argv)
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   if(rank==0) std::cout <<" sorting time = "<<total_time<<std::endl;
 
-  t1 = std::chrono::high_resolution_clock::now();
+  for(int i=0;i<1;i++)
+  {
+      std::thread t{get_event_range,&t_args[i]};
+      workers[i] = std::move(t);
+      workers[i].join();
+  }
+
+  /*t1 = std::chrono::high_resolution_clock::now();
 
   for(int i=0;i<num_threads;i++)
   {
@@ -161,7 +169,7 @@ int main(int argc,char **argv)
   t = std::chrono::duration<double>(t2-t1).count();
   total_time = 0;
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
+  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;*/
 
   /*std::string filename = "file"+name+".h5";
   np->write_events(filename.c_str(),name);
