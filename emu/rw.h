@@ -21,6 +21,7 @@ private:
       boost::hash<uint64_t> hasher;
       uint64_t seed = 1;
       databuffers *dm;
+      std::vector<std::string> file_names;
       std::unordered_map<std::string,int> write_names;
       std::unordered_map<std::string,int> read_names;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> write_interval;
@@ -130,6 +131,52 @@ public:
 	int dropped_events()
 	{
 	    return dm->num_dropped_events();
+	}
+        bool get_events_in_range(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup)
+	{
+	     uint64_t min = range.first; uint64_t max = range.second;
+	     auto r = write_interval.find(s);
+	     if(r != write_interval.end())
+	     {
+		uint64_t min_s = (r->second).first;
+		uint64_t max_s = (r->second).second;
+		if(max < min_s) return false;
+		if(min > max_s) return false;
+		   
+		min = std::max(min,min_s);
+		max = std::min(max,max_s);
+                
+	        auto r1 = write_names.find(s);
+	        if(r1 == write_names.end()) return false;
+		int index = r1->second;
+	        
+		for(int i=0;i<myevents[index]->size();i++)
+		{
+		     uint64_t ts = (*myevents[index])[i].ts;
+		     if(ts >= min && ts <= max) oup.push_back((*myevents[index])[i]);
+		}	
+	        return true;	
+	     }
+	     /*r = read_interval.find(s);
+	     if(r != read_interval.end())
+	     {
+		uint64_t min_s = (r->second).first;
+		uint64_t max_s = (r->second).second;
+		if(max < min_s) return false;
+		if(min > max_s) return false;
+		min = std::max(min,min_s);
+		max = std::min(max,max_s);
+		auto r1 = read_names.find(s);
+		if(r1 == read_names.end()) return false;
+		int index = r1->second;
+
+		for(int i=0;i<readevents[index].size();i++)
+		{
+		    uint64_t ts = readevents[index][i].ts;
+		    if(ts >= min && ts <= max) oup.push_back(readevents[index][i]);
+		}
+		return true;
+	     }*/
 	}
 	void create_events(int num_events,std::string &s);
 	void clear_events(std::string &s);
