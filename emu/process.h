@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "client.h"
+#include "query_parser.h"
 
 class emu_process
 {
@@ -21,6 +22,7 @@ private:
       std::string server_addr;
       metadata_server *MS; 	
       metadata_client *MC;
+      query_parser Q;
 public:
 
       emu_process(int np,int r,int n) : numprocs(np), myrank(r), numcores(n)
@@ -85,6 +87,10 @@ public:
 
       }
 
+      query_parser * get_query_parser_obj()
+      {
+	    return &Q;
+      }
       std::string & get_serveraddr()
       {
 	      return server_addr;

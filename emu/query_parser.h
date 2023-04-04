@@ -24,7 +24,7 @@ class query_parser
 	   {
 		   np = p;
 	   }
-	   void add_event_header(std::string s,int nattrs,std::vector<std::string> &attr_names,std::vector<int> &asizes,std::vector<int> &vsizes)
+	   void add_event_header(std::string s,int nattrs,std::vector<std::string> &attr_names,std::vector<int> &asizes,std::vector<int> &vsizes,std::vector<bool> &sign,std::vector<bool> &end)
 	   {
 		auto r = event_headers.find(s);
 		if(r == event_headers.end())
@@ -33,10 +33,14 @@ class query_parser
 		   assert(nattrs == attr_names.size());
 		   assert(nattrs == asizes.size());
 		   assert(nattrs == vsizes.size());
+		   assert(nattrs == sign.size());
+		   assert(nattrs == end.size());
 		   em.set_numattrs(nattrs);
 		   for(int i=0;i<nattrs;i++)
 		   {
-			em.add_attr(attr_names[i],asizes[i],vsizes[i]);
+			bool sign_v = sign[i];
+			bool end_v = end[i];
+			em.add_attr(attr_names[i],asizes[i],vsizes[i],sign_v,end_v);
 		   }
 		   std::pair<std::string,event_metadata> p(s,em);
 		   event_headers.insert(p);
@@ -52,7 +56,7 @@ class query_parser
 	       }
 	       return false;
            }
-	   bool sort_by_attr(std::string &s,std::pair<uint64_t,uint64_t>&r,std::string &a); 
+	   bool sort_by_attr(std::string &s,std::vector<struct event> &,std::string &a,event_metadata &); 
 };
 
 

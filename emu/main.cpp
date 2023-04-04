@@ -82,8 +82,10 @@ int main(int argc,char **argv)
   {
     std::string a = "attr"+std::to_string(i);
     int asize = sizeof(int);
-    int vsize = 10; 
-    em.add_attr(a,asize,vsize);
+    int vsize = 10;
+    bool is_signed = false;
+    bool is_big_endian = true; 
+    em.add_attr(a,asize,vsize,is_signed,is_big_endian);
   }
 
   for(int i=0;i<numstories;i++)
@@ -108,6 +110,7 @@ int main(int argc,char **argv)
       if(rank < rem) events_per_proc++;
       t_args[i].tid = i; 
       t_args[i].np = np->get_rw_object();
+      t_args[i].q = np->get_query_parser_obj();
       t_args[i].num_events = events_per_proc;
       t_args[i].name = story_names[i];
   }
@@ -161,7 +164,14 @@ int main(int argc,char **argv)
 
   for(int i=0;i<1;i++)
   {
-      std::thread t{get_event_range,&t_args[i]};
+      std::thread t{get_events_range,&t_args[i]};
+      workers[i] = std::move(t);
+      workers[i].join();
+  }
+
+  for(int i=0;i<1;i++)
+  {
+      std::thread t{search_events,&t_args[i]};
       workers[i] = std::move(t);
       workers[i].join();
   }

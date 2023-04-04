@@ -14,6 +14,8 @@ class event_metadata
   std::vector<std::string> attr_names;
   std::vector<int> attr_sizes;
   std::vector<int> value_sizes;
+  std::vector<bool> is_signed;
+  std::vector<bool> big_endian;
   int total_v;
 
   public:
@@ -59,13 +61,15 @@ class event_metadata
 	total_v = n;
 	return total_v;
       }
-      void add_attr(std::string &s,int size1,int size2)
+      void add_attr(std::string &s,int size1,int size2,bool &sig, bool &end)
       {
 	   attr_names.push_back(s);
 	   attr_sizes.push_back(size1);
 	   value_sizes.push_back(size2);
+	   is_signed.push_back(sig);
+	   big_endian.push_back(end);
       }
-      bool get_attr(std::string &s,int &a_size,int &v_size)
+      bool get_attr(std::string &s,int &a_size,int &v_size,bool &sign,bool &end)
       {
 	   auto r = std::find(attr_names.begin(),attr_names.end(),s);
 	   if(r != attr_names.end())
@@ -73,6 +77,8 @@ class event_metadata
 		int pos = std::distance(attr_names.begin(),r);
 		a_size = attr_sizes[pos];
 		v_size = value_sizes[pos];
+		sign = is_signed[pos];
+		end = big_endian[pos];
 		return true;
 	   }
 	   return false;

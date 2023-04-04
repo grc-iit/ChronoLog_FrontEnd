@@ -113,16 +113,37 @@ public:
 		(r1->second).second = max_v;
 	    }
 	}
-        bool get_range(std::string &s,uint64_t &min_v,uint64_t &max_v)
+	event_metadata & get_metadata(std::string &s)
 	{
+		auto r = write_names.find(s);
+		return (r->second).second;
+	}
+        bool get_range_in_read_buffers(std::string &s,uint64_t &min_v,uint64_t &max_v)
+	{
+	    min_v = UINT64_MAX; max_v = 0;
+	    bool err = false;
+	    auto r = read_interval.find(s);
+	    if(r != read_interval.end())
+	    {
+		min_v = (min_v < (r->second).first) ? min_v : (r->second).first;
+		max_v = (max_v > (r->second).second) ? max_v : (r->second).second;
+		err = true;
+	    }
+	    return err;
+	}
+
+	bool get_range_in_write_buffers(std::string &s,uint64_t &min_v,uint64_t &max_v)
+	{
+	    min_v = UINT64_MAX; max_v = 0;
+	    bool err = false;
 	    auto r = write_interval.find(s);
 	    if(r != write_interval.end())
 	    {
-	       min_v = (r->second).first;
-	       max_v = (r->second).second;
-	       return true;
+		min_v = (min_v < (r->second).first) ? min_v : (r->second).first;
+		max_v = (max_v > (r->second).second) ? max_v : (r->second).second;
+		err = true;
 	    }
-	    return false;
+	    return err;
 	}
 
 	int num_write_events(std::string &s)
@@ -135,51 +156,58 @@ public:
 	{
 	    return dm->num_dropped_events();
 	}
-        bool get_events_in_range(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup)
+        bool get_events_in_range_from_read_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup)
 	{
+	     uint64_t min = range.first; uint64_t max = range.second;
+	     bool err = false;
+	     auto r = read_interval.find(s);
+	     if(r != read_interval.end())
+	     {
+		uint64_t min_s = (r->second).first;
+		uint64_t max_s = (r->second).second;
+		if(!((max < min_s) && (min > max_s)))
+		{
+		   min_s = std::max(min_s,min);
+		   max_s = std::min(max_s,max);
+		   
+		   auto r1 = read_names.find(s);
+		   int index = (r1->second).first;
+		
+		   for(int i=0;i<readevents[index].size();i++)
+		   {
+			uint64_t ts = readevents[index][i].ts;
+	     	        if(ts >= min_s && ts <= max_s) oup.push_back(readevents[index][i]);		
+		   }	  
+		   err = true; 
+		}
+	     }
+	     return err;
+	}
+
+	bool get_events_in_range_from_write_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup)
+	{
+	     bool err = false;
 	     uint64_t min = range.first; uint64_t max = range.second;
 	     auto r = write_interval.find(s);
 	     if(r != write_interval.end())
 	     {
 		uint64_t min_s = (r->second).first;
 		uint64_t max_s = (r->second).second;
-		if(max < min_s) return false;
-		if(min > max_s) return false;
-		   
-		min = std::max(min,min_s);
-		max = std::min(max,max_s);
-                
-	        auto r1 = write_names.find(s);
-	        if(r1 == write_names.end()) return false;
-		int index = (r1->second).first;
-	        
-		for(int i=0;i<myevents[index]->size();i++)
-		{
+		if(!((min > max_s) && (max < min_s)))
+		{	
+		   min_s = std::max(min,min_s);
+		   max_s = std::min(max,max_s);
+	           auto r1 = write_names.find(s);
+		   int index = (r1->second).first;
+		   for(int i=0;i<myevents[index]->size();i++)
+		   {
 		     uint64_t ts = (*myevents[index])[i].ts;
 		     if(ts >= min && ts <= max) oup.push_back((*myevents[index])[i]);
-		}	
-	        return true;	
+		   }
+	           err = true;	   
+	        }
 	     }
-	     /*r = read_interval.find(s);
-	     if(r != read_interval.end())
-	     {
-		uint64_t min_s = (r->second).first;
-		uint64_t max_s = (r->second).second;
-		if(max < min_s) return false;
-		if(min > max_s) return false;
-		min = std::max(min,min_s);
-		max = std::min(max,max_s);
-		auto r1 = read_names.find(s);
-		if(r1 == read_names.end()) return false;
-		int index = r1->second;
-
-		for(int i=0;i<readevents[index].size();i++)
-		{
-		    uint64_t ts = readevents[index][i].ts;
-		    if(ts >= min && ts <= max) oup.push_back(readevents[index][i]);
-		}
-		return true;
-	     }*/
+	     return err;
 	}
 	void create_events(int num_events,std::string &s);
 	void clear_events(std::string &s);

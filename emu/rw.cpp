@@ -272,7 +272,9 @@ void read_write_process::pread(const char *filename,std::string &name)
 	   std::string a="attr"+std::to_string(i);
 	   int asize = sizeof(int);
 	   int vsize = 10;
-	   em1.add_attr(a,asize,vsize);
+	   bool is_signed = false;
+	   bool is_big_endian = true;
+	   em1.add_attr(a,asize,vsize,is_signed,is_big_endian);
 	}
 	create_read_buffer(name,em1);
         r = read_names.find(name);	
