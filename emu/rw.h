@@ -9,6 +9,7 @@
 #include "write_buffer.h"
 #include "distributed_sort.h"
 #include "data_server_client.h"
+#include "event_metadata.h"
 
 class read_write_process
 {
@@ -22,8 +23,8 @@ private:
       uint64_t seed = 1;
       databuffers *dm;
       std::vector<std::string> file_names;
-      std::unordered_map<std::string,int> write_names;
-      std::unordered_map<std::string,int> read_names;
+      std::unordered_map<std::string,std::pair<int,event_metadata>> write_names;
+      std::unordered_map<std::string,std::pair<int,event_metadata>> read_names;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> write_interval;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> read_interval;
       std::vector<std::vector<struct event>*> myevents;
@@ -57,46 +58,48 @@ public:
 
 	}
 
-	void create_write_buffer(std::string &s)
+	void create_write_buffer(std::string &s,event_metadata &em)
 	{
           
-	    dm->create_write_buffer(s);
-	    ds->create_sort_buffer(s);
 	    if(write_names.find(s)==write_names.end())
 	    {
 	      std::vector<struct event> *ev = nullptr;
 	      myevents.push_back(ev);
-	      std::pair<std::string,int> p(s,myevents.size()-1);
-	      write_names.insert(p);
+	      std::pair<int,event_metadata> p1(myevents.size()-1,em);
+	      std::pair<std::string,std::pair<int,event_metadata>> p2(s,p1);
+	      write_names.insert(p2);
+	      dm->create_write_buffer();
+	      ds->create_sort_buffer();
 	    }
 	}	
-	void create_read_buffer(std::string &s)
+	void create_read_buffer(std::string &s,event_metadata &em)
 	{
 	    auto r = read_names.find(s);;
 	    if(r==read_names.end())
 	    {
 	        std::vector<struct event> ev;	    
 		readevents.push_back(ev);
-		std::pair<std::string,int> p(s,readevents.size()-1);
-		read_names.insert(p);
+		std::pair<int,event_metadata> p1(readevents.size()-1,em);
+		std::pair<std::string,std::pair<int,event_metadata>> p2(s,p1);
+		read_names.insert(p2);
 	    }	
 
 	}
 	void get_events_from_map(std::string &s)
 	{
            auto r = write_names.find(s);
-	   int index = r->second;
-	   myevents[index] = dm->get_write_buffer(s);
+	   int index = (r->second).first;
+	   myevents[index] = dm->get_write_buffer(index);
 	}
 	
 	void sort_events(std::string &s)
 	{
 	    auto r = write_names.find(s);
-	    int index = r->second;
+	    int index = (r->second).first;
 	    get_events_from_map(s);
-	    ds->get_unsorted_data(myevents[index],s);
+	    ds->get_unsorted_data(myevents[index],index);
 	    uint64_t min_v,max_v;
-	    ds->sort_data(s,min_v,max_v);
+	    ds->sort_data(index,min_v,max_v);
 	    auto r1 = write_interval.find(s);
 	    if(r1 == write_interval.end())
 	    {
@@ -125,7 +128,7 @@ public:
 	int num_write_events(std::string &s)
 	{
 		auto r = write_names.find(s);
-		int index = r->second;
+		int index = (r->second).first;
 		return myevents[index]->size();
 	}
 	int dropped_events()
@@ -148,7 +151,7 @@ public:
                 
 	        auto r1 = write_names.find(s);
 	        if(r1 == write_names.end()) return false;
-		int index = r1->second;
+		int index = (r1->second).first;
 	        
 		for(int i=0;i<myevents[index]->size();i++)
 		{

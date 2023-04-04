@@ -14,6 +14,7 @@ class event_metadata
   std::vector<std::string> attr_names;
   std::vector<int> attr_sizes;
   std::vector<int> value_sizes;
+  int total_v;
 
   public:
       event_metadata()
@@ -24,7 +25,6 @@ class event_metadata
       }
       event_metadata& operator=(event_metadata &m1)
       {
-	 std::cout <<" equal"<<std::endl;
          numattrs = m1.get_numattrs();	
 	 attr_names = m1.get_attr_names();
 	 attr_sizes = m1.get_attr_sizes();
@@ -50,6 +50,14 @@ class event_metadata
       std::vector<int> &get_value_sizes()
       {
 	      return value_sizes;
+      }
+      int get_datasize()
+      {
+	int n = 0;
+	for(int i=0;i<value_sizes.size();i++)
+		n += value_sizes[i];
+	total_v = n;
+	return total_v;
       }
       void add_attr(std::string &s,int size1,int size2)
       {

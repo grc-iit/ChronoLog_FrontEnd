@@ -7,11 +7,8 @@ bool compare_fn(struct event &e1, struct event &e2)
     return e1.ts <= e2.ts;
 }
 
-void dsort::sort_data(std::string &s,uint64_t& min_v,uint64_t &max_v)
+void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
 {
-
-   auto r = sort_names.find(s);
-   int index = r->second;
 
    int total_events = 0;
 
@@ -156,9 +153,11 @@ void dsort::sort_data(std::string &s,uint64_t& min_v,uint64_t &max_v)
    send_buffer_u.resize(events[index]->size());
    recv_buffer_u.resize(total_recv_size);
 
+   int datasize = 0;
    for(int i=0;i<events[index]->size();i++)
    {
 	uint64_t ts = (*events[index])[i].ts;
+	datasize = (*events[index])[i].data.size();
 	int dest = event_dest[i];
 	send_buffer_u[send_displ[dest]] = ts;
 	send_displ[dest]++;
@@ -195,9 +194,9 @@ void dsort::sort_data(std::string &s,uint64_t& min_v,uint64_t &max_v)
    std::vector<char> recv_buffer_char;
 
    for(int i=0;i<numprocs;i++)
-	   send_counts[i] *= DATASIZE;
+	   send_counts[i] *= datasize;
    for(int i=0;i<numprocs;i++)
-	   recv_counts[i] *= DATASIZE;
+	   recv_counts[i] *= datasize;
 
    std::fill(send_displ.begin(),send_displ.end(),0);
    std::fill(recv_displ.begin(),recv_displ.end(),0);
@@ -218,8 +217,8 @@ void dsort::sort_data(std::string &s,uint64_t& min_v,uint64_t &max_v)
    {
 	int dest = event_dest[i];
 	int start = send_displ[dest];
-	memcpy(send_buffer_char.data()+start,(*events[index])[i].data,DATASIZE);
-	send_displ[dest]+=DATASIZE;
+	memcpy(send_buffer_char.data()+start,(*events[index])[i].data.data(),datasize);
+	send_displ[dest]+=datasize;
    }
 
    std::fill(send_displ.begin(),send_displ.end(),0);
@@ -246,11 +245,12 @@ void dsort::sort_data(std::string &s,uint64_t& min_v,uint64_t &max_v)
 
    for(int i=0;i<numprocs;i++)
    {
-	   for(int j=0,k=0;j<key_counts[i];j++,k+=DATASIZE)
+	   for(int j=0,k=0;j<key_counts[i];j++,k+=datasize)
 	   {
 		struct event e;   
 		e.ts = recv_buffer_u[key_displ[i]+j];
-		memcpy(e.data,&(recv_buffer_char[recv_displ[i]+k]),DATASIZE);
+		e.data.resize(datasize);
+		memcpy(e.data.data(),&(recv_buffer_char[recv_displ[i]+k]),datasize);
 		events[index]->push_back(e);
 	   }
    }

@@ -76,12 +76,22 @@ int main(int argc,char **argv)
   std::vector<std::string> story_names;
   std::vector<int> total_events;
 
+  event_metadata em;
+  em.set_numattrs(5);
+  for(int i=0;i<5;i++)
+  {
+    std::string a = "attr"+std::to_string(i);
+    int asize = sizeof(int);
+    int vsize = 10; 
+    em.add_attr(a,asize,vsize);
+  }
+
   for(int i=0;i<numstories;i++)
   {
 	std::string name = "table"+std::to_string(i);
 	story_names.push_back(name);
 	total_events.push_back(65536);
-	np->prepare_service(name);
+	np->prepare_service(name,em);
   }
 
   int num_threads = 4;

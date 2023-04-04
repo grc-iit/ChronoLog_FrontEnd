@@ -1,10 +1,5 @@
 #include "rw.h"
 
-#define RANK 2
-#define DIM0 600
-#define DIM1 1200
-#define EVENTSIZE 108
-
 #define DATASETNAME1 "Data1"
 #define DATASETNAME2 "Data2"
 #define DATASETNAME3 "Data3"
@@ -19,14 +14,21 @@ typedef int DATATYPE;
 
 void read_write_process::create_events(int num_events,std::string &s)
 {
+    int datasize = 0;
+    auto r = write_names.find(s);
+    int index = (r->second).first;
+    event_metadata em = (r->second).second;
+    datasize = em.get_datasize();
+
     for(int i=0;i<num_events;i++)
     {
 	event e;
+	e.data.resize(datasize);
 	uint64_t ts = CM->Timestamp();
 
 	e.ts = ts;
 	      
-	dm->add_event(e,s);
+	dm->add_event(e,index);
     }
 
 }
@@ -36,7 +38,7 @@ void read_write_process::clear_events(std::string &s)
    auto r = read_names.find(s);
    if(r!=read_names.end())
    {
-	int index = r->second;
+	int index = (r->second).first;
 	readevents[index].clear();
    }
    
@@ -44,9 +46,9 @@ void read_write_process::clear_events(std::string &s)
 
    if(r != write_names.end())
    {
-	int index = r->second;
+	int index = (r->second).first;
 	myevents[index]->clear();
-	dm->clear_write_buffer(s);
+	dm->clear_write_buffer(index);
    }
 
 }
@@ -85,7 +87,10 @@ void read_write_process::pwrite(const char *filename,std::string &name)
     H5Pclose(fapl);
 
     auto r = write_names.find(name);
-    int index = r->second;
+
+    int index = (r->second).first;
+    event_metadata em = (r->second).second;
+    int datasize = em.get_datasize();
 
     std::vector<int> num_events_recorded_l,num_events_recorded;
     num_events_recorded_l.resize(numprocs);
@@ -100,18 +105,18 @@ void read_write_process::pwrite(const char *filename,std::string &name)
     int total_records = 0;
     for(int i=0;i<num_events_recorded.size();i++) total_records += num_events_recorded[i];
 
-    if(myrank==0) std::cout <<" total bytes = "<<(uint64_t)total_records*(DATASIZE+8)<<std::endl;
+    if(myrank==0) std::cout <<" total bytes = "<<(uint64_t)total_records*(datasize+8)<<std::endl;
 
     uint64_t num_records = total_records;
-    uint64_t total_size = num_records*DATASIZE+num_records*sizeof(uint64_t);
+    uint64_t total_size = num_records*datasize+num_records*sizeof(uint64_t);
 
-    int record_size = DATASIZE+sizeof(uint64_t);
+    int record_size = datasize+sizeof(uint64_t);
     attr_size[0] = 3;
 
     std::vector<int> attr_data;
     attr_data.push_back(total_records);
     attr_data.push_back(8);
-    attr_data.push_back(DATASIZE);
+    attr_data.push_back(datasize);
 
     uint64_t block_size = num_events_recorded[myrank]*record_size;
 
@@ -153,7 +158,7 @@ void read_write_process::pwrite(const char *filename,std::string &name)
 	    data_array1->push_back(c);
 	    key = key >> 8;
 	}
-	for(int k=0;k<DATASIZE;k++)
+	for(int k=0;k<datasize;k++)
 		data_array1->push_back(e.data[k]);
 
     }
@@ -260,10 +265,21 @@ void read_write_process::pread(const char *filename,std::string &name)
     auto r = read_names.find(name);
     if(r == read_names.end())
     {
-	create_read_buffer(name);
+	event_metadata em1;
+	em1.set_numattrs(5);
+	for(int i=0;i<5;i++)
+	{
+	   std::string a="attr"+std::to_string(i);
+	   int asize = sizeof(int);
+	   int vsize = 10;
+	   em1.add_attr(a,asize,vsize);
+	}
+	create_read_buffer(name,em1);
         r = read_names.find(name);	
     }
-    int index = r->second;
+    int index = (r->second).first;
+    event_metadata em = (r->second).second;
+    int datasize = em.get_datasize();
 
     for(int i=0;i<data_array1->size();)
     {
@@ -279,8 +295,9 @@ void read_write_process::pread(const char *filename,std::string &name)
 	     key = key | v; 
 	}
 	i+=8;
-	memcpy(e.data,data_array1->data()+i,DATASIZE);
-	i+=DATASIZE;
+	e.data.resize(datasize);
+	memcpy(e.data.data(),data_array1->data()+i,datasize);
+	i+=datasize;
 	readevents[index].push_back(e);
     }
 

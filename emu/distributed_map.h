@@ -59,7 +59,6 @@ class distributed_hashmap
 	std::vector<map_type *>my_tables;
 	BlockMap<std::string,int> *table_names;
 	memory_pool<std::string,int> *t_pool;
-	//std::unordered_map<std::string,int> table_names;
 	tl::engine *thallium_server;
 	tl::engine *thallium_shm_server;
 	tl::engine *thallium_client;
@@ -95,7 +94,7 @@ class distributed_hashmap
    }
 
 
-   void create_table(uint64_t n,KeyT maxKey,std::string &table_name)
+   void create_table(uint64_t n,KeyT maxKey)
     {
           uint64_t tsize = n;
           KeyT emptyKey = maxKey;
@@ -117,17 +116,11 @@ class distributed_hashmap
 	  	emptyKeys[pv] = emptyKey;
           	my_tables[pv] = my_table;
           	pls[pv] = pl;
-		table_names->insert(table_name,pv);
 	  }
 
     }
-   void remove_table(std::string &table_name)
+   void remove_table(int index)
    {
-	int index = -1;
-	bool bt = table_names->get(table_name,&index);
-
-	if(!bt) return;
-	
 	delete my_tables[index];
 	delete pls[index];
 	my_tables[index] = nullptr;
@@ -151,15 +144,15 @@ class distributed_hashmap
 
    void bind_functions()
    {
-	std::function<void(const tl::request &, KeyT &, ValueT &, std::string &)> insertFunc(
+	std::function<void(const tl::request &, KeyT &, ValueT &, int &)> insertFunc(
         std::bind(&distributed_hashmap<KeyT, ValueT,HashFcn,EqualFcn>::ThalliumLocalInsert,
         this, std::placeholders::_1, std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
 
-	std::function<void(const tl::request &,KeyT &,std::string &)> findFunc(
+	std::function<void(const tl::request &,KeyT &,int &)> findFunc(
 	std::bind(&distributed_hashmap<KeyT,ValueT,HashFcn,EqualFcn>::ThalliumLocalFind,
 	this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 
-	std::function<void(const tl::request &,KeyT &,std::string &)> eraseFunc(
+	std::function<void(const tl::request &,KeyT &,int &)> eraseFunc(
 	std::bind(&distributed_hashmap<KeyT,ValueT,HashFcn,EqualFcn>::ThalliumLocalErase,
 	this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 
@@ -208,103 +201,69 @@ class distributed_hashmap
    {
 	 CM = C;
    }
-   bool LocalInsert(KeyT &k,ValueT &v,std::string &s)
+   bool LocalInsert(KeyT &k,ValueT &v,int index)
   {
       if(!CM->NearTime(k))
       {
 	   dropped_events.fetch_add(1);
 	   return false;
       }
-      int index = -1;
-      bool bt = table_names->get(s,&index);
-      if(!bt) 
-      {
-	   return false;
-      }
       uint32_t b = my_tables[index]->insert(k,v);
       if(b == INSERTED) return true;
       else return false;
   }
-  bool LocalFind(KeyT &k,std::string &s)
+  bool LocalFind(KeyT &k,int index)
   {
-    int index = -1;
-    bool bt = table_names->get(s,&index);
-    if(!bt) return false;
-      
     if(my_tables[index]->find(k) != NOT_IN_TABLE) return true;
     else return false;
   }
-  bool LocalErase(KeyT &k,std::string &s)
+  bool LocalErase(KeyT &k,int index)
   {
-     int index = -1;
-     bool bt = table_names->get(s,&index);
-     if(!bt) return false;
      return my_tables[index]->erase(k);
   }
-  bool LocalUpdate(KeyT &k,ValueT &v,std::string &s)
+  bool LocalUpdate(KeyT &k,ValueT &v,int index)
   {
-       int index = -1;
-       bool bt = table_names->get(s,&index);
-       if(!bt) return false;
        return my_tables[index]->update(k,v);
   }
-  bool LocalGet(KeyT &k,ValueT* v,std::string &s)
+  bool LocalGet(KeyT &k,ValueT* v,int index)
   {
-       int index = -1;
-       bool bt = table_names->get(s,&index);
-       if(!bt) return false;
        return my_tables[index]->get(k,v);
   }
 
-  ValueT LocalGetValue(KeyT &k,std::string &s)
+  ValueT LocalGetValue(KeyT &k,int index)
   {
         ValueT v;
         new (&v) ValueT();
-        bool b = LocalGet(k,&v,s);
+        bool b = LocalGet(k,&v,index);
         return v;
   }
   
-  bool LocalGetMap(std::vector<ValueT> &values,std::string &s)
+  bool LocalGetMap(std::vector<ValueT> &values,int index)
   {
-	int index = -1;
-	bool bt = table_names->get(s,&index);
-	if(!bt) return false;
 	my_tables[index]->get_map(values);
 	return true;
   }
 
-  bool LocalClearMap(std::string &s)
+  bool LocalClearMap(int index)
   {
-	int index = -1;
-	bool bt = table_names->get(s,&index);
-	if(!bt) return false;
 	my_tables[index]->clear_map();
 	dropped_events = 0;
 	return true;
   }
 
   template<typename... Args>
-  bool LocalUpdateField(KeyT &k,std::string &s,void(*f)(ValueT*,Args&&... args),Args&&...args_)
+  bool LocalUpdateField(KeyT &k,int index,void(*f)(ValueT*,Args&&... args),Args&&...args_)
   {
-     int index = -1;
-     bool bt = table_names->get(s,&index);
-     if(!bt) return false;
      return my_tables[index]->update_field(k,f,std::forward<Args>(args_)...);
   }
 
-  uint64_t allocated(std::string &s)
+  uint64_t allocated(int index)
   {
-     int index = -1;
-     bool bt = table_names->get(s,&index);
-     if(!bt) return false;
      return my_tables[index]->allocated_nodes();
   }
 
-  uint64_t removed(std::string &s)
+  uint64_t removed(int index)
   {
-     int index = -1;
-     bool bt = table_names->get(s,&index);
-     if(!bt) return false;
      return my_tables[index]->removed_nodes();
   }
 
@@ -312,73 +271,63 @@ class distributed_hashmap
   {
 	 return dropped_events;
   }
-  void ThalliumLocalInsert(const tl::request &req, KeyT &k, ValueT &v, std::string &s)
+  void ThalliumLocalInsert(const tl::request &req, KeyT &k, ValueT &v, int &s)
   {
 	req.respond(LocalInsert(k,v,s));
   }
 
-  void ThalliumLocalFind(const tl::request &req, KeyT &k,std::string &s)
+  void ThalliumLocalFind(const tl::request &req, KeyT &k,int &s)
   {
 	  req.respond(LocalFind(k,s));
   }
 
-  void ThalliumLocalErase(const tl::request &req, KeyT &k,std::string &s)
+  void ThalliumLocalErase(const tl::request &req, KeyT &k,int &s)
   {
 	  req.respond(LocalErase(k,s));
   }
-  bool Insert(KeyT &k, ValueT &v,std::string &s)
+  bool Insert(KeyT &k, ValueT &v,int index)
   {
-    int index = -1;
-    bool bt = table_names->get(s,&index);
-    //if(s.compare("table3")==0) std::cout <<" s = "<<s<<" index = "<<index<<std::endl;
-    if(!bt) return false;
     int destid = serverLocation(k,index);
     if(ipaddrs[destid].compare(myipaddr)==0)
     {
 	tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
 	tl::remote_procedure rp = thallium_shm_client->define("RemoteInsert");
-	return rp.on(ep)(k,v,s);
+	return rp.on(ep)(k,v,index);
     }
     else
     {
       tl::remote_procedure rp = thallium_client->define("RemoteInsert");
-      return rp.on(serveraddrs[destid])(k,v,s);
+      return rp.on(serveraddrs[destid])(k,v,index);
     }
   }
-  bool Find(KeyT &k,std::string &s)
+  bool Find(KeyT &k,int index)
   {
-    int index = -1;
-    bool bt = table_names->get(s,&index);
-    if(!bt) return false;
     int destid = serverLocation(k,index);
     if(ipaddrs[destid].compare(myipaddr)==0)
     {
 	tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
 	tl::remote_procedure rp = thallium_shm_client->define("RemoteFind");
-	return rp.on(ep)(k,s);
+	return rp.on(ep)(k,index);
     }
     else
     {
       tl::remote_procedure rp = thallium_client->define("RemoteFind");
-      return rp.on(serveraddrs[destid])(k,s);
+      return rp.on(serveraddrs[destid])(k,index);
     }
   }
-  bool Erase(KeyT &k,std::string &s)
+  bool Erase(KeyT &k,int index)
   {
-     int index = -1;
-     bool bt = table_names->get(s,&index);
-     if(!bt) return false;
      int destid = serverLocation(k,index);
      if(ipaddrs[destid].compare(myipaddr)==0)
      {
 	tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
 	tl::remote_procedure rp = thallium_shm_client->define("RemoteErase");
-	return rp.on(ep)(k,s);
+	return rp.on(ep)(k,index);
      }
      else
      {
        tl::remote_procedure rp = thallium_client->define("RemoteErase");
-       return rp.on(serveraddrs[destid])(k,s);
+       return rp.on(serveraddrs[destid])(k,index);
      }
   }  
 };

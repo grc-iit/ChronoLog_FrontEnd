@@ -89,9 +89,9 @@ public:
       {
 	      return server_addr;
       }
-      void prepare_service(std::string &name)
+      void prepare_service(std::string &name, event_metadata &em)
       {
-	   rwp->create_write_buffer(name);
+	   rwp->create_write_buffer(name,em);
 
       }
       read_write_process* get_rw_object()

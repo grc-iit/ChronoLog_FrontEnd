@@ -39,7 +39,6 @@ class databuffers
   private:
      int event_count;
      distributed_hashmap<uint64_t,int> *dmap;
-     std::unordered_map<std::string,int> q_names;
      std::vector<std::vector<struct event>*> equeues;
      ClockSynchronization<ClocksourceCPPStyle> *CM;
      double max_t;
@@ -80,41 +79,28 @@ class databuffers
   {
 	  return dmap->num_dropped();
   }
-  void create_write_buffer(std::string &s)
+  void create_write_buffer()
   {
-      if(q_names.find(s)==q_names.end())
-      {
-	int total_size = 65536*2;
-	uint64_t maxkey = UINT64_MAX;
-	dmap->create_table(total_size,maxkey,s);
-	std::vector<struct event> *q = new std::vector<struct event> ();
-	equeues.push_back(q);
-	std::pair<std::string,int> p(s,equeues.size()-1);
-	q_names.insert(p);
-      }
+     int total_size = 65536*2;
+     uint64_t maxkey = UINT64_MAX;
+     dmap->create_table(total_size,maxkey);
+     std::vector<struct event> *q = new std::vector<struct event> ();
+     equeues.push_back(q);
   }
-  void clear_write_buffer(std::string &s)
+  void clear_write_buffer(int index)
   {
-	auto r = q_names.find(s);
-	if(r != q_names.end())
-	{
-	   dmap->LocalClearMap(s);
-	   int index = r->second;
-	   equeues[index]->clear();
-	}
+	dmap->LocalClearMap(index);
+	equeues[index]->clear();
   }
 
-  void add_event(event &e,std::string &s)
+  void add_event(event &e,int index)
   {
-      auto r = q_names.find(s);
-      int index = r->second;
-
       uint64_t key = e.ts;
       int v = 1;
 
       auto t1 = std::chrono::high_resolution_clock::now();
 
-      bool b = dmap->Insert(key,v,s);   
+      bool b = dmap->Insert(key,v,index);   
 
       auto t2 = std::chrono::high_resolution_clock::now();
       double t = std::chrono::duration<double> (t2-t1).count();
@@ -123,16 +109,14 @@ class databuffers
 
       if(b) 
       {
-	      std::fill(e.data,e.data+DATASIZE,0);
+	      std::fill(e.data.begin(),e.data.end(),0);
 	      equeues[index]->push_back(e);
 	      event_count++; 
       }
   }
 
-  std::vector<struct event> * get_write_buffer(std::string &s)
+  std::vector<struct event> * get_write_buffer(int index)
   {
-	  auto r = q_names.find(s);
-	  int index = r->second;
 	  return equeues[index];
   }
 

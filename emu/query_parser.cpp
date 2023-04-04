@@ -19,7 +19,7 @@ bool query_parser::sort_by_attr(std::string &s,std::pair<uint64_t,uint64_t> & ra
 	          {
 		       for(int i=0;i<keysize;i++)
 		       {
-			  if(e1.data+key+i < e2.data+key+i) return true;
+			  if(e1.data[key+i] < e2.data[key+i]) return true;
 		       } 
 		       return false;
 		  };

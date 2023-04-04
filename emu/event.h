@@ -5,19 +5,16 @@
 #include <string.h>
 #include <iostream>
 #include <string.h>
-
-
-#define DATASIZE 100
+#include <vector>
 
 struct event
 {
    uint64_t ts;
-   char data[DATASIZE];
-
+   std::vector<char> data;
    event& operator=(const struct event&e1)
    {
 	ts = e1.ts;
-	memcpy(data,e1.data,DATASIZE);
+	memcpy(data.data(),e1.data.data(),e1.data.size());
 	return *this; 
    }
 };
