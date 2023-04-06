@@ -160,7 +160,7 @@ int main(int argc,char **argv)
   total_time = 0;
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
- /* if(rank==0) std::cout <<" sorting time = "<<total_time<<std::endl;
+  if(rank==0) std::cout <<" sorting time = "<<total_time<<std::endl;
 
   for(int i=0;i<1;i++)
   {
@@ -169,13 +169,18 @@ int main(int argc,char **argv)
       workers[i].join();
   }
 
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if(rank==0)
   for(int i=0;i<1;i++)
   {
       std::thread t{search_events,&t_args[i]};
       workers[i] = std::move(t);
       workers[i].join();
-  }*/
+  }
 
+  MPI_Barrier(MPI_COMM_WORLD);
+ /*
   t1 = std::chrono::high_resolution_clock::now();
 
   for(int i=0;i<1;i++)
@@ -191,20 +196,8 @@ int main(int argc,char **argv)
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
 
-  /*std::string filename = "file"+name+".h5";
-  np->write_events(filename.c_str(),name);
-
-  t2 = std::chrono::high_resolution_clock::now();
-
-  t = std::chrono::duration<double> (t2-t1).count();
-
-  double e_time;
-  MPI_Allreduce(&t,&e_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-  if(rank==0) std::cout <<" e_time = "<<e_time<<std::endl; 
-  */
-
   std::string fname = "file"+t_args[0].name+".h5";
-  np->read_events(fname.c_str(),t_args[0].name);
+  np->read_events(fname.c_str(),t_args[0].name);*/
 
   /*np->clear_events(name);*/
 
