@@ -24,14 +24,13 @@ class query_parser
 	   {
 		   np = p;
 	   }
-	   void add_event_header(std::string s,int nattrs,std::vector<std::string> &attr_names,std::vector<int> &asizes,std::vector<int> &vsizes,std::vector<bool> &sign,std::vector<bool> &end)
+	   void add_event_header(std::string s,int nattrs,std::vector<std::string> &attr_names,std::vector<int> &vsizes,std::vector<bool> &sign,std::vector<bool> &end)
 	   {
 		auto r = event_headers.find(s);
 		if(r == event_headers.end())
 		{
 		   event_metadata em;
 		   assert(nattrs == attr_names.size());
-		   assert(nattrs == asizes.size());
 		   assert(nattrs == vsizes.size());
 		   assert(nattrs == sign.size());
 		   assert(nattrs == end.size());
@@ -40,7 +39,7 @@ class query_parser
 		   {
 			bool sign_v = sign[i];
 			bool end_v = end[i];
-			em.add_attr(attr_names[i],asizes[i],vsizes[i],sign_v,end_v);
+			em.add_attr(attr_names[i],vsizes[i],sign_v,end_v);
 		   }
 		   std::pair<std::string,event_metadata> p(s,em);
 		   event_headers.insert(p);

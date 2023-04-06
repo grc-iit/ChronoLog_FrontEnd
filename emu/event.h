@@ -19,4 +19,12 @@ struct event
    }
 };
 
+struct event_hdf
+{
+   uint64_t ts;
+   char data[40];
+   double data_d;
+};
+
+
 #endif

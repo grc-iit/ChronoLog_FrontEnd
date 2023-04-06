@@ -7,11 +7,20 @@ bool query_parser::sort_by_attr(std::string &s, std::vector<struct event> &r_eve
    bool b; 
    int offset; 
    b = em.get_offset(a_name,offset);
-   int asize,vsize;
+   int vsize;
    bool sign_v,end_v;
-   b = em.get_attr(a_name,asize,vsize,sign_v,end_v);  
+   b = em.get_attr(a_name,vsize,sign_v,end_v);  
 
-   auto compare = [&keysize=asize,&key=offset,&sign_b=sign_v,&end_b=end_v](struct event &e1, struct event &e2)
+   for(int i=0;i<r_events.size();i++)
+   {
+        for(int j=0;j<sizeof(double);j++)
+	{
+           double r = (double)(random()%INT_MAX);
+	   r_events[i].data[j+offset];
+	}
+   }
+
+   auto compare = [&keysize=vsize,&key=offset,&sign_b=sign_v,&end_b=end_v](struct event &e1, struct event &e2)
 	          {
 		       if(!sign_b)
 		       {
@@ -38,7 +47,7 @@ bool query_parser::sort_by_attr(std::string &s, std::vector<struct event> &r_eve
 			  unsigned char s_bit2 = msb2 & mask;
 			  s_bit2 = s_bit2 >> 7;
 			  
-			  if(s_bit1==sbit2)
+			  if(s_bit1==s_bit2)
 			  {
 			      if(s_bit1==0)
 			      {
