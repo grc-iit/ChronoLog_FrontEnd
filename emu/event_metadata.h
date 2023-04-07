@@ -11,6 +11,8 @@ class event_metadata
 
   private:
   int numattrs;
+  std::string key_field;
+  int psize;
   std::vector<std::string> attr_names;
   std::vector<int> value_sizes;
   std::vector<bool> is_signed;
@@ -20,6 +22,8 @@ class event_metadata
   public:
       event_metadata()
       {
+	  key_field = "timestamp";
+	  psize = sizeof(uint64_t);
       }
       ~event_metadata()
       {
@@ -38,6 +42,14 @@ class event_metadata
       int get_numattrs()
       {
 	    return numattrs;
+      }
+      std::string &get_key_field()
+      {
+	      return key_field;
+      }
+      int ksize()
+      {
+	      return psize;
       }
       std::vector<std::string> &get_attr_names()
       {
@@ -87,6 +99,18 @@ class event_metadata
 	        c += value_sizes[i];	
 	   }
 	   offset = c;
+	   return true;
+	}
+	return false;
+      }
+
+      bool get_size(std::string &s,int &v)
+      {
+	auto r = std::find(attr_names.begin(),attr_names.end(),s);
+	if(r != attr_names.end())
+	{
+	   int pos = std::distance(attr_names.begin(),r);
+	   v = value_sizes[pos];
 	   return true;
 	}
 	return false;

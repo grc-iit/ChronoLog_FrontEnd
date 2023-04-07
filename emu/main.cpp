@@ -180,6 +180,7 @@ int main(int argc,char **argv)
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
+
  /*
   t1 = std::chrono::high_resolution_clock::now();
 

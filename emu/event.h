@@ -14,7 +14,7 @@ struct event
    event& operator=(const struct event&e1)
    {
 	ts = e1.ts;
-	memcpy(data.data(),e1.data.data(),e1.data.size());
+	data.assign(e1.data.begin(),e1.data.end());
 	return *this; 
    }
 };
@@ -25,6 +25,5 @@ struct event_hdf
    char data[40];
    double data_d;
 };
-
 
 #endif

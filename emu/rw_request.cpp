@@ -47,5 +47,6 @@ void search_events(struct thread_arg *t)
 	std::string aname = "attr"+std::to_string(1);
 
 	event_metadata em = t->np->get_metadata(t->name);
-        t->q->sort_by_attr(t->name,range_events,aname,em);
+	std::vector<view> resp;
+        t->q->sort_events_by_attr(t->name,range_events,aname,em,resp);
 }
