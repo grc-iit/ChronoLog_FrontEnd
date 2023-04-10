@@ -72,7 +72,7 @@ int main(int argc,char **argv)
 
   }*/
 
-  int numstories = 8;
+  int numstories = 1;
   std::vector<std::string> story_names;
   std::vector<int> total_events;
 
@@ -95,7 +95,10 @@ int main(int argc,char **argv)
 	np->prepare_service(name,em);
   }
 
-  int num_threads = 4;
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  int num_threads = 1;
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -143,7 +146,7 @@ int main(int argc,char **argv)
 	MPI_Allreduce(&nevents,&tevents,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 	//if(rank==0) std::cout <<" i = "<<i<<" name = "<<story_names[i]<<" total_events = "<<tevents<<std::endl;
  }*/
-
+  /*
   t1 = std::chrono::high_resolution_clock::now();
 
   for(int i=0;i<num_threads;i++)
@@ -161,8 +164,8 @@ int main(int argc,char **argv)
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
   if(rank==0) std::cout <<" sorting time = "<<total_time<<std::endl;
-
-  for(int i=0;i<1;i++)
+*/
+  /*for(int i=0;i<1;i++)
   {
       std::thread t{get_events_range,&t_args[i]};
       workers[i] = std::move(t);
@@ -179,9 +182,9 @@ int main(int argc,char **argv)
       workers[i].join();
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Barrier(MPI_COMM_WORLD);*/
 
- /*
+  /* 
   t1 = std::chrono::high_resolution_clock::now();
 
   for(int i=0;i<1;i++)
@@ -195,9 +198,9 @@ int main(int argc,char **argv)
   t = std::chrono::duration<double>(t2-t1).count();
   total_time = 0;
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
+  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;*/
 
-  std::string fname = "file"+t_args[0].name+".h5";
+ /* std::string fname = "file"+t_args[0].name+".h5";
   np->read_events(fname.c_str(),t_args[0].name);*/
 
   /*np->clear_events(name);*/

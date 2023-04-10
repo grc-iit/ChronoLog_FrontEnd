@@ -15,7 +15,9 @@ void sort_events(struct thread_arg *t)
 void write_events(struct thread_arg *t)
 {
 	std::string filename = "file"+t->name+".h5";
- 	t->np->pwrite(filename.c_str(),t->name);
+ 	t->np->pwrite_new(filename.c_str(),t->name);
+	MPI_Barrier(MPI_COMM_WORLD);
+	t->np->pwrite_extend(filename.c_str(),t->name);
 }
 
 void get_events_range(struct thread_arg *t)

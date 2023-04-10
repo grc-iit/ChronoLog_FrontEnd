@@ -22,11 +22,12 @@ private:
       boost::hash<uint64_t> hasher;
       uint64_t seed = 1;
       databuffers *dm;
-      std::vector<std::string> file_names;
+      std::set<std::string> file_names;
       std::unordered_map<std::string,std::pair<int,event_metadata>> write_names;
       std::unordered_map<std::string,std::pair<int,event_metadata>> read_names;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> write_interval;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> read_interval;
+      std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> file_minmax;
       std::vector<std::vector<struct event>*> myevents;
       std::vector<std::vector<struct event>> readevents;
       dsort *ds;
@@ -118,6 +119,23 @@ public:
 		auto r = write_names.find(s);
 		return (r->second).second;
 	}
+	bool get_range_in_file(std::string &s, uint64_t &min_v,uint64_t &max_v)
+	{
+	   min_v = UINT64_MAX; max_v = 0;
+	   bool err = false;
+
+	   auto r = std::find(file_names.begin(),file_names.end(),s);
+	   if(r != file_names.end())
+	   {
+
+
+
+
+
+	   }
+
+	}
+
         bool get_range_in_read_buffers(std::string &s,uint64_t &min_v,uint64_t &max_v)
 	{
 	    min_v = UINT64_MAX; max_v = 0;
@@ -212,8 +230,10 @@ public:
 	void create_events(int num_events,std::string &s);
 	void clear_events(std::string &s);
 	void get_range(std::string &s);
-        void pwrite(const char *,std::string &s);
-	void pread(const char*,std::string &s);
+        void pwrite_new(const char *,std::string &s);
+	void pwrite_extend(const char*,std::string &s);
+	void preaddata(const char*,std::string &s);
+	void preadfileattr(const char*);
 };
 
 #endif

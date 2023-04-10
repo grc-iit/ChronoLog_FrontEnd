@@ -117,6 +117,7 @@ class distributed_hashmap
           	my_tables[pv] = my_table;
           	pls[pv] = pl;
 	  }
+	  std::cout <<" numtables = "<<pv<<std::endl;
 
     }
    void remove_table(int index)
@@ -208,7 +209,7 @@ class distributed_hashmap
 	   dropped_events.fetch_add(1);
 	   return false;
       }
-      uint32_t b = my_tables[index]->insert(k,v);
+      uint32_t b = INSERTED; //my_tables[index]->insert(k,v);
       if(b == INSERTED) return true;
       else return false;
   }

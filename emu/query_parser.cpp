@@ -1,5 +1,6 @@
 #include "query_parser.h"
 #include <cmath>
+#include <typeinfo>
 
 struct intcompare
 {
@@ -31,20 +32,32 @@ struct stringcompare
 };
 
 
-template<typename T,class CompareFcn=intcompare>
+template<typename T,class CompareFcn1,class CompareFcn2=stringcompare>
 bool compare_events(view &e1,view &e2)
 {
     int offset1 = e1.offset;
     int len1 = e1.length;
     int offset2 = e2.offset;
     int len2 = e2.length;
-    
+   
     T v1,v2;
-    memcpy(&v1,&e1.e.data[offset1],len1);
-    memcpy(&v2,&e2.e.data[offset2],len2);
+    std::string t;
 
-    if(CompareFcn()(v1,v2)) return true; 
-    else return false;
+    if(typeid(v1)==typeid(t))
+    {
+       std::string s1,s2;
+       s1.assign(&(e1.e.data[offset1]),len1);
+       s2.assign(&(e2.e.data[offset2]),len2);
+       if(CompareFcn2()(s1,s2)) return true;
+       else return false;
+    }
+    else
+    {
+      memcpy(&v1,&e1.e.data[offset1],len1);
+      memcpy(&v2,&e2.e.data[offset2],len2);
+      if(CompareFcn1()(v1,v2)) return true; 
+      else return false;
+    }
 }
 
 bool compare_events_string(view &e1,view &e2)
@@ -86,7 +99,7 @@ bool query_parser::sort_events_by_attr(std::string &s, std::vector<struct event>
       resp.push_back(ep);
    }
 
-   std::sort(resp.begin(),resp.end(),compare_events<int,intcompare>);
+   std::sort(resp.begin(),resp.end(),compare_events<int,intcompare,stringcompare>);
 
    return true;
 }
@@ -99,7 +112,6 @@ bool query_parser::select_by_attr(std::string &s,std::string &a_name,std::vector
     bool b = em.get_offset(a_name,offset);
     int size = 0;
     b = em.get_size(a_name,size);
-
 
     for(int i=0;i<r_events.size();i++)
     {
@@ -139,21 +151,27 @@ bool query_parser::add_view_to_cache(std::string &s,std::string &a_name,std::vec
 
 	std::unordered_map<uint64_t,int> mytable;
 
-	for(int i=0;i<v.size();i++)
-	{
-	    uint64_t key = v[i].e.ts;
-	    std::pair<uint64_t,int> p(key,i);
-	    mytable.insert(p);
-	}
-
 	if(t==lookup_tables.end())
 	{
 	   std::pair<std::string,std::unordered_map<uint64_t,int>> p;
 	   p.first = vname;
-	   p.second.assign(mytable.begin(),mytable.end());
+	   for(int i=0;i<v.size();i++)
+	   {
+	     uint64_t key = v[i].e.ts;
+	     std::pair<uint64_t,int> p1(key,i);
+	     p.second.insert(p1);
+	   }
 	   lookup_tables.insert(p);
 	}
-	else t->second.assign(mytable.begin(),mytable.end());
+	else 
+	{
+	   for(int i=0;i<v.size();i++)
+	   {
+	      uint64_t key = v[i].e.ts;
+	      std::pair<uint64_t,int> p1(key,i);
+	      t->second.insert(p1);
+	   }
+	}
 
 	if(r == cached_views.end())
 	{

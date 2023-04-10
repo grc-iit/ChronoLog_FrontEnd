@@ -14,8 +14,8 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
 
    int local_events = events[index]->size();
    
-   MPI_Request *reqs = (MPI_Request *)std::malloc(numprocs*2*sizeof(MPI_Request));
-   MPI_Status *stats = (MPI_Status *)std::malloc(numprocs*2*sizeof(MPI_Status));
+   MPI_Request *reqs = (MPI_Request *)std::malloc(numprocs*4*sizeof(MPI_Request));
+   MPI_Status *stats = (MPI_Status *)std::malloc(numprocs*4*sizeof(MPI_Status));
   
    std::vector<uint64_t> mysplitters;
    if(local_events >= 2)
@@ -38,17 +38,26 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
 
    splitter_counts[myrank] = mysplitters.size();
 
+   int nreq = 0;
    for(int i=0;i<numprocs;i++)
    {
-	MPI_Isend(&splitter_counts[myrank],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[i]);
+	if(i != myrank)
+	{
+	  MPI_Isend(&splitter_counts[myrank],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	  nreq++;
+	}
    }
 
    for(int i=0;i<numprocs;i++)
    {
-	MPI_Irecv(&splitter_counts[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[numprocs+i]);
+        if(i != myrank)
+	{
+	  MPI_Irecv(&splitter_counts[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	  nreq++;
+	}
    }
 
-   MPI_Waitall(2*numprocs,reqs,stats);
+   MPI_Waitall(nreq,reqs,stats);
 
    int num_splitters = 0;
    for(int i=0;i<numprocs;i++) num_splitters += splitter_counts[i];
@@ -65,18 +74,21 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    for(int i=1;i<numprocs;i++)
 	   displ[i] = displ[i-1]+splitter_counts[i-1];
   
+   nreq = 0;
    for(int i=0;i<numprocs;i++)
    {
-	MPI_Isend(mysplitters.data(),splitter_counts[myrank],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[i]);
+	MPI_Isend(mysplitters.data(),splitter_counts[myrank],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
    }
 
    for(int i=0;i<numprocs;i++)
    {
-	MPI_Irecv(&splitters[displ[i]],splitter_counts[i],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[numprocs+i]);
+	MPI_Irecv(&splitters[displ[i]],splitter_counts[i],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
    }
 
-   MPI_Waitall(2*numprocs,reqs,stats);
-
+   MPI_Waitall(nreq,reqs,stats);
+   
    std::sort(splitters.begin(),splitters.end());
 
    int splitters_per_proc =  num_splitters/numprocs;
@@ -133,18 +145,21 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    std::fill(recv_counts.begin(),recv_counts.end(),0);
    std::fill(recv_displ.begin(),recv_displ.end(),0);
 
+   nreq = 0;
    for(int i=0;i<numprocs;i++)
    {
-	MPI_Isend(&send_counts[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[i]);
+	MPI_Isend(&send_counts[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
    }
 
    for(int i=0;i<numprocs;i++)
    {
-	MPI_Irecv(&recv_counts[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[numprocs+i]);
+	MPI_Irecv(&recv_counts[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
    }
 
-   MPI_Waitall(2*numprocs,reqs,stats);
-
+   MPI_Waitall(nreq,reqs,stats);
+   
    int total_recv_size = 0;
 
    for(int i=0;i<numprocs;i++)
@@ -171,17 +186,20 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    for(int i=1;i<numprocs;i++)
 	   recv_displ[i] = recv_displ[i-1]+recv_counts[i-1];
 
+   nreq = 0;
    for(int i=0;i<numprocs;i++)
    {
-	MPI_Isend(&send_buffer_u[send_displ[i]],send_counts[i],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[i]);
+	MPI_Isend(&send_buffer_u[send_displ[i]],send_counts[i],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
    }
 
    for(int i=0;i<numprocs;i++)
    {
-	 MPI_Irecv(&recv_buffer_u[recv_displ[i]],recv_counts[i],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[numprocs+i]);
+	 MPI_Irecv(&recv_buffer_u[recv_displ[i]],recv_counts[i],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	 nreq++;
    }
 
-   MPI_Waitall(2*numprocs,reqs,stats);
+   MPI_Waitall(nreq,reqs,stats);
 
 
    std::vector<int> key_counts;
@@ -229,17 +247,20 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    for(int i=1;i<numprocs;i++)
 	   recv_displ[i] = recv_displ[i-1]+recv_counts[i-1];
 
+   nreq = 0;
    for(int i=0;i<numprocs;i++)
    {
-	MPI_Isend(&send_buffer_char[send_displ[i]],send_counts[i],MPI_CHAR,i,index,MPI_COMM_WORLD,&reqs[i]);
+	MPI_Isend(&send_buffer_char[send_displ[i]],send_counts[i],MPI_CHAR,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
    }
 
    for(int i=0;i<numprocs;i++)
    {
-	MPI_Irecv(&recv_buffer_char[recv_displ[i]],recv_counts[i],MPI_CHAR,i,index,MPI_COMM_WORLD,&reqs[numprocs+i]);
+	MPI_Irecv(&recv_buffer_char[recv_displ[i]],recv_counts[i],MPI_CHAR,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
    }
 
-   MPI_Waitall(2*numprocs,reqs,stats);
+   MPI_Waitall(nreq,reqs,stats);
 
    events[index]->clear();
 
@@ -259,7 +280,7 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    uint64_t min_ts, max_ts;
    uint64_t min_ts_a, max_ts_a;
 
-   int nreqs = 0;
+   nreq = 0;
    if(myrank==0||myrank==numprocs-1)
    {
      if(myrank==0)
@@ -267,24 +288,30 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
        min_ts = (*events[index])[0].ts;
 
         for(int i=0;i<numprocs;i++)
-	  MPI_Isend(&min_ts,1,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[i]);
+	{
+	  MPI_Isend(&min_ts,1,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	  nreq++;
+	}
+
      }
-     else
+     if(myrank==numprocs-1)
      {
 	int n = events[index]->size();
 	max_ts = (*events[index])[n-1].ts;
 
 	for(int i=0;i<numprocs;i++)
-	   MPI_Isend(&max_ts,1,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[i]);
+	{
+	   MPI_Isend(&max_ts,1,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	}
      }
-     nreqs = numprocs;
    }
 
-   MPI_Irecv(&min_ts_a,1,MPI_UINT64_T,0,index,MPI_COMM_WORLD,&reqs[nreqs]);
-   nreqs++;
-   MPI_Irecv(&max_ts_a,1,MPI_UINT64_T,numprocs-1,index,MPI_COMM_WORLD,&reqs[nreqs]);
-   nreqs++;
-   MPI_Waitall(nreqs,reqs,stats);
+   MPI_Irecv(&min_ts_a,1,MPI_UINT64_T,0,index,MPI_COMM_WORLD,&reqs[nreq]);
+   nreq++;
+   MPI_Irecv(&max_ts_a,1,MPI_UINT64_T,numprocs-1,index,MPI_COMM_WORLD,&reqs[nreq]);
+   nreq++;
+   MPI_Waitall(nreq,reqs,stats);
 
    min_v = min_ts_a;
    max_v = max_ts_a;
