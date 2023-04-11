@@ -318,7 +318,8 @@ class BlockMap
 		pl->memory_pool_push(n);
 		n = nn;
 		table[i].num_nodes--;
-	     } 
+	     }
+	     table[i].head->next = nullptr; 
 	  }
 	  return true;
 	}

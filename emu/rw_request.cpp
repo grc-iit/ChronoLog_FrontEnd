@@ -15,9 +15,7 @@ void sort_events(struct thread_arg *t)
 void write_events(struct thread_arg *t)
 {
 	std::string filename = "file"+t->name+".h5";
- 	t->np->pwrite_new(filename.c_str(),t->name);
-	MPI_Barrier(MPI_COMM_WORLD);
-	t->np->pwrite_extend(filename.c_str(),t->name);
+ 	t->np->pwrite(filename.c_str(),t->name);
 }
 
 void get_events_range(struct thread_arg *t)
@@ -51,4 +49,27 @@ void search_events(struct thread_arg *t)
 	event_metadata em = t->np->get_metadata(t->name);
 	std::vector<view> resp;
         t->q->sort_events_by_attr(t->name,range_events,aname,em,resp);
+}
+
+void open_write_stream(struct thread_arg *t)
+{
+   int niter = 10;
+   std::string filename = "file"+t->name+".h5";
+   for(int i=0;i<niter;i++)
+   {
+	t->np->create_events(t->num_events,t->name);
+	t->np->sort_events(t->name);
+	t->np->pwrite(filename.c_str(),t->name);
+	t->np->clear_events(t->name);
+	MPI_Barrier(MPI_COMM_WORLD);
+   }
+}
+
+void close_write_stream(struct thread_arg *t)
+{
+
+
+
+
+
 }

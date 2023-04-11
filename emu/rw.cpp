@@ -47,7 +47,7 @@ void read_write_process::clear_events(std::string &s)
    if(r != write_names.end())
    {
 	int index = (r->second).first;
-	myevents[index]->clear();
+	if(myevents[index] != nullptr) myevents[index]->clear();
 	dm->clear_write_buffer(index);
    }
 
@@ -85,6 +85,9 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     if(fid < 0) std::cout <<" file not created"<<std::endl;
 
     H5Pclose(fapl);
+
+    std::string fname(filename);
+    file_names.insert(fname);
 
     auto r = write_names.find(name);
 
@@ -200,9 +203,6 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     ret = H5Dclose(dataset1);
     H5Fclose(fid); 
 
-    std::string fname(filename);
-    file_names.insert(fname);
-
     data_array1->clear();
 }
 
@@ -235,8 +235,6 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
     std::vector<uint64_t> attrs;
     attrs.resize(5);
 
-    std::string fname(filename);
-    auto r = file_minmax.find(fname);
     ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
     auto r1 = write_names.find(s);
@@ -485,5 +483,19 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     delete data_array1;
 
    H5Fclose(fid);  
+
+}
+
+
+void read_write_process::pwrite(const char *filename,std::string &s)
+{
+   std::string fname(filename);
+
+   auto r = std::find(file_names.begin(),file_names.end(),fname);
+   if(r == file_names.end())
+   {
+	pwrite_new(filename,s);
+   }
+   else pwrite_extend(filename,s);
 
 }

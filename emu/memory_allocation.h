@@ -82,14 +82,13 @@ class memory_pool
 		node_type *n = nullptr;
 		while(!active_queue->pop(n))
 		{
-		    node_type *t = nullptr;
+		    /*node_type *t = nullptr;
 		    while(free_queue->pop(t))
 		    {
-			t->next = nullptr;
 			active_queue->push(t);
 			t = nullptr;
 		    }
-		    free_nodes.store(0);
+		    free_nodes.store(0);*/
 		  
 		    if(active_queue->pop(n)) break;  
 
@@ -107,11 +106,13 @@ class memory_pool
 		    if(free_queue->empty()) free_nodes.store(0);
 		}
 
+		n->next = nullptr;
 		return n;
 	 }
 	 void memory_pool_push(node_type *n)
 	 {
-		free_queue->push(n);
+		n->next = nullptr;
+		active_queue->push(n);
 		free_nodes.fetch_add(1);
 	 }
 

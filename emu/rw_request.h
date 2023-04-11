@@ -22,6 +22,7 @@ void sort_events(struct thread_arg *);
 void write_events(struct thread_arg *t);
 void search_events(struct thread_arg *t);
 void get_events_range(struct thread_arg *t);
-
+void open_write_stream(struct thread_arg *t);
+void close_write_stream(struct thread_arg *t);
 
 #endif

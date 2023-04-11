@@ -16,7 +16,7 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    
    MPI_Request *reqs = (MPI_Request *)std::malloc(numprocs*4*sizeof(MPI_Request));
    MPI_Status *stats = (MPI_Status *)std::malloc(numprocs*4*sizeof(MPI_Status));
-  
+ 
    std::vector<uint64_t> mysplitters;
    if(local_events >= 2)
    {

@@ -230,6 +230,7 @@ public:
 	void create_events(int num_events,std::string &s);
 	void clear_events(std::string &s);
 	void get_range(std::string &s);
+	void pwrite(const char *,std::string &s);
         void pwrite_new(const char *,std::string &s);
 	void pwrite_extend(const char*,std::string &s);
 	void preaddata(const char*,std::string &s);

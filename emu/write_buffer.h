@@ -109,9 +109,9 @@ class databuffers
 
       if(b) 
       {
-	      /*std::fill(e.data.begin(),e.data.end(),0);
+	      std::fill(e.data.begin(),e.data.end(),0);
 	      equeues[index]->push_back(e);
-	      event_count++; */
+	      event_count++; 
       }
   }
 
