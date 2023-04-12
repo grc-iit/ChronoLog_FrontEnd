@@ -55,6 +55,7 @@ class distributed_hashmap
         uint32_t nservers;
         uint32_t serverid;
 	int numcores;
+	std::vector<std::pair<uint64_t,uint64_t>> range;
 	std::vector<KeyT> emptyKeys;
 	std::vector<pool_type *>pls;
 	std::vector<map_type *>my_tables;
@@ -117,6 +118,8 @@ class distributed_hashmap
 	  	emptyKeys[pv] = emptyKey;
           	my_tables[pv] = my_table;
           	pls[pv] = pl;
+		range[pv].first = 0;
+		range[pv].second = UINT64_MAX;
 	  }
 
     }
@@ -177,6 +180,7 @@ class distributed_hashmap
 	emptyKeys.resize(maxtables);
 	my_tables.resize(maxtables);
 	pls.resize(maxtables);
+	range.resize(maxtables);
 	dropped_events.store(0);
 	for(int i=0;i<maxtables;i++)
 	{
@@ -204,7 +208,7 @@ class distributed_hashmap
    }
    bool LocalInsert(KeyT &k,ValueT &v,int index)
   {
-      if(!CM->NearTime(k))
+      if(!CM->NearTime(k) || !(k>=range[index].first && k <= range[index].second))
       {
 	   dropped_events.fetch_add(1);
 	   return false;
@@ -244,7 +248,11 @@ class distributed_hashmap
 	my_tables[index]->get_map(values);
 	return true;
   }
-
+  void set_valid_range(int index,uint64_t &min_k,uint64_t &max_k)
+  {
+	range[index].first = min_k;
+	range[index].second = max_k;
+  }
   bool LocalClearMap(int index)
   {
 	my_tables[index]->clear_map();

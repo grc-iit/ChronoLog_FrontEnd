@@ -20,6 +20,10 @@ void read_write_process::create_events(int num_events,std::string &s)
     event_metadata em = (r->second).second;
     datasize = em.get_datasize();
     
+    auto ab = dm->get_atomic_buffer(index);
+
+    boost::upgrade_lock<boost::shared_mutex> lk(ab->m);
+
     for(int i=0;i<num_events;i++)
     {
 	event e;
@@ -47,8 +51,12 @@ void read_write_process::clear_events(std::string &s)
    if(r != write_names.end())
    {
 	int index = (r->second).first;
-	if(myevents[index] != nullptr) myevents[index]->clear();
 	dm->clear_write_buffer(index);
+	auto r1 = write_interval.find(s);
+	uint64_t min_k = r1->second.second+1;
+	uint64_t max_k = UINT64_MAX;
+	dm->set_valid_range(index,min_k,max_k);
+	r1->second.first = UINT64_MAX; r1->second.second = 0;
    }
 
 }
@@ -101,14 +109,16 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
     std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
-    num_events_recorded_l[myrank] = myevents[index]->size();
+    boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
+
+    num_events_recorded_l[myrank] = myevents[index]->buffer->size();
 
     MPI_Allreduce(num_events_recorded_l.data(),num_events_recorded.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
     int total_records = 0;
     for(int i=0;i<num_events_recorded.size();i++) total_records += num_events_recorded[i];
 
-    if(myrank==0) std::cout <<" total bytes = "<<(uint64_t)total_records*(datasize+8)<<std::endl;
+    if(myrank==0) std::cout <<" total records = "<<total_records<<std::endl;
 
     uint64_t num_records = total_records;
     uint64_t total_size = num_records*datasize+num_records*sizeof(uint64_t);
@@ -160,10 +170,10 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
 
     uint64_t min_v = UINT64_MAX; uint64_t max_v = 0;
 
-    if(myrank==0) min_v = (*myevents[index])[0].ts;
+    if(myrank==0) min_v = (*(myevents[index]->buffer))[0].ts;
     if(myrank==numprocs-1)
     {
-	max_v = (*myevents[index])[myevents[index]->size()-1].ts;
+	max_v = (*(myevents[index]->buffer))[myevents[index]->buffer->size()-1].ts;
     }
 
     MPI_Bcast(&min_v,1,MPI_UINT64_T,0,MPI_COMM_WORLD);
@@ -171,9 +181,9 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
 
     attr_data.push_back(min_v); attr_data.push_back(max_v);
 
-    for(int i=0;i<myevents[index]->size();i++)
+    for(int i=0;i<myevents[index]->buffer->size();i++)
     {
-	event e = (*myevents[index])[i];
+	event e = (*(myevents[index]->buffer))[i];
 	struct event_hdf ef;
 	ef.ts = e.ts;
 	memcpy(ef.data,e.data.data(),e.data.size());
@@ -204,6 +214,7 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     H5Fclose(fid); 
 
     data_array1->clear();
+    delete data_array1;
 }
 
 void read_write_process::pwrite_extend(const char *filename,std::string &s)
@@ -242,18 +253,22 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
     event_metadata em = (r1->second).second;
     int datasize = em.get_datasize();
 
+    boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
+
     std::vector<int> num_events_recorded_l,num_events_recorded;
     num_events_recorded_l.resize(numprocs);
     num_events_recorded.resize(numprocs);
     std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
     std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
-    num_events_recorded_l[myrank] = myevents[index]->size();
+    num_events_recorded_l[myrank] = myevents[index]->buffer->size();
 
     MPI_Allreduce(num_events_recorded_l.data(),num_events_recorded.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
     
     int total_records = 0;
     for(int i=0;i<numprocs;i++) total_records += num_events_recorded[i];
+
+    if(myrank==0) std::cout <<" total_records = "<<total_records<<std::endl;
 
     hsize_t offset = 0;
     for(int i=0;i<myrank;i++)
@@ -271,9 +286,9 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
 
     std::vector<struct event_hdf> *data_array1 = new std::vector<struct event_hdf> ();
 
-    for(int i=0;i<myevents[index]->size();i++)
+    for(int i=0;i<myevents[index]->buffer->size();i++)
     {
-	struct event e = (*myevents[index])[i];
+	struct event e = (*(myevents[index]->buffer))[i];
 	struct event_hdf ep;
         ep.ts = e.ts;	
 	memcpy(ep.data,e.data.data(),e.data.size());
@@ -299,11 +314,11 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
     uint64_t min_v,max_v;
     if(myrank==0)
     {
-	min_v = (*myevents[index])[0].ts;
+	min_v = (*(myevents[index]->buffer))[0].ts;
     }
     if(myrank==numprocs-1)
     {
-	max_v = (*myevents[index])[myevents[index]->size()-1].ts;
+	max_v = (*(myevents[index]->buffer))[myevents[index]->buffer->size()-1].ts;
     }
     
     MPI_Bcast(&min_v,1,MPI_UINT64_T,0,MPI_COMM_WORLD);

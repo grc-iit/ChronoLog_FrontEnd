@@ -27,7 +27,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <mpi.h>
-
 #include "distributed_map.h"
 #include "event.h"
 
@@ -39,7 +38,7 @@ class databuffers
   private:
      int event_count;
      distributed_hashmap<uint64_t,int> *dmap;
-     std::vector<std::vector<struct event>*> equeues;
+     std::vector<struct atomic_buffer*> atomicbuffers;
      ClockSynchronization<ClocksourceCPPStyle> *CM;
      double max_t;
      double max_time;
@@ -58,8 +57,11 @@ class databuffers
      ~databuffers() 
      {
 	 delete dmap;
-	 for(int i=0;i<equeues.size();i++)
-		 delete equeues[i];
+	 for(int i=0;i<atomicbuffers.size();i++)
+	 {
+		 delete atomicbuffers[i]->buffer;
+		 delete atomicbuffers[i];
+	 }
      }
 
     void  server_client_addrs(tl::engine *t_server,tl::engine *t_client,tl::engine *t_server_shm, tl::engine *t_client_shm,std::vector<std::string> &ips,std::vector<std::string> &shm_addrs,std::vector<tl::endpoint> &serveraddrs)
@@ -84,15 +86,20 @@ class databuffers
      int total_size = 65536*2;
      uint64_t maxkey = UINT64_MAX;
      dmap->create_table(total_size,maxkey);
-     std::vector<struct event> *q = new std::vector<struct event> ();
-     equeues.push_back(q);
+     struct atomic_buffer *a = new struct atomic_buffer();
+     a->buffer = new std::vector<struct event> ();
+     atomicbuffers.push_back(a);
   }
   void clear_write_buffer(int index)
   {
+	boost::upgrade_lock<boost::shared_mutex> lk(atomicbuffers[index]->m);
 	dmap->LocalClearMap(index);
-	equeues[index]->clear();
+	atomicbuffers[index]->buffer->clear();
   }
-
+  void set_valid_range(int index,uint64_t &n1,uint64_t &n2)
+  {
+	dmap->set_valid_range(index,n1,n2);
+  }
   void add_event(event &e,int index)
   {
       uint64_t key = e.ts;
@@ -110,14 +117,19 @@ class databuffers
       if(b) 
       {
 	      std::fill(e.data.begin(),e.data.end(),0);
-	      equeues[index]->push_back(e);
+	      atomicbuffers[index]->buffer->push_back(e);
 	      event_count++; 
       }
   }
 
   std::vector<struct event> * get_write_buffer(int index)
   {
-	  return equeues[index];
+	  return atomicbuffers[index]->buffer;
+  }
+
+  atomic_buffer* get_atomic_buffer(int index)
+  {
+	return atomicbuffers[index];
   }
 
 };

@@ -6,6 +6,11 @@
 #include <iostream>
 #include <string.h>
 #include <vector>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/lock_types.hpp>
+#include <boost/thread/shared_mutex.hpp>
+
+using namespace boost;
 
 struct event
 {
@@ -17,6 +22,12 @@ struct event
 	data.assign(e1.data.begin(),e1.data.end());
 	return *this; 
    }
+};
+
+struct atomic_buffer
+{
+   boost::shared_mutex m;
+   std::vector<struct event> *buffer;
 };
 
 struct event_hdf

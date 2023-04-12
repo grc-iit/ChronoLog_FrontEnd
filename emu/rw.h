@@ -10,6 +10,12 @@
 #include "distributed_sort.h"
 #include "data_server_client.h"
 #include "event_metadata.h"
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/interprocess/allocators/allocator.hpp>
+#include <boost/interprocess/containers/vector.hpp>
+#include <boost/interprocess/managed_mapped_file.hpp>
+
+using namespace boost;
 
 class read_write_process
 {
@@ -28,7 +34,7 @@ private:
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> write_interval;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> read_interval;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> file_minmax;
-      std::vector<std::vector<struct event>*> myevents;
+      std::vector<struct atomic_buffer*> myevents;
       std::vector<std::vector<struct event>> readevents;
       dsort *ds;
       data_server_client *dsc;
@@ -64,7 +70,7 @@ public:
           
 	    if(write_names.find(s)==write_names.end())
 	    {
-	      std::vector<struct event> *ev = nullptr;
+	      struct atomic_buffer *ev = nullptr;
 	      myevents.push_back(ev);
 	      std::pair<int,event_metadata> p1(myevents.size()-1,em);
 	      std::pair<std::string,std::pair<int,event_metadata>> p2(s,p1);
@@ -90,7 +96,7 @@ public:
 	{
            auto r = write_names.find(s);
 	   int index = (r->second).first;
-	   myevents[index] = dm->get_write_buffer(index);
+	   myevents[index] = dm->get_atomic_buffer(index);
 	}
 	
 	void sort_events(std::string &s)
@@ -98,7 +104,8 @@ public:
 	    auto r = write_names.find(s);
 	    int index = (r->second).first;
 	    get_events_from_map(s);
-	    ds->get_unsorted_data(myevents[index],index);
+	    boost::upgrade_lock<boost::shared_mutex> lk(myevents[index]->m);
+	    ds->get_unsorted_data(myevents[index]->buffer,index);
 	    uint64_t min_v,max_v;
 	    ds->sort_data(index,min_v,max_v);
 	    auto r1 = write_interval.find(s);
@@ -127,11 +134,7 @@ public:
 	   auto r = std::find(file_names.begin(),file_names.end(),s);
 	   if(r != file_names.end())
 	   {
-
-
-
-
-
+	      preadfileattr(s.c_str());
 	   }
 
 	}
@@ -168,7 +171,9 @@ public:
 	{
 		auto r = write_names.find(s);
 		int index = (r->second).first;
-		return myevents[index]->size();
+		boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
+		int size = myevents[index]->buffer->size();
+		return size;
 	}
 	int dropped_events()
 	{
@@ -217,10 +222,11 @@ public:
 		   max_s = std::min(max,max_s);
 	           auto r1 = write_names.find(s);
 		   int index = (r1->second).first;
-		   for(int i=0;i<myevents[index]->size();i++)
+		   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
+		   for(int i=0;i<myevents[index]->buffer->size();i++)
 		   {
-		     uint64_t ts = (*myevents[index])[i].ts;
-		     if(ts >= min && ts <= max) oup.push_back((*myevents[index])[i]);
+		     uint64_t ts = (*(myevents[index]->buffer))[i].ts;
+		     if(ts >= min && ts <= max) oup.push_back((*(myevents[index]->buffer))[i]);
 		   }
 	           err = true;	   
 	        }

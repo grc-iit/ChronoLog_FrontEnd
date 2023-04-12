@@ -117,7 +117,7 @@ int main(int argc,char **argv)
       t_args[i].name = story_names[i];
   }
 
-  #if defined(BOOST_INTERPROCESS_MAPPED_FILES)
+  /*#if defined(BOOST_INTERPROCESS_MAPPED_FILES)
   typedef allocator<int, managed_mapped_file::segment_manager> allocator_int_t;
   typedef boost::interprocess::vector<int, allocator_int_t> MyVect;
 
@@ -134,7 +134,7 @@ int main(int argc,char **argv)
 	mfile_vect->push_back(i);
 
   mfile.flush();
-#endif
+#endif*/
   /*for(int i=0;i<1;i++)
   {
       std::thread t{get_events_range,&t_args[i]};
@@ -154,7 +154,7 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);*/
 
-  /* 
+   
   t1 = std::chrono::high_resolution_clock::now();
 
   for(int i=0;i<num_threads;i++)
@@ -169,7 +169,7 @@ int main(int argc,char **argv)
   total_time = 0;
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
-*/
+
  /* std::string fname = "file"+t_args[0].name+".h5";
   np->read_events(fname.c_str(),t_args[0].name);*/
 
