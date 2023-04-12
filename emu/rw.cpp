@@ -43,7 +43,8 @@ void read_write_process::clear_events(std::string &s)
    if(r!=read_names.end())
    {
 	int index = (r->second).first;
-	readevents[index].clear();
+	boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
+	readevents[index]->buffer->clear();
    }
    
    r = write_names.find(s);
@@ -463,6 +464,8 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     event_metadata em = (r->second).second;
     int datasize = em.get_datasize();
 
+    boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
+
     hsize_t adims[1];
     adims[0] = datasize;
     hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
@@ -492,7 +495,7 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 	e.ts = (*data_array1)[i].ts;
 	e.data.resize(datasize);
 	memcpy(e.data.data(),(*data_array1)[i].data,datasize);
-	readevents[index].push_back(e);
+	readevents[index]->buffer->push_back(e);
     }
 
     delete data_array1;

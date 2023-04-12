@@ -35,7 +35,7 @@ private:
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> read_interval;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> file_minmax;
       std::vector<struct atomic_buffer*> myevents;
-      std::vector<std::vector<struct event>> readevents;
+      std::vector<struct atomic_buffer*> readevents;
       dsort *ds;
       data_server_client *dsc;
 public:
@@ -61,6 +61,11 @@ public:
 	   delete dm;
 	   delete ds;
 	   delete dsc;
+	   for(int i=0;i<readevents.size();i++)
+	   {
+		delete readevents[i]->buffer;
+		delete readevents[i];
+	   }
 	   H5close();
 
 	}
@@ -84,7 +89,8 @@ public:
 	    auto r = read_names.find(s);;
 	    if(r==read_names.end())
 	    {
-	        std::vector<struct event> ev;	    
+	        struct atomic_buffer *ev = new struct atomic_buffer ();
+    	        ev->buffer = new std::vector<struct event> ();		
 		readevents.push_back(ev);
 		std::pair<int,event_metadata> p1(readevents.size()-1,em);
 		std::pair<std::string,std::pair<int,event_metadata>> p2(s,p1);
@@ -195,11 +201,12 @@ public:
 		   
 		   auto r1 = read_names.find(s);
 		   int index = (r1->second).first;
-		
-		   for(int i=0;i<readevents[index].size();i++)
+	
+	   	   boost::shared_lock<boost::shared_mutex> lk(readevents[index]->m);	   
+		   for(int i=0;i<readevents[index]->buffer->size();i++)
 		   {
-			uint64_t ts = readevents[index][i].ts;
-	     	        if(ts >= min_s && ts <= max_s) oup.push_back(readevents[index][i]);		
+			uint64_t ts = (*readevents[index]->buffer)[i].ts;
+	     	        if(ts >= min_s && ts <= max_s) oup.push_back((*readevents[index]->buffer)[i]);		
 		   }	  
 		   err = true; 
 		}
