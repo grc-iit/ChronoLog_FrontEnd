@@ -72,7 +72,9 @@ class query_parser
 	   //bool select_by_key(std::string &,std::vector<struct event>&,event_metadata &,uint64_t &,std::vector<view>&);
 	   bool create_view_from_events(std::string&,std::vector<struct event>&,std::vector<view> &);
 	   bool sort_view_by_attr(std::vector<view> &);
-	   bool add_view_to_cache(std::string&,std::string&,std::vector<view>&); 
+	   bool add_view_to_cache(std::string&,std::string&,std::vector<view>&);
+	   template<typename T,class EqualFcn=std::equal_to<T>>
+	   bool select_unique_by_attr(std::string &,std::string &,std::vector<struct event>&,event_metadata&,T&,std::vector<view>&);
 };
 
 
