@@ -18,16 +18,19 @@ find_package(thallium REQUIRED)
 include_directories(${THALLIUM_INCLUDE_DIRS})
 set(RPC_LIB_FLAGS thallium ${RPC_LIB_FLAGS})
 
+find_package(Boost REQUIRED COMPONENTS ALL)
+
 find_package(MPI REQUIRED COMPONENTS CXX C)
+find_package(HDF5 REQUIRED COMPONENTS C)
+
 if (MPI_FOUND)
     message(STATUS "found mpi.h at ${MPI_CXX_INCLUDE_DIRS}")
 endif ()
 include_directories(${MPI_CXX_INCLUDE_DIRS})
+include_directories(${Boost_INC_DIRS})
 set(LIB_FLAGS ${RPC_LIB_FLAGS} ${MPI_CXX_LIBRARIES} -lpthread -lrt)
-set(HDF5_INCLUDE_DIRS "/home/asasidharan/spack/opt/spack/linux-ubuntu22.04-skylake_avx512/gcc-11.3.0/hdf5-1.14.0-7bydlvjs3fctofgghxi5lyfvnyio5jlr/include")
-set(HDF5_LIBS "/home/asasidharan/spack/opt/spack/linux-ubuntu22.04-skylake_avx512/gcc-11.3.0/hdf5-1.14.0-7bydlvjs3fctofgghxi5lyfvnyio5jlr/lib")
 
-include_directories(${HDF5_INCLUDE_DIRS})
+include_directories(${HDF5_C_INCLUDE_DIRS})
 
 # libs for NATS tests
 #set(LIB_FLAGS ${LIB_FLAGS} -lnats)
