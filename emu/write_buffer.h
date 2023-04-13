@@ -37,6 +37,7 @@ class databuffers
 
   private:
      int event_count;
+     boost::mutex m1;
      distributed_hashmap<uint64_t,int> *dmap;
      std::vector<struct atomic_buffer*> atomicbuffers;
      ClockSynchronization<ClocksourceCPPStyle> *CM;
@@ -88,7 +89,9 @@ class databuffers
      dmap->create_table(total_size,maxkey);
      struct atomic_buffer *a = new struct atomic_buffer();
      a->buffer = new std::vector<struct event> ();
+     m1.lock();
      atomicbuffers.push_back(a);
+     m1.unlock();
   }
   void clear_write_buffer(int index)
   {

@@ -28,6 +28,8 @@ private:
       boost::hash<uint64_t> hasher;
       uint64_t seed = 1;
       databuffers *dm;
+      boost::mutex m1;
+      boost::mutex m2;
       std::set<std::string> file_names;
       std::unordered_map<std::string,std::pair<int,event_metadata>> write_names;
       std::unordered_map<std::string,std::pair<int,event_metadata>> read_names;
@@ -72,7 +74,7 @@ public:
 
 	void create_write_buffer(std::string &s,event_metadata &em)
 	{
-          
+            m1.lock(); 
 	    if(write_names.find(s)==write_names.end())
 	    {
 	      struct atomic_buffer *ev = nullptr;
@@ -83,9 +85,11 @@ public:
 	      dm->create_write_buffer();
 	      ds->create_sort_buffer();
 	    }
+	    m1.unlock();
 	}	
 	void create_read_buffer(std::string &s,event_metadata &em)
 	{
+	    m2.lock();
 	    auto r = read_names.find(s);;
 	    if(r==read_names.end())
 	    {
@@ -96,24 +100,29 @@ public:
 		std::pair<std::string,std::pair<int,event_metadata>> p2(s,p1);
 		read_names.insert(p2);
 	    }	
-
+	    m2.unlock();
 	}
 	void get_events_from_map(std::string &s)
 	{
+	   m1.lock();
            auto r = write_names.find(s);
 	   int index = (r->second).first;
+	   m1.unlock();
 	   myevents[index] = dm->get_atomic_buffer(index);
 	}
 	
 	void sort_events(std::string &s)
 	{
+	    m1.lock();
 	    auto r = write_names.find(s);
 	    int index = (r->second).first;
+	    m1.unlock();
 	    get_events_from_map(s);
 	    boost::upgrade_lock<boost::shared_mutex> lk(myevents[index]->m);
 	    ds->get_unsorted_data(myevents[index]->buffer,index);
 	    uint64_t min_v,max_v;
 	    ds->sort_data(index,min_v,max_v);
+	    m1.lock();
 	    auto r1 = write_interval.find(s);
 	    if(r1 == write_interval.end())
 	    {
@@ -126,11 +135,15 @@ public:
 		(r1->second).first = min_v;
 		(r1->second).second = max_v;
 	    }
+	    m1.unlock();
 	}
 	event_metadata & get_metadata(std::string &s)
 	{
+	        m1.lock(); 
 		auto r = write_names.find(s);
-		return (r->second).second;
+		event_metadata em = (r->second).second;
+		m1.unlock();
+		return em;
 	}
 	bool get_range_in_file(std::string &s, uint64_t &min_v,uint64_t &max_v)
 	{
@@ -149,6 +162,7 @@ public:
 	{
 	    min_v = UINT64_MAX; max_v = 0;
 	    bool err = false;
+	    m2.lock();
 	    auto r = read_interval.find(s);
 	    if(r != read_interval.end())
 	    {
@@ -156,6 +170,7 @@ public:
 		max_v = (max_v > (r->second).second) ? max_v : (r->second).second;
 		err = true;
 	    }
+	    m2.unlock();
 	    return err;
 	}
 
@@ -163,6 +178,7 @@ public:
 	{
 	    min_v = UINT64_MAX; max_v = 0;
 	    bool err = false;
+	    m1.lock();
 	    auto r = write_interval.find(s);
 	    if(r != write_interval.end())
 	    {
@@ -170,13 +186,16 @@ public:
 		max_v = (max_v > (r->second).second) ? max_v : (r->second).second;
 		err = true;
 	    }
+	    m1.unlock();
 	    return err;
 	}
 
 	int num_write_events(std::string &s)
 	{
+	        m1.lock();
 		auto r = write_names.find(s);
 		int index = (r->second).first;
+		m1.unlock();
 		boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 		int size = myevents[index]->buffer->size();
 		return size;
@@ -189,19 +208,27 @@ public:
 	{
 	     uint64_t min = range.first; uint64_t max = range.second;
 	     bool err = false;
+	     m2.lock();
 	     auto r = read_interval.find(s);
+	     int index = -1;
+	     uint64_t min_s, max_s;
 	     if(r != read_interval.end())
 	     {
-		uint64_t min_s = (r->second).first;
-		uint64_t max_s = (r->second).second;
+		min_s = (r->second).first;
+		max_s = (r->second).second;
 		if(!((max < min_s) && (min > max_s)))
 		{
 		   min_s = std::max(min_s,min);
 		   max_s = std::min(max_s,max);
 		   
 		   auto r1 = read_names.find(s);
-		   int index = (r1->second).first;
-	
+		   index = (r1->second).first;
+		}
+	     }
+	     m2.unlock();
+
+	     if(index != -1)
+	     {
 	   	   boost::shared_lock<boost::shared_mutex> lk(readevents[index]->m);	   
 		   for(int i=0;i<readevents[index]->buffer->size();i++)
 		   {
@@ -209,8 +236,8 @@ public:
 	     	        if(ts >= min_s && ts <= max_s) oup.push_back((*readevents[index]->buffer)[i]);		
 		   }	  
 		   err = true; 
-		}
 	     }
+	    
 	     return err;
 	}
 
@@ -218,17 +245,26 @@ public:
 	{
 	     bool err = false;
 	     uint64_t min = range.first; uint64_t max = range.second;
+	     m1.lock();
 	     auto r = write_interval.find(s);
+	     uint64_t min_s,max_s;
+	     int index = -1;
 	     if(r != write_interval.end())
 	     {
-		uint64_t min_s = (r->second).first;
-		uint64_t max_s = (r->second).second;
+		min_s = (r->second).first;
+		max_s = (r->second).second;
 		if(!((min > max_s) && (max < min_s)))
 		{	
 		   min_s = std::max(min,min_s);
 		   max_s = std::min(max,max_s);
 	           auto r1 = write_names.find(s);
-		   int index = (r1->second).first;
+		   index = (r1->second).first;
+		}
+	     }
+	     m1.unlock();
+
+	     if(index != -1)
+	     {
 		   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 		   for(int i=0;i<myevents[index]->buffer->size();i++)
 		   {
@@ -236,7 +272,6 @@ public:
 		     if(ts >= min && ts <= max) oup.push_back((*(myevents[index]->buffer))[i]);
 		   }
 	           err = true;	   
-	        }
 	     }
 	     return err;
 	}

@@ -1,23 +1,17 @@
 #include "rw.h"
 
 #define DATASETNAME1 "Data1"
-#define DATASETNAME2 "Data2"
-#define DATASETNAME3 "Data3"
-#define DATASETNAME4 "Data4"
-#define DATASETNAME5 "Data5"
-#define DATASETNAME6 "Data6"
-#define DATASETNAME7 "Data7"
-#define DATASETNAME8 "Data8"
-#define DATASETNAME9 "Data9"
 
 typedef int DATATYPE;
 
 void read_write_process::create_events(int num_events,std::string &s)
 {
     int datasize = 0;
+    m1.lock();
     auto r = write_names.find(s);
     int index = (r->second).first;
     event_metadata em = (r->second).second;
+    m1.unlock();
     datasize = em.get_datasize();
     
     auto ab = dm->get_atomic_buffer(index);
@@ -39,25 +33,37 @@ void read_write_process::create_events(int num_events,std::string &s)
 
 void read_write_process::clear_events(std::string &s)
 {
+   m2.lock();
    auto r = read_names.find(s);
+   int index = -1;
    if(r!=read_names.end())
    {
-	int index = (r->second).first;
+	index = (r->second).first;
+   }
+   m2.unlock();
+   
+   if(index != -1)
+   {
 	boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
 	readevents[index]->buffer->clear();
    }
-   
-   r = write_names.find(s);
-
+   index = -1;
+   m1.lock();
+   r = write_names.find(s); 
+   uint64_t min_k, max_k;
    if(r != write_names.end())
    {
-	int index = (r->second).first;
-	dm->clear_write_buffer(index);
+	index = (r->second).first;
 	auto r1 = write_interval.find(s);
-	uint64_t min_k = r1->second.second+1;
-	uint64_t max_k = UINT64_MAX;
-	dm->set_valid_range(index,min_k,max_k);
+	min_k = r1->second.second+1;
+	max_k = UINT64_MAX;
 	r1->second.first = UINT64_MAX; r1->second.second = 0;
+   }
+   m1.unlock();
+   if(index != -1)
+   {
+	dm->clear_write_buffer(index);
+	dm->set_valid_range(index,min_k,max_k);
    }
 
 }
@@ -98,10 +104,11 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     std::string fname(filename);
     file_names.insert(fname);
 
+    m1.lock();
     auto r = write_names.find(name);
-
     int index = (r->second).first;
     event_metadata em = (r->second).second;
+    m1.unlock();
     int datasize = em.get_datasize();
 
     std::vector<int> num_events_recorded_l,num_events_recorded;
@@ -249,9 +256,11 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
 
     ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
+    m1.lock();
     auto r1 = write_names.find(s);
     int index = (r1->second).first;
     event_metadata em = (r1->second).second;
+    m1.unlock();
     int datasize = em.get_datasize();
 
     boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
@@ -444,24 +453,26 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 
     data_array1->resize(num_events);
 
-    auto r = read_names.find(name);
-    if(r == read_names.end())
+        
+    event_metadata em1;
+    em1.set_numattrs(5);
+    for(int i=0;i<5;i++)
     {
-        event_metadata em1;
-        em1.set_numattrs(5);
-        for(int i=0;i<5;i++)
-        {
            std::string a="attr"+std::to_string(i);
            int vsize = sizeof(double);
            bool is_signed = false;
            bool is_big_endian = true;
            em1.add_attr(a,vsize,is_signed,is_big_endian);
-        }
-        create_read_buffer(name,em1);
-        r = read_names.find(name);
     }
+        
+    create_read_buffer(name,em1);
+
+    m2.lock();
+    auto r = read_names.find(name);
     int index = (r->second).first;
     event_metadata em = (r->second).second;
+    m2.unlock();
+
     int datasize = em.get_datasize();
 
     boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
