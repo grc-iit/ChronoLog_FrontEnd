@@ -33,8 +33,7 @@ struct atomic_buffer
 struct event_hdf
 {
    uint64_t ts;
-   char data[40];
-   double data_d;
+   char data[5000];
 };
 
 #endif

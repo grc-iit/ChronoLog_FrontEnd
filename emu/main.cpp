@@ -72,13 +72,13 @@ int main(int argc,char **argv)
 
   }*/
 
-  int numstories = 1;
+  int numstories = 8;
   std::vector<std::string> story_names;
   std::vector<int> total_events;
 
   event_metadata em;
-  em.set_numattrs(5);
-  for(int i=0;i<5;i++)
+  em.set_numattrs(625);
+  for(int i=0;i<625;i++)
   {
     std::string a = "attr"+std::to_string(i);
     int vsize = sizeof(double);
@@ -91,7 +91,7 @@ int main(int argc,char **argv)
   {
 	std::string name = "table"+std::to_string(i);
 	story_names.push_back(name);
-	total_events.push_back(65536);
+	total_events.push_back(65536*4);
 	np->prepare_service(name,em);
   }
 
@@ -154,6 +154,7 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);*/
 
+
    
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -161,10 +162,37 @@ int main(int argc,char **argv)
   {
 	std::thread t{open_write_stream,&t_args[i]};
 	workers[i] = std::move(t);
-	workers[i].join();
   }
 
+  for(int i=0;i<num_threads;i++)
+	  workers[i].join();
+
   t2 = std::chrono::high_resolution_clock::now();
+  t = std::chrono::duration<double>(t2-t1).count();
+  total_time = 0;
+  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
+  if(rank==0) std::cout <<" total order time = "<<total_time<<std::endl;
+
+  int numevents = t_args[0].np->num_write_events(t_args[0].name);
+
+  int totalevents = 0;
+  MPI_Allreduce(&numevents,&totalevents,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+
+  if(rank==0) std::cout <<" total_events = "<<totalevents<<std::endl;
+
+  t1 = std::chrono::high_resolution_clock::now();
+
+  for(int i=0;i<num_threads;i++)
+  {
+	std::thread t{close_write_stream,&t_args[i]};
+	workers[i] = std::move(t);
+	workers[i].join();
+        MPI_Barrier(MPI_COMM_WORLD);
+  }
+  
+  t2 = std::chrono::high_resolution_clock::now();
+
   t = std::chrono::duration<double>(t2-t1).count();
   total_time = 0;
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);

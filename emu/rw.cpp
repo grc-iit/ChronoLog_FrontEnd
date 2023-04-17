@@ -93,6 +93,9 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     hsize_t count[1], stride[1]; 
     hsize_t block[1];              
 
+    //std::string driverb(driverbuf);
+    //std::cout <<" driver = "<<driverb<<std::endl;
+
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
     fid = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT,fapl);
@@ -140,15 +143,14 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     attr_data.push_back(datasize);
 
     uint64_t block_size = num_events_recorded[myrank]*record_size;
-   
     hsize_t adims[1];
-    adims[0] = datasize;
+    adims[0] = (hsize_t)datasize;
     hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
     hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event_hdf));
     H5Tinsert(s2,"key",HOFFSET(struct event_hdf,ts),H5T_NATIVE_UINT64);
     H5Tinsert(s2,"value",HOFFSET(struct event_hdf,data),s1);
-    H5Tinsert(s2,"value_d",HOFFSET(struct event_hdf,data_d),H5T_NATIVE_DOUBLE); 
-
+     
+    
     dims[0] = (hsize_t)num_records;
     chunkdims[0] = (hsize_t)num_records;
     maxdims[0] = (hsize_t)H5S_UNLIMITED;
@@ -167,7 +169,7 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     hsize_t offset = 0;
     for(int i=0;i<myrank;i++)
 	 offset += (hsize_t)num_events_recorded[i];
-    hsize_t block_count = (hsize_t)num_events_recorded[myrank];
+    hsize_t block_count = (hsize_t)(num_events_recorded[myrank]);
 
     ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset,NULL,&block_count,NULL);
 
@@ -195,10 +197,9 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
 	struct event_hdf ef;
 	ef.ts = e.ts;
 	memcpy(ef.data,e.data.data(),e.data.size());
-	ef.data_d = 1;
 	data_array1->push_back(ef);
     }
-
+   
    xfer_plist = H5Pcreate(H5P_DATASET_XFER);
 
    ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
@@ -208,7 +209,7 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
     H5Pclose(xfer_plist);
-
+   
     attr_space[0] = H5Screate_simple(1, attr_size, NULL);
 
     attr_name[0] = "DataSizes";
@@ -291,8 +292,6 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
     hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event_hdf));
     H5Tinsert(s2,"key",HOFFSET(struct event_hdf,ts),H5T_NATIVE_UINT64);
     H5Tinsert(s2,"value",HOFFSET(struct event_hdf,data),s1);
-    H5Tinsert(s2,"value_d",HOFFSET(struct event_hdf,data_d),H5T_NATIVE_DOUBLE);
-
 
     std::vector<struct event_hdf> *data_array1 = new std::vector<struct event_hdf> ();
 
@@ -302,7 +301,6 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
 	struct event_hdf ep;
         ep.ts = e.ts;	
 	memcpy(ep.data,e.data.data(),e.data.size());
-	ep.data_d = 1;
 	data_array1->push_back(ep);
     }
 
@@ -483,7 +481,6 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event_hdf));
     H5Tinsert(s2,"key",HOFFSET(struct event_hdf,ts),H5T_NATIVE_UINT64);
     H5Tinsert(s2,"value",HOFFSET(struct event_hdf,data),s1);
-    H5Tinsert(s2,"value_d",HOFFSET(struct event_hdf,data_d),H5T_NATIVE_DOUBLE);
 
 
     file_dataspace = H5Dget_space(dataset1);

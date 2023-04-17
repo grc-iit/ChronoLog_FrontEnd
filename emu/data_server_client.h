@@ -125,8 +125,8 @@ class data_server_client
         //std::cout <<" server_addr = "<<server_addr<<std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
 
-        thallium_client = new tl::engine("ofi+sockets",THALLIUM_CLIENT_MODE,true,1);
-        thallium_shm_client = new tl::engine("na+sm",THALLIUM_CLIENT_MODE,true,1);
+        thallium_client = new tl::engine("ofi+sockets",THALLIUM_CLIENT_MODE,true,4);
+        thallium_shm_client = new tl::engine("na+sm",THALLIUM_CLIENT_MODE,true,4);
 
 	for(int i=0;i<nservers;i++)
         {
@@ -139,6 +139,8 @@ class data_server_client
                 tl::endpoint ep = thallium_client->lookup(serveraddr_1.c_str());
                 serveraddrs.push_back(ep);
         }
+
+	MPI_Barrier(MPI_COMM_WORLD);
 
       }
       ~data_server_client()
