@@ -21,7 +21,6 @@ void read_write_process::create_events(int num_events,std::string &s)
     for(int i=0;i<num_events;i++)
     {
 	event e;
-	e.data.resize(datasize);
 	uint64_t ts = CM->Timestamp();
 
 	e.ts = ts;
@@ -146,9 +145,9 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     hsize_t adims[1];
     adims[0] = (hsize_t)datasize;
     hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
-    hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event_hdf));
-    H5Tinsert(s2,"key",HOFFSET(struct event_hdf,ts),H5T_NATIVE_UINT64);
-    H5Tinsert(s2,"value",HOFFSET(struct event_hdf,data),s1);
+    hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
+    H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
+    H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
      
     
     dims[0] = (hsize_t)num_records;
@@ -176,8 +175,6 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     
     mem_dataspace = H5Screate_simple(1,&block_count, NULL);
 
-    std::vector<struct event_hdf> *data_array1 = new std::vector<struct event_hdf> ();
-
     uint64_t min_v = UINT64_MAX; uint64_t max_v = 0;
 
     if(myrank==0) min_v = (*(myevents[index]->buffer))[0].ts;
@@ -191,20 +188,11 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
 
     attr_data.push_back(min_v); attr_data.push_back(max_v);
 
-    for(int i=0;i<myevents[index]->buffer->size();i++)
-    {
-	event e = (*(myevents[index]->buffer))[i];
-	struct event_hdf ef;
-	ef.ts = e.ts;
-	memcpy(ef.data,e.data.data(),e.data.size());
-	data_array1->push_back(ef);
-    }
-   
    xfer_plist = H5Pcreate(H5P_DATASET_XFER);
 
    ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
 
-   ret = H5Dwrite(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, data_array1->data());
+   ret = H5Dwrite(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, myevents[index]->buffer->data());
 
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
@@ -222,8 +210,6 @@ void read_write_process::pwrite_new(const char *filename,std::string &name)
     ret = H5Dclose(dataset1);
     H5Fclose(fid); 
 
-    data_array1->clear();
-    delete data_array1;
 }
 
 void read_write_process::pwrite_extend(const char *filename,std::string &s)
@@ -289,20 +275,9 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
     
     adims[0] = datasize;
     hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
-    hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event_hdf));
-    H5Tinsert(s2,"key",HOFFSET(struct event_hdf,ts),H5T_NATIVE_UINT64);
-    H5Tinsert(s2,"value",HOFFSET(struct event_hdf,data),s1);
-
-    std::vector<struct event_hdf> *data_array1 = new std::vector<struct event_hdf> ();
-
-    for(int i=0;i<myevents[index]->buffer->size();i++)
-    {
-	struct event e = (*(myevents[index]->buffer))[i];
-	struct event_hdf ep;
-        ep.ts = e.ts;	
-	memcpy(ep.data,e.data.data(),e.data.size());
-	data_array1->push_back(ep);
-    }
+    hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
+    H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
+    H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
 
     dims[0] = (hsize_t)(total_records+attrs[0]);
 
@@ -317,7 +292,7 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
     xfer_plist = H5Pcreate(H5P_DATASET_XFER); 
     ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
      
-    ret = H5Dwrite(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, data_array1->data());
+    ret = H5Dwrite(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, myevents[index]->buffer->data());
 
     uint64_t min_v,max_v;
     if(myrank==0)
@@ -343,7 +318,6 @@ void read_write_process::pwrite_extend(const char *filename,std::string &s)
     H5Aclose(attr_id);
     H5Dclose(dataset1);
     H5Fclose(fid);
-    delete data_array1;
 
 }
 
@@ -408,8 +382,6 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     size_t   num_points;    
     int      i, j, k;
 
-    std::vector<struct event_hdf> *data_array1 = nullptr;
-
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
     fid = H5Fopen(filename, H5F_ACC_RDONLY, fapl);
@@ -447,11 +419,6 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 
     hsize_t block_size = (hsize_t)num_events;
 
-    data_array1 = new std::vector<struct event_hdf> ();
-
-    data_array1->resize(num_events);
-
-        
     event_metadata em1;
     em1.set_numattrs(5);
     for(int i=0;i<5;i++)
@@ -475,12 +442,14 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 
     boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
 
+    readevents[index]->buffer->resize(num_events);
+
     hsize_t adims[1];
     adims[0] = datasize;
     hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
-    hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event_hdf));
-    H5Tinsert(s2,"key",HOFFSET(struct event_hdf,ts),H5T_NATIVE_UINT64);
-    H5Tinsert(s2,"value",HOFFSET(struct event_hdf,data),s1);
+    hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
+    H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
+    H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
 
 
     file_dataspace = H5Dget_space(dataset1);
@@ -488,7 +457,7 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     mem_dataspace = H5Screate_simple(1,&block_size, NULL);
     xfer_plist = H5Pcreate(H5P_DATASET_XFER);
     ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
-    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, data_array1->data());
+    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, readevents[index]->buffer->data());
      
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
@@ -496,17 +465,6 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 
     ret = H5Aclose(attr_id);
     ret = H5Dclose(dataset1);
-
-    for(int i=0;i<data_array1->size();i++)
-    {
-	struct event e;
-	e.ts = (*data_array1)[i].ts;
-	e.data.resize(datasize);
-	memcpy(e.data.data(),(*data_array1)[i].data,datasize);
-	readevents[index]->buffer->push_back(e);
-    }
-
-    delete data_array1;
 
    H5Fclose(fid);  
 

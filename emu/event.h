@@ -15,11 +15,11 @@ using namespace boost;
 struct event
 {
    uint64_t ts;
-   std::vector<char> data;
+   char data[VALUESIZE];
    event& operator=(const struct event&e1)
    {
 	ts = e1.ts;
-	data.assign(e1.data.begin(),e1.data.end());
+	memcpy(data,e1.data,VALUESIZE);
 	return *this; 
    }
 };
@@ -28,12 +28,6 @@ struct atomic_buffer
 {
    boost::shared_mutex m;
    std::vector<struct event> *buffer;
-};
-
-struct event_hdf
-{
-   uint64_t ts;
-   char data[5000];
 };
 
 #endif

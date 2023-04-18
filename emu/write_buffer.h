@@ -119,7 +119,7 @@ class databuffers
 
       if(b) 
       {
-	      std::fill(e.data.begin(),e.data.end(),0);
+	      std::memset(e.data,0,VALUESIZE);
 	      atomicbuffers[index]->buffer->push_back(e);
 	      event_count++; 
       }

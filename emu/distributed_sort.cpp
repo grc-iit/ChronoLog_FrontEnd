@@ -168,11 +168,10 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    send_buffer_u.resize(events[index]->size());
    recv_buffer_u.resize(total_recv_size);
 
-   int datasize = 0;
+   int datasize = VALUESIZE;
    for(int i=0;i<events[index]->size();i++)
    {
 	uint64_t ts = (*events[index])[i].ts;
-	datasize = (*events[index])[i].data.size();
 	int dest = event_dest[i];
 	send_buffer_u[send_displ[dest]] = ts;
 	send_displ[dest]++;
@@ -235,7 +234,7 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    {
 	int dest = event_dest[i];
 	int start = send_displ[dest];
-	memcpy(send_buffer_char.data()+start,(*events[index])[i].data.data(),datasize);
+	memcpy(send_buffer_char.data()+start,(*events[index])[i].data,datasize);
 	send_displ[dest]+=datasize;
    }
 
@@ -270,8 +269,7 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
 	   {
 		struct event e;   
 		e.ts = recv_buffer_u[key_displ[i]+j];
-		e.data.resize(datasize);
-		memcpy(e.data.data(),&(recv_buffer_char[recv_displ[i]+k]),datasize);
+		memcpy(e.data,&(recv_buffer_char[recv_displ[i]+k]),datasize);
 		events[index]->push_back(e);
 	   }
    }
