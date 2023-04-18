@@ -53,14 +53,15 @@ void search_events(struct thread_arg *t)
 
 void open_write_stream(struct thread_arg *t)
 {
-   int niter = 1;
+   int niter = 5;
    std::string filename = "file"+t->name+".h5";
    for(int i=0;i<niter;i++)
    {
 	t->np->create_events(t->num_events,t->name);
 	t->np->sort_events(t->name);
+	t->np->buffer_in_nvme(t->name);
 	//t->np->pwrite(filename.c_str(),t->name);
-	//t->np->clear_events(t->name);
+	t->np->clear_events(t->name);
 	//MPI_Barrier(MPI_COMM_WORLD);
    }
 }

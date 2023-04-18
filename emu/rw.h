@@ -10,10 +10,7 @@
 #include "distributed_sort.h"
 #include "data_server_client.h"
 #include "event_metadata.h"
-#include <boost/thread/shared_mutex.hpp>
-#include <boost/interprocess/allocators/allocator.hpp>
-#include <boost/interprocess/containers/vector.hpp>
-#include <boost/interprocess/managed_mapped_file.hpp>
+#include "nvme_buffer.h"
 
 using namespace boost;
 
@@ -28,6 +25,7 @@ private:
       boost::hash<uint64_t> hasher;
       uint64_t seed = 1;
       databuffers *dm;
+      nvme_buffers *nm;
       boost::mutex m1;
       boost::mutex m2;
       std::set<std::string> file_names;
@@ -57,6 +55,7 @@ public:
 	   dm = new databuffers(numprocs,myrank,numcores,CM);
 	   dm->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 	   ds = new dsort(numprocs,myrank);
+	   nm = new nvme_buffers(numprocs,myrank);
 	}
 	~read_write_process()
 	{
@@ -68,6 +67,7 @@ public:
 		delete readevents[i]->buffer;
 		delete readevents[i];
 	   }
+	   delete nm;
 	   H5close();
 
 	}
@@ -84,6 +84,7 @@ public:
 	      write_names.insert(p2);
 	      dm->create_write_buffer();
 	      ds->create_sort_buffer();
+	      nm->create_nvme_buffer(s,em);
 	    }
 	    m1.unlock();
 	}	
@@ -136,6 +137,22 @@ public:
 		(r1->second).second = max_v;
 	    }
 	    m1.unlock();
+	}
+
+	void buffer_in_nvme(std::string &s)
+	{
+	   m1.lock();
+	   auto r = write_names.find(s);
+	   int index = (r->second).first;
+	   m1.unlock();
+
+	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
+	
+	   nm->copy_to_nvme(s,myevents[index]->buffer);
+
+
+
+
 	}
 	event_metadata & get_metadata(std::string &s)
 	{
