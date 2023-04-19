@@ -13,9 +13,7 @@ struct thread_arg
   int num_events;
   std::string name;
   std::pair<uint64_t,uint64_t> range;
-
 };
-
 
 void create_events_total_order(struct thread_arg *);
 void sort_events(struct thread_arg *);
@@ -24,5 +22,6 @@ void search_events(struct thread_arg *t);
 void get_events_range(struct thread_arg *t);
 void open_write_stream(struct thread_arg *t);
 void close_write_stream(struct thread_arg *t);
+void io_polling(struct thread_arg *t);
 
 #endif

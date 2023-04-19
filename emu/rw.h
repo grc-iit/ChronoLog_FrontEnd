@@ -11,8 +11,16 @@
 #include "data_server_client.h"
 #include "event_metadata.h"
 #include "nvme_buffer.h"
+#include <boost/lockfree/queue.hpp>
 
 using namespace boost;
+
+struct io_request
+{
+   std::string name;
+   bool from_nvme;
+};
+
 
 class read_write_process
 {
@@ -38,6 +46,8 @@ private:
       std::vector<struct atomic_buffer*> readevents;
       dsort *ds;
       data_server_client *dsc;
+      boost::lockfree::queue<struct io_request*> *io_queue;
+      std::atomic<int> end_of_session;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n) : myrank(r), numprocs(np), numcores(n)
 	{
@@ -56,6 +66,8 @@ public:
 	   dm->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 	   ds = new dsort(numprocs,myrank);
 	   nm = new nvme_buffers(numprocs,myrank);
+	   io_queue = new boost::lockfree::queue<struct io_request*> (128);
+	   end_of_session.store(0);
 	}
 	~read_write_process()
 	{
@@ -68,10 +80,20 @@ public:
 		delete readevents[i];
 	   }
 	   delete nm;
+	   delete io_queue;
 	   H5close();
 
 	}
 
+	void mark_end_of_session()
+	{
+	   end_of_session.store(1);
+	}
+
+	int get_end_of_session()
+	{
+	    return end_of_session.load();
+	}
 	void create_write_buffer(std::string &s,event_metadata &em)
 	{
             m1.lock(); 
@@ -292,12 +314,19 @@ public:
 	     }
 	     return err;
 	}
-	void create_events(int num_events,std::string &s);
+	boost::lockfree::queue<struct io_request*> *get_io_queue()
+	{
+	    return io_queue;
+	};
+	void create_events(int num_events,std::string &s,double);
 	void clear_events(std::string &s);
 	void get_range(std::string &s);
 	void pwrite(const char *,std::string &s);
         void pwrite_new(const char *,std::string &s);
+	void pwrite_new_from_file(const char *,std::string &);
 	void pwrite_extend(const char*,std::string &s);
+	void pwrite_extend_from_file(const char *,std::string&);
+	void pwrite_from_file(const char *,std::string&);
 	void preaddata(const char*,std::string &s);
 	void preadfileattr(const char*);
 };

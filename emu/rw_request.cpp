@@ -3,7 +3,7 @@
 void create_events_total_order(struct thread_arg *t)
 {
 
-      t->np->create_events(t->num_events,t->name);
+      t->np->create_events(t->num_events,t->name,1);
 
 }
 
@@ -53,16 +53,23 @@ void search_events(struct thread_arg *t)
 
 void open_write_stream(struct thread_arg *t)
 {
-   int niter = 5;
+   boost::lockfree::queue<struct io_request*> *io_queue = t->np->get_io_queue();
+   int niter = 4;
    std::string filename = "file"+t->name+".h5";
    for(int i=0;i<niter;i++)
    {
-	t->np->create_events(t->num_events,t->name);
+	t->np->create_events(t->num_events,t->name,1);
 	t->np->sort_events(t->name);
 	t->np->buffer_in_nvme(t->name);
-	//t->np->pwrite(filename.c_str(),t->name);
 	t->np->clear_events(t->name);
-	//MPI_Barrier(MPI_COMM_WORLD);
+	struct io_request *r = new struct io_request();
+	r->name = t->name;
+	r->from_nvme = true;
+	if(i%2==0)
+	io_queue->push(r);
+
+	//std::cout <<" num dropped_events = "<<t->np->dropped_events()<<std::endl;
+	//t->np->pwrite_new_from_file(filename.c_str(),t->name);
    }
 }
 
@@ -72,6 +79,43 @@ void close_write_stream(struct thread_arg *t)
    std::string filename = "file"+t->name+".h5";
    for(int i=0;i<niter;i++)
    {
-	t->np->pwrite(filename.c_str(),t->name);
+	t->np->pwrite_new_from_file(filename.c_str(),t->name);
    }
+}
+
+void io_polling(struct thread_arg *t)
+{
+
+  boost::lockfree::queue<struct io_request*> *io_queue = t->np->get_io_queue();
+
+  while(true)
+  {
+     while(!io_queue->empty())
+     {
+       struct io_request *r;
+
+       io_queue->pop(r);
+
+       if(r->from_nvme)
+       {
+         std::string filename = "file"+r->name+".h5";
+         t->np->pwrite_from_file(filename.c_str(),r->name);
+       }
+       else
+       {
+        std::string filename = "file"+r->name+".h5";
+        t->np->pwrite(filename.c_str(),r->name);	
+       }
+  
+       delete r;  
+    }
+
+    if(t->np->get_end_of_session()==1 && io_queue->empty()) break;
+
+ }
+
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+
 }

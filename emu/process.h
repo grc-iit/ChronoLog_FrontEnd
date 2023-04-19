@@ -104,11 +104,11 @@ public:
       {
 	      return rwp;
       }
-      void create_events(int num_events,std::string &s)
+      void create_events(int num_events,std::string &s,double arrival_rate)
       {
 	auto t1 = std::chrono::high_resolution_clock::now();
 
-	rwp->create_events(num_events,s);
+	rwp->create_events(num_events,s,arrival_rate);
 
 	MPI_Barrier(MPI_COMM_WORLD);
 	auto t2 = std::chrono::high_resolution_clock::now();
