@@ -26,7 +26,7 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
 	e.ts = ts;
 	      
 	dm->add_event(e,index);
-	sleep(ceil(arrival_rate));
+	//sleep(ceil(arrival_rate));
     }
 
 }
@@ -513,14 +513,16 @@ void read_write_process::pwrite_new_from_file(const char *filename,std::string &
 
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
-    fid = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT,fapl);
+    fid = H5Fcreate_async(filename, H5F_ACC_TRUNC, H5P_DEFAULT,fapl,0);
 
     if(fid < 0) std::cout <<" file not created"<<std::endl;
 
     H5Pclose(fapl);
 
     std::string fname(filename);
+    m1.lock();
     file_names.insert(fname);
+    m1.unlock();
 
     m1.lock();
     auto r = write_names.find(s);
@@ -529,22 +531,20 @@ void read_write_process::pwrite_new_from_file(const char *filename,std::string &
     m1.unlock();
     int datasize = em.get_datasize();
 
-
-    std::vector<struct event> *data_array = nm->fetch_buffer(s); 
-
+    std::vector<struct event> *data_array = myevents[index]->buffer;//nm->fetch_buffer(s); 
+    
     std::vector<int> num_events_recorded_l,num_events_recorded;
     num_events_recorded_l.resize(numprocs);
     num_events_recorded.resize(numprocs);
     std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
     std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
-    num_events_recorded_l[myrank] = data_array->size();
+    num_events_recorded_l[myrank] = myevents[index]->buffer->size();//data_array->size();
 
     MPI_Allreduce(num_events_recorded_l.data(),num_events_recorded.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
-    int total_records = 0;
+    hsize_t total_records = 0;
     for(int i=0;i<num_events_recorded.size();i++) total_records += num_events_recorded[i];
-
     if(myrank==0) std::cout <<" total records = "<<total_records<<std::endl;
 
     uint64_t num_records = total_records;
@@ -575,22 +575,24 @@ void read_write_process::pwrite_new_from_file(const char *filename,std::string &
     hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
     int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
 
+    file_dataspace = H5Screate_simple(1,&total_records,NULL);
 
-    dataset1 = H5Dcreate2(fid, DATASETNAME1,s2, sid, H5P_DEFAULT,dataset_pl, H5P_DEFAULT);
-
-    H5Sclose(sid);
-
-    file_dataspace = H5Dget_space(dataset1);
- 
-    hsize_t offset = 0;
+     hsize_t offset = 0;
     for(int i=0;i<myrank;i++)
          offset += (hsize_t)num_events_recorded[i];
     hsize_t block_count = (hsize_t)(num_events_recorded[myrank]);
+    mem_dataspace = H5Screate_simple(1,&block_count, NULL);
 
     ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset,NULL,&block_count,NULL);
 
+    std::string grp_name(filename);
+    hid_t meta;
 
-    mem_dataspace = H5Screate_simple(1,&block_count, NULL);
+    hid_t grp_id = H5Gcreate_async(fid,grp_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT,meta);
+
+    dataset1 = H5Dcreate_async(fid, DATASETNAME1,s2, sid, H5P_DEFAULT,dataset_pl, H5P_DEFAULT,meta);
+
+    H5Sclose(sid);
 
     uint64_t min_v = UINT64_MAX; uint64_t max_v = 0;
 
@@ -603,18 +605,20 @@ void read_write_process::pwrite_new_from_file(const char *filename,std::string &
     MPI_Bcast(&min_v,1,MPI_UINT64_T,0,MPI_COMM_WORLD);
     MPI_Bcast(&max_v,1,MPI_UINT64_T,numprocs-1,MPI_COMM_WORLD);
 
-    attr_data.push_back(min_v); attr_data.push_back(max_v);
+    attr_data.push_back(min_v); attr_data.push_back(max_v); 
 
    xfer_plist = H5Pcreate(H5P_DATASET_XFER);
 
    ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
 
-   ret = H5Dwrite(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, data_array->data());
+   hid_t dtag;
+   ret = H5Dwrite_async(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, data_array->data(),dtag);
  
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
     H5Pclose(xfer_plist);
 
+    hid_t meta_e;
     attr_space[0] = H5Screate_simple(1, attr_size, NULL);
 
     attr_name[0] = "DataSizes";
@@ -624,10 +628,11 @@ void read_write_process::pwrite_new_from_file(const char *filename,std::string &
     H5Sclose(attr_space[0]);
     H5Aclose(attr_id[0]);
 
-    ret = H5Dclose(dataset1);
-    H5Fclose(fid);
+    ret = H5Dclose_async(dataset1,meta_e);
+    H5Gclose_async(grp_id,meta_e);
+    H5Fclose_async(fid,0);
 
-    delete data_array;
+    //delete data_array;
 }
 
 

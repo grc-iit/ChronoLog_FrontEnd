@@ -54,14 +54,14 @@ void search_events(struct thread_arg *t)
 void open_write_stream(struct thread_arg *t)
 {
    boost::lockfree::queue<struct io_request*> *io_queue = t->np->get_io_queue();
-   int niter = 4;
+   int niter = 1;
    std::string filename = "file"+t->name+".h5";
    for(int i=0;i<niter;i++)
    {
 	t->np->create_events(t->num_events,t->name,1);
 	t->np->sort_events(t->name);
-	t->np->buffer_in_nvme(t->name);
-	t->np->clear_events(t->name);
+	//t->np->buffer_in_nvme(t->name);
+	//t->np->clear_events(t->name);
 	struct io_request *r = new struct io_request();
 	r->name = t->name;
 	r->from_nvme = true;

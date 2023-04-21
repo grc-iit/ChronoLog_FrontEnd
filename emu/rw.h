@@ -4,7 +4,7 @@
 #include <abt.h>
 #include <mpi.h>
 #include "ClockSync.h"
-#include "hdf5.h"
+#include <hdf5.h>
 #include <boost/container_hash/hash.hpp>
 #include "write_buffer.h"
 #include "distributed_sort.h"
@@ -52,6 +52,7 @@ public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n) : myrank(r), numprocs(np), numcores(n)
 	{
            H5open();
+	   H5VLis_connector_registered_by_name("async");
            std::string unit = "microsecond";
 	   CM = C;
 	   dsc = new data_server_client(numprocs,myrank);
