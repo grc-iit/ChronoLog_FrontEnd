@@ -59,13 +59,13 @@ void open_write_stream(struct thread_arg *t)
    for(int i=0;i<niter;i++)
    {
 	t->np->create_events(t->num_events,t->name,1);
-	t->np->sort_events(t->name);
+	//t->np->sort_events(t->name);
 	//t->np->buffer_in_nvme(t->name);
 	//t->np->clear_events(t->name);
 	struct io_request *r = new struct io_request();
 	r->name = t->name;
 	r->from_nvme = true;
-	if(i%2==0)
+	//if(i%2==0)
 	io_queue->push(r);
 
 	//std::cout <<" num dropped_events = "<<t->np->dropped_events()<<std::endl;
@@ -98,6 +98,7 @@ void io_polling(struct thread_arg *t)
 
        if(r->from_nvme)
        {
+	 t->np->sort_events(r->name);
          std::string filename = "file"+r->name+".h5";
          t->np->pwrite_from_file(filename.c_str(),r->name);
        }
@@ -109,8 +110,8 @@ void io_polling(struct thread_arg *t)
   
        delete r;  
     }
-
-    if(t->np->get_end_of_session()==1 && io_queue->empty()) break;
+    if(io_queue->empty()) break;
+    //if(t->np->get_end_of_session()==1 && io_queue->empty()) break;
 
  }
 

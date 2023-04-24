@@ -545,8 +545,10 @@ void read_write_process::pwrite_new_from_file(const char *filename,std::string &
 
     hsize_t total_records = 0;
     for(int i=0;i<num_events_recorded.size();i++) total_records += num_events_recorded[i];
-    if(myrank==0) std::cout <<" total records = "<<total_records<<std::endl;
-
+    if(myrank==0)
+    {
+     std::cout <<" datasize = "<<datasize<<" total_records = "<<total_records<<std::endl;
+    }
     uint64_t num_records = total_records;
     uint64_t total_size = num_records*datasize+num_records*sizeof(uint64_t);
 
