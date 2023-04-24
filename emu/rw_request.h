@@ -13,6 +13,9 @@ struct thread_arg
   int num_events;
   std::string name;
   std::pair<uint64_t,uint64_t> range;
+  std::vector<hid_t> meta_events;
+  std::vector<hid_t> data_events;
+  std::vector<hid_t> meta_end_events;
 };
 
 void create_events_total_order(struct thread_arg *);

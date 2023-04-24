@@ -486,9 +486,9 @@ void read_write_process::pwrite(const char *filename,std::string &s)
 }
 
 
-void read_write_process::pwrite_new_from_file(const char *filename,std::string &s)
+void read_write_process::pwrite_new_from_file(const char *filename,std::string &s, hid_t &meta, hid_t &meta_e, hid_t &dtag)
 {
-
+/*
     hid_t       fid;
     hid_t       acc_tpl;
     hid_t       xfer_plist;
@@ -588,7 +588,6 @@ void read_write_process::pwrite_new_from_file(const char *filename,std::string &
     ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset,NULL,&block_count,NULL);
 
     std::string grp_name(filename);
-    hid_t meta;
 
     hid_t grp_id = H5Gcreate_async(fid,grp_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT,meta);
 
@@ -613,27 +612,25 @@ void read_write_process::pwrite_new_from_file(const char *filename,std::string &
 
    ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
 
-   hid_t dtag;
    ret = H5Dwrite_async(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, data_array->data(),dtag);
  
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
     H5Pclose(xfer_plist);
-
-    hid_t meta_e;
-    attr_space[0] = H5Screate_simple(1, attr_size, NULL);
+*/
+    /*attr_space[0] = H5Screate_simple(1, attr_size, NULL);
 
     attr_name[0] = "DataSizes";
     attr_id[0] = H5Acreate2(dataset1, attr_name[0], H5T_NATIVE_UINT64, attr_space[0], H5P_DEFAULT, H5P_DEFAULT);
     ret = H5Awrite(attr_id[0], H5T_NATIVE_UINT64, attr_data.data());
 
     H5Sclose(attr_space[0]);
-    H5Aclose(attr_id[0]);
+    H5Aclose(attr_id[0]);*/
 
-    ret = H5Dclose_async(dataset1,meta_e);
+  /*  ret = H5Dclose_async(dataset1,meta_e);
     H5Gclose_async(grp_id,meta_e);
     H5Fclose_async(fid,0);
-
+*/
     //delete data_array;
 }
 
@@ -750,7 +747,7 @@ void read_write_process::pwrite_extend_from_file(const char *filename,std::strin
     delete data_array;
 }
 
-void read_write_process::pwrite_from_file(const char *filename,std::string &s)
+void read_write_process::pwrite_from_file(const char *filename,std::string &s,hid_t& meta,hid_t &meta_e,hid_t &dtag)
 {
 
    std::string fname(filename);
@@ -759,8 +756,7 @@ void read_write_process::pwrite_from_file(const char *filename,std::string &s)
 
    if(r == file_names.end())
    {
-
-	pwrite_new_from_file(filename,s);
+	pwrite_new_from_file(filename,s,meta,meta_e,dtag);
    }
    else pwrite_extend_from_file(filename,s);
 
