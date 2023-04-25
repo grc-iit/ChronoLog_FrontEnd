@@ -62,11 +62,11 @@ void open_write_stream(struct thread_arg *t)
 	//t->np->sort_events(t->name);
 	//t->np->buffer_in_nvme(t->name);
 	//t->np->clear_events(t->name);
-	struct io_request *r = new struct io_request();
-	r->name = t->name;
-	r->from_nvme = false;
+	//struct io_request *r = new struct io_request();
+	//r->name = t->name;
+	//r->from_nvme = true;
 	//if(i%2==0)
-	io_queue->push(r);
+	//io_queue->push(r);
 
 	//std::cout <<" num dropped_events = "<<t->np->dropped_events()<<std::endl;
 	//t->np->pwrite_new_from_file(filename.c_str(),t->name);
@@ -80,13 +80,13 @@ void close_write_stream(struct thread_arg *t)
    for(int i=0;i<niter;i++)
    {
 	t->np->sort_events(t->name);
-	t->np->pwrite(filename.c_str(),t->name);
+	//t->np->pwrite(filename.c_str(),t->name);
 	/*hid_t meta, meta_e, dtag;
 	t->np->pwrite_new_from_file(filename.c_str(),t->name,meta,meta_e,dtag);
 	t->meta_events.push_back(meta);
 	t->meta_end_events.push_back(meta_e);
 	t->data_events.push_back(dtag);*/
-	MPI_Barrier(MPI_COMM_WORLD);
+	/*MPI_Barrier(MPI_COMM_WORLD);*/
    }
 }
 
@@ -95,8 +95,12 @@ void io_polling(struct thread_arg *t)
 
   boost::lockfree::queue<struct io_request*> *io_queue = t->np->get_io_queue();
 
+  std::vector<std::string> snames;
+
+  int nreq = 0;
   while(true)
   {
+
      while(!io_queue->empty())
      {
        struct io_request *r;
@@ -106,14 +110,8 @@ void io_polling(struct thread_arg *t)
        if(r->from_nvme)
        {
 	 t->np->sort_events(r->name);
-         std::string filename = "file"+r->name+".h5";
-	 hid_t meta = H5EScreate();
-	 hid_t meta_e = H5EScreate();
-	 hid_t data_tag = H5EScreate();
-         t->np->pwrite_from_file(filename.c_str(),r->name,meta,meta_e,data_tag);
-	 t->meta_events.push_back(meta);
-	 t->meta_end_events.push_back(meta_e);
-	 t->data_events.push_back(data_tag);
+	 //snames.push_back(r->name);
+         //t->np->pwrite_files(sname,s2,attr_space,async_fapl,async_dxpl,spaces,filespaces,memspaces,event_ids);
        }
        else
        {
@@ -124,25 +122,15 @@ void io_polling(struct thread_arg *t)
   
        delete r;  
     }
+
     if(io_queue->empty()) break;
     //if(t->np->get_end_of_session()==1 && io_queue->empty()) break;
 
  }
-   /*
-  for(int i=0;i<t->meta_events.size();i++)
-  {
-	size_t num_in_progress;
-	hbool_t op_failed = false;
-	H5ESwait(t->meta_events[i], H5ES_WAIT_FOREVER, &num_in_progress, &op_failed);
-	H5ESwait(t->data_events[i],H5ES_WAIT_FOREVER,&num_in_progress,&op_failed);
-	H5ESwait(t->meta_end_events[i],H5ES_WAIT_FOREVER,&num_in_progress,&op_failed);
-	H5ESclose(t->meta_events[i]);
-	H5ESclose(t->data_events[i]);
-	H5ESclose(t->meta_end_events[i]);
-  }*/
+  
 
+  //t->np->pwrite_files(snames);
 
   MPI_Barrier(MPI_COMM_WORLD);
-
 
 }

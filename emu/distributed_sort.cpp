@@ -123,8 +123,6 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
 
    MPI_Allreduce(&total_recv_size,&total_records,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
-  if(myrank==0) std::cout <<" total_records = "<<total_records<<std::endl;
-
    send_buffer_u.resize(events[index]->size());
    recv_buffer_u.resize(total_recv_size);
 
@@ -207,6 +205,11 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
 	   }
    }
    std::sort(events[index]->begin(),events[index]->end(),compare_fn);
+
+   int nevents = events[index]->size();
+   total_events = 0;
+
+   MPI_Allreduce(&nevents,&total_events,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
    uint64_t min_ts, max_ts;
    

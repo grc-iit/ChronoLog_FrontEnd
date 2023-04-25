@@ -12,6 +12,7 @@
 #include "event_metadata.h"
 #include "nvme_buffer.h"
 #include <boost/lockfree/queue.hpp>
+#include "h5_async_lib.h"
 
 using namespace boost;
 
@@ -52,7 +53,7 @@ public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n) : myrank(r), numprocs(np), numcores(n)
 	{
            H5open();
-	   //H5VLis_connector_registered_by_name("async");
+	   H5VLis_connector_registered_by_name("async");
            std::string unit = "microsecond";
 	   CM = C;
 	   dsc = new data_server_client(numprocs,myrank);
@@ -172,10 +173,6 @@ public:
 	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 	
 	   nm->copy_to_nvme(s,myevents[index]->buffer);
-
-
-
-
 	}
 	event_metadata & get_metadata(std::string &s)
 	{
@@ -328,6 +325,7 @@ public:
 	void pwrite_extend(const char*,std::string &s);
 	void pwrite_extend_from_file(const char *,std::string&);
 	void pwrite_from_file(const char *,std::string&,hid_t&,hid_t&,hid_t&);
+	void pwrite_files(std::vector<std::string> &);
 	void preaddata(const char*,std::string &s);
 	void preadfileattr(const char*);
 };
