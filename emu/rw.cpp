@@ -486,7 +486,103 @@ void read_write_process::pwrite(const char *filename,std::string &s)
 }
 
 
-void read_write_process::pwrite_files(std::vector<std::string> &sts)
+void read_write_process::create_async(hid_t &async_fapl, hid_t &async_dxpl)
+{
+    async_fapl = H5Pcreate(H5P_FILE_ACCESS);
+    async_dxpl = H5Pcreate(H5P_DATASET_XFER);
+
+    H5Pset_fapl_mpio(async_fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
+    H5Pset_dxpl_mpio(async_dxpl, H5FD_MPIO_COLLECTIVE);
+}
+
+void read_write_process::destroy_async(hid_t &async_fapl,hid_t &async_dxpl)
+{
+
+    H5Pclose(async_fapl);
+    H5Pclose(async_dxpl);
+
+}
+
+void read_write_process::create_data_spaces(std::string &s,std::vector<hid_t> &spaces,std::vector<hid_t>&file_spaces,std::vector<hid_t>&mem_spaces,std::vector<hid_t> &datasetlist)
+{
+
+   m1.lock();
+   auto r = write_names.find(s);
+   int index = (r->second).first;
+   event_metadata em = (r->second).second;
+   m1.unlock();
+   int datasize = em.get_datasize();
+
+   std::vector<struct event> *data_array = myevents[index]->buffer;
+
+   std::vector<int> num_events_recorded_l,num_events_recorded;
+   num_events_recorded_l.resize(numprocs);
+   num_events_recorded.resize(numprocs);
+   std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
+   std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
+
+   num_events_recorded_l[myrank] = myevents[index]->buffer->size();
+
+   MPI_Request *reqs = (MPI_Request*)malloc(3*numprocs*sizeof(MPI_Request));
+   MPI_Status *stats = (MPI_Status*)malloc(3*numprocs*sizeof(MPI_Status));
+
+   int nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+       MPI_Isend(&num_events_recorded_l[myrank],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+       nreq++;
+   }
+
+   for(int i=0;i<numprocs;i++)
+   {
+       MPI_Irecv(&num_events_recorded[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+       nreq++;
+   }
+   MPI_Waitall(nreq,reqs,stats);
+
+   hsize_t total_records = 0;
+   for(int j=0;j<num_events_recorded.size();j++) total_records += (hsize_t)num_events_recorded[j];
+   if(myrank==0)
+   {
+       std::cout <<" datasize = "<<VALUESIZE<<" total_records = "<<total_records<<std::endl;
+   }
+
+   uint64_t num_records = total_records;
+   uint64_t total_size = num_records*datasize+num_records*sizeof(uint64_t);
+
+   int record_size = datasize+sizeof(uint64_t);
+
+   hsize_t dims[1];
+   dims[0] = (hsize_t)num_records;
+   hsize_t chunkdims[1];
+   chunkdims[0] = (hsize_t)num_records;
+   hsize_t maxdims[1];
+   maxdims[0] = (hsize_t)H5S_UNLIMITED;
+   hid_t sid = H5Screate_simple(1, dims, maxdims);
+
+   hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
+   int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
+
+   hid_t file_dataspace = H5Screate_simple(1,&total_records,NULL);
+
+   hsize_t offset = 0;
+   for(int i=0;i<myrank;i++)
+        offset += (hsize_t)num_events_recorded[i];
+   hsize_t block_count = (hsize_t)(num_events_recorded[myrank]);
+   hid_t mem_dataspace = H5Screate_simple(1,&block_count, NULL);
+
+   ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset,NULL,&block_count,NULL);
+
+   free(reqs); free(stats);
+
+   spaces.push_back(sid);
+   file_spaces.push_back(file_dataspace);
+   mem_spaces.push_back(mem_dataspace);
+   datasetlist.push_back(dataset_pl);
+
+}
+
+void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<hid_t>&spaces,std::vector<hid_t>&filespaces,std::vector<hid_t>&memspaces,std::vector<hid_t>&datasetlist)
 {
 
     hid_t async_fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -514,9 +610,6 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts)
      attr_space[0] = H5Screate_simple(1, attr_size, NULL);
 
      std::vector<hid_t> event_ids;
-     std::vector<hid_t> spaces;
-     std::vector<hid_t> filespaces;
-     std::vector<hid_t> memspaces;
      std::vector<hid_t> dset_ids;
      std::vector<hid_t> gids;
      std::vector<hid_t> fids;
@@ -524,74 +617,24 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts)
     for(int i=0;i<sts.size();i++)
     {
 
-	  hid_t es_id = H5EScreate();
-	  m1.lock();
-    	  auto r = write_names.find(sts[i]);
-    	  int index = (r->second).first;
-    	  event_metadata em = (r->second).second;
-    	  m1.unlock();
-    	  int datasize = em.get_datasize();
-
-    	  std::vector<struct event> *data_array = myevents[index]->buffer;
-
-	   std::vector<int> num_events_recorded_l,num_events_recorded;
-    	   num_events_recorded_l.resize(numprocs);
-    	   num_events_recorded.resize(numprocs);
-    	   std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
-    	   std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
-
-    	   num_events_recorded_l[myrank] = myevents[index]->buffer->size();
-
-	    MPI_Allreduce(num_events_recorded_l.data(),num_events_recorded.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-
-    	    hsize_t total_records = 0;
-    	    for(int j=0;j<num_events_recorded.size();j++) total_records += (hsize_t)num_events_recorded[j];
-    	    if(myrank==0)
-    	    {
-     		std::cout <<" datasize = "<<VALUESIZE<<" total_records = "<<total_records<<std::endl;
-    	    }
-	    
-    	    uint64_t num_records = total_records;
-    	    uint64_t total_size = num_records*datasize+num_records*sizeof(uint64_t);
-
-    	    int record_size = datasize+sizeof(uint64_t);
-
-	    hsize_t dims[1];
-	    dims[0] = (hsize_t)num_records;
-	    hsize_t chunkdims[1];
-    	    chunkdims[0] = (hsize_t)num_records;
-	    hsize_t maxdims[1];
-    	    maxdims[0] = (hsize_t)H5S_UNLIMITED;
-    	    hid_t sid = H5Screate_simple(1, dims, maxdims);
-
-	     hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
-    	     int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
-
-    	     hid_t file_dataspace = H5Screate_simple(1,&total_records,NULL);
-
-     	     hsize_t offset = 0;
-    	     for(int i=0;i<myrank;i++)
-         	 offset += (hsize_t)num_events_recorded[i];
-    	     hsize_t block_count = (hsize_t)(num_events_recorded[myrank]);
-    	     hid_t mem_dataspace = H5Screate_simple(1,&block_count, NULL);
-
-    	     ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset,NULL,&block_count,NULL);
-
-
+	hid_t es_id = H5EScreate();
+	m1.lock();
+	auto r = write_names.find(sts[i]);
+	int index = (r->second).first;
+	m1.unlock();
 	std::string filename = "file"+sts[i]+".h5";
 	hid_t fid = H5Fcreate_async(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, async_fapl, es_id);
 
         hid_t grp_id = H5Gcreate_async(fid, grp_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT, es_id);
 
-	hid_t dataset1 = H5Dcreate_async(fid, DATASETNAME1,s2, sid, H5P_DEFAULT,dataset_pl, H5P_DEFAULT,es_id);
+	hid_t dataset1 = H5Dcreate_async(fid, DATASETNAME1,s2,spaces[i], H5P_DEFAULT,datasetlist[i], H5P_DEFAULT,es_id);
 
-	ret = H5Dwrite_async(dataset1,s2, mem_dataspace, file_dataspace,async_dxpl, data_array->data(),es_id);
-
+	int ret = H5Dwrite_async(dataset1,s2, memspaces[i],filespaces[i],async_dxpl,myevents[index]->buffer->data(),es_id);
 
 	std::vector<uint64_t> attr_data;
-    	attr_data.push_back(total_records);
+    	attr_data.push_back(10000);
     	attr_data.push_back(8);
-    	attr_data.push_back(datasize);
+    	attr_data.push_back(VALUESIZE);
 
 	hid_t attr_id[1];
 	attr_id[0] = H5Acreate_async(dataset1, attr_name[0], H5T_NATIVE_UINT64, attr_space[0], H5P_DEFAULT, H5P_DEFAULT,es_id);
@@ -599,25 +642,10 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts)
 	ret = H5Awrite_async(attr_id[0], H5T_NATIVE_UINT64, attr_data.data(),es_id);
 
 	ret = H5Aclose_async(attr_id[0],es_id);
-	//ret = H5Dclose_async(dataset1,es_id);
 
-	//H5Gclose_async(grp_id, es_id);
-
-        //H5Fclose_async(fid, es_id);
-
-	
-	/*H5ESwait(es_id,H5ES_WAIT_FOREVER,&num,&op_failed);
-
-        H5Sclose(sid);	
-        H5Sclose(file_dataspace);
-        H5Sclose(mem_dataspace);
-	H5ESclose(es_id);*/
 	dset_ids.push_back(dataset1);
 	gids.push_back(grp_id);
 	fids.push_back(fid);
-	spaces.push_back(sid);
-	filespaces.push_back(file_dataspace);
-	memspaces.push_back(mem_dataspace);
 	event_ids.push_back(es_id);
     }
 
@@ -628,10 +656,10 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts)
 	H5Gclose_async(gids[i],event_ids[i]);
 	H5Fclose_async(fids[i],event_ids[i]);
 	H5ESwait(event_ids[i],H5ES_WAIT_FOREVER,&num,&op_failed);
+	H5ESclose(event_ids[i]);
 	H5Sclose(spaces[i]);
 	H5Sclose(filespaces[i]);
 	H5Sclose(memspaces[i]);
-	H5ESclose(event_ids[i]);
     }
 
     H5Sclose(attr_space[0]);

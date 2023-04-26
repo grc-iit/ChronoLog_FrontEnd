@@ -12,10 +12,16 @@ struct thread_arg
   read_write_process *np;
   int num_events;
   std::string name;
+  hid_t async_fapl;
+  hid_t async_dxpl;
   std::pair<uint64_t,uint64_t> range;
   std::vector<hid_t> meta_events;
   std::vector<hid_t> data_events;
   std::vector<hid_t> meta_end_events;
+  std::vector<hid_t> spaces;
+  std::vector<hid_t> filespaces;
+  std::vector<hid_t> memspaces;
+  std::vector<hid_t> datasetpl;
 };
 
 void create_events_total_order(struct thread_arg *);

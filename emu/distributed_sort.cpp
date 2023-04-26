@@ -324,5 +324,6 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    nreq++;
 
    MPI_Waitall(nreq,reqs,stats);
-   
+
+   free(reqs); free(stats);   
 }

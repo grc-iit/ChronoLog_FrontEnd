@@ -325,9 +325,12 @@ public:
 	void pwrite_extend(const char*,std::string &s);
 	void pwrite_extend_from_file(const char *,std::string&);
 	void pwrite_from_file(const char *,std::string&,hid_t&,hid_t&,hid_t&);
-	void pwrite_files(std::vector<std::string> &);
+	void pwrite_files(std::vector<std::string> &,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&);
 	void preaddata(const char*,std::string &s);
 	void preadfileattr(const char*);
+	void create_async(hid_t &,hid_t&);
+	void destroy_async(hid_t &,hid_t &);
+	void create_data_spaces(std::string &,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&);
 };
 
 #endif

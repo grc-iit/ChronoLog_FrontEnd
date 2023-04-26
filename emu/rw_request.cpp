@@ -59,7 +59,22 @@ void open_write_stream(struct thread_arg *t)
    for(int i=0;i<niter;i++)
    {
 	t->np->create_events(t->num_events,t->name,1);
-	//t->np->sort_events(t->name);
+	t->np->sort_events(t->name);
+	std::vector<hid_t> s1, s2,s3,s4;
+	t->np->create_data_spaces(t->name,s1,s2,s3,s4);
+	for(int j=0;j<s1.size();j++)
+	{	
+	   t->spaces.push_back(s1[j]);
+	   t->filespaces.push_back(s2[j]);
+	   t->memspaces.push_back(s3[j]);
+	   t->datasetpl.push_back(s4[j]);
+	}
+	/*H5Sclose(s1[0]);
+	H5Sclose(s2[0]);
+	H5Sclose(s3[0]);*/
+	//std::vector<std::string> sname;
+	//sname.push_back(t->name);
+	//t->np->pwrite_files(sname);
 	//t->np->buffer_in_nvme(t->name);
 	//t->np->clear_events(t->name);
 	//struct io_request *r = new struct io_request();
@@ -79,7 +94,8 @@ void close_write_stream(struct thread_arg *t)
    std::string filename = "file"+t->name+".h5";
    for(int i=0;i<niter;i++)
    {
-	t->np->sort_events(t->name);
+	 std::vector<std::string> name;
+	 name.push_back(t->name);
 	//t->np->pwrite(filename.c_str(),t->name);
 	/*hid_t meta, meta_e, dtag;
 	t->np->pwrite_new_from_file(filename.c_str(),t->name,meta,meta_e,dtag);
@@ -109,9 +125,7 @@ void io_polling(struct thread_arg *t)
 
        if(r->from_nvme)
        {
-	 t->np->sort_events(r->name);
-	 //snames.push_back(r->name);
-         //t->np->pwrite_files(sname,s2,attr_space,async_fapl,async_dxpl,spaces,filespaces,memspaces,event_ids);
+	 snames.push_back(r->name);
        }
        else
        {
@@ -128,8 +142,7 @@ void io_polling(struct thread_arg *t)
 
  }
   
-
-  //t->np->pwrite_files(snames);
+  t->np->pwrite_files(snames,t->spaces,t->filespaces,t->memspaces,t->datasetpl);
 
   MPI_Barrier(MPI_COMM_WORLD);
 

@@ -98,7 +98,7 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  int num_threads = 8;
+  int num_threads = 4;
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -151,24 +151,47 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  t1 = std::chrono::high_resolution_clock::now();
+  boost::lockfree::queue<struct io_request*> *io_queue = t_args[0].np->get_io_queue();
 
   for(int i=0;i<num_threads;i++)
   {
-	std::thread t{close_write_stream,&t_args[i]};
-	workers[i] = std::move(t);
-	workers[i].join();
+         struct io_request *r = new struct io_request();
+         r->name = t_args[i].name;
+         r->from_nvme = true;
+         io_queue->push(r);
+	 for(int j=0;j<t_args[i].spaces.size();j++)
+	 {
+		t_args[num_threads].spaces.push_back(t_args[i].spaces[j]);
+		t_args[num_threads].filespaces.push_back(t_args[i].filespaces[j]);
+		t_args[num_threads].memspaces.push_back(t_args[i].memspaces[j]);
+		t_args[num_threads].datasetpl.push_back(t_args[i].datasetpl[j]);
+	 }
   }
 
-  auto t3 = std::chrono::high_resolution_clock::now();
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  t1 = std::chrono::high_resolution_clock::now();
+
+  std::thread iot{io_polling,&t_args[num_threads]};
+
 
   //std::thread iot{io_polling,&t_args[0]};
 
   //t_args[0].np->mark_end_of_session();
 
-  //iot.join();
+  iot.join();
 
   MPI_Barrier(MPI_COMM_WORLD);
+
+  t2 = std::chrono::high_resolution_clock::now();
+
+  t = std::chrono::duration<double> (t2-t1).count();
+
+  total_time = 0;
+
+  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
+  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
 /*
   t2 = std::chrono::high_resolution_clock::now();*/
   /*t = std::chrono::duration<double>(t2-t1).count();
@@ -188,14 +211,14 @@ int main(int argc,char **argv)
   int totalevents = 0;
   //MPI_Allreduce(&numevents,&totalevents,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);*/
 
-  std::vector<std::string> names_s;
+  /*std::vector<std::string> names_s;
 
   for(int i=0;i<num_threads;i++)
 	  names_s.push_back(t_args[i].name);
 
-  t_args[0].np->pwrite_files(names_s);
+  t_args[0].np->pwrite_files(names_s);*/
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  /*MPI_Barrier(MPI_COMM_WORLD);
 
   t2 = std::chrono::high_resolution_clock::now();
 
@@ -205,7 +228,7 @@ int main(int argc,char **argv)
   MPI_Allreduce(&t,&total_w_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
   if(rank==0) std::cout <<" total_write_time = "<<total_w_time<<std::endl;
-
+*/
   //io_polling(&t_args[2]);
 
   /*t1 = std::chrono::high_resolution_clock::now();
