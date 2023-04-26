@@ -36,7 +36,23 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
 
    splitter_counts_l[myrank] = mysplitters.size();
 
-   MPI_Allreduce(splitter_counts_l.data(),splitter_counts.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+   MPI_Request *reqs = (MPI_Request *)std::malloc(3*numprocs*sizeof(MPI_Request));
+   MPI_Status *stats = (MPI_Status *)std::malloc(3*numprocs*sizeof(MPI_Status));
+
+   int nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&splitter_counts_l[myrank],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Irecv(&splitter_counts[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
    int num_splitters = 0;
    for(int i=0;i<numprocs;i++) num_splitters += splitter_counts[i];
@@ -53,7 +69,20 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    for(int i=1;i<numprocs;i++)
 	   displ[i] = displ[i-1]+splitter_counts[i-1];
 
-   MPI_Allgatherv(mysplitters.data(),splitter_counts[myrank],MPI_UINT64_T,splitters.data(),splitter_counts.data(),displ.data(),MPI_UINT64_T,MPI_COMM_WORLD); 
+   nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(mysplitters.data(),splitter_counts[myrank],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Irecv(&splitters[displ[i]],splitter_counts[i],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
    std::sort(splitters.begin(),splitters.end());
 
@@ -113,7 +142,20 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    std::vector<uint64_t> recv_buffer_u;
    std::fill(recv_displ.begin(),recv_displ.end(),0);
 
-   MPI_Alltoall(send_counts.data(),1,MPI_INT,recv_counts.data(),1,MPI_INT,MPI_COMM_WORLD);
+   nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&send_counts[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Irecv(&recv_counts[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
    int total_recv_size = 0;
    for(int i=0;i<numprocs;i++)
@@ -121,7 +163,26 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
 
    int total_records;
 
-   MPI_Allreduce(&total_recv_size,&total_records,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+   std::vector<int> recv_sizes(numprocs);
+   std::fill(recv_sizes.begin(),recv_sizes.end(),0);
+
+   nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&total_recv_size,1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Irecv(&recv_sizes[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+   total_records = 0;
+   for(int i=0;i<numprocs;i++) total_records += recv_sizes[i];
 
    send_buffer_u.resize(events[index]->size());
    recv_buffer_u.resize(total_recv_size);
@@ -143,7 +204,21 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    for(int i=1;i<numprocs;i++)
 	   recv_displ[i] = recv_displ[i-1]+recv_counts[i-1];
 
-   MPI_Alltoallv(send_buffer_u.data(),send_counts.data(),send_displ.data(),MPI_UINT64_T,recv_buffer_u.data(),recv_counts.data(),recv_displ.data(),MPI_UINT64_T,MPI_COMM_WORLD);
+   nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&send_buffer_u[send_displ[i]],send_counts[i],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+
+   }
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Irecv(&recv_buffer_u[recv_displ[i]],recv_counts[i],MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
    std::vector<int> key_counts;
    key_counts.assign(recv_counts.begin(),recv_counts.end());
@@ -190,7 +265,20 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    for(int i=1;i<numprocs;i++)
 	   recv_displ[i] = recv_displ[i-1]+recv_counts[i-1];
 
-   MPI_Alltoallv(send_buffer_char.data(),send_counts.data(),send_displ.data(),MPI_CHAR,recv_buffer_char.data(),recv_counts.data(),recv_displ.data(),MPI_CHAR,MPI_COMM_WORLD);
+   nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&send_buffer_char[send_displ[i]],send_counts[i],MPI_CHAR,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Irecv(&recv_buffer_char[recv_displ[i]],recv_counts[i],MPI_CHAR,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
    events[index]->clear();
 
@@ -205,29 +293,36 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
 	   }
    }
    std::sort(events[index]->begin(),events[index]->end(),compare_fn);
-
-   int nevents = events[index]->size();
-   total_events = 0;
-
-   MPI_Allreduce(&nevents,&total_events,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-
+   
    uint64_t min_ts, max_ts;
    
+   nreq=0;
    if(myrank==0)
    {
        min_ts = (*events[index])[0].ts;
+
+       for(int i=0;i<numprocs;i++)
+       {
+	 MPI_Isend(&min_ts,1,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	 nreq++;
+       }
    }
-
-   MPI_Bcast(&min_ts,1,MPI_UINT64_T,0,MPI_COMM_WORLD);
-
    if(myrank==numprocs-1)
    {
 	int n = events[index]->size();
 	max_ts = (*events[index])[n-1].ts;
+	for(int i=0;i<numprocs;i++)
+	{
+	   MPI_Isend(&max_ts,1,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	}
    }
 
-   MPI_Bcast(&max_ts,1,MPI_UINT64_T,numprocs-1,MPI_COMM_WORLD);
+   MPI_Irecv(&min_v,1,MPI_UINT64_T,0,index,MPI_COMM_WORLD,&reqs[nreq]);
+   nreq++;
+   MPI_Irecv(&max_v,1,MPI_UINT64_T,numprocs-1,index,MPI_COMM_WORLD,&reqs[nreq]);
+   nreq++;
 
-   min_v = min_ts;
-   max_v = max_ts;
+   MPI_Waitall(nreq,reqs,stats);
+   
 }
