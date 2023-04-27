@@ -91,7 +91,7 @@ int main(int argc,char **argv)
   {
 	std::string name = "table"+std::to_string(i);
 	story_names.push_back(name);
-	total_events.push_back(65536*4);
+	total_events.push_back(8192);
 	np->prepare_service(name,em);
   }
 
@@ -151,7 +151,15 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  boost::lockfree::queue<struct io_request*> *io_queue = t_args[0].np->get_io_queue();
+  t2 = std::chrono::high_resolution_clock::now();
+
+  t = std::chrono::duration<double>(t2-t1).count();
+  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
+  if(rank==0) std::cout <<" total_order time = "<<total_time<<std::endl;
+
+  /*boost::lockfree::queue<struct io_request*> *io_queue = t_args[0].np->get_io_queue();
+  t1 = std::chrono::high_resolution_clock::now();
 
   for(int i=0;i<num_threads;i++)
   {
@@ -165,23 +173,17 @@ int main(int argc,char **argv)
 		t_args[num_threads].filespaces.push_back(t_args[i].filespaces[j]);
 		t_args[num_threads].memspaces.push_back(t_args[i].memspaces[j]);
 		t_args[num_threads].datasetpl.push_back(t_args[i].datasetpl[j]);
+		t_args[num_threads].total_records.push_back(t_args[i].total_records[j]);
 	 }
   }
 
-  MPI_Barrier(MPI_COMM_WORLD);
 
   t1 = std::chrono::high_resolution_clock::now();
 
   std::thread iot{io_polling,&t_args[num_threads]};
 
 
-  //std::thread iot{io_polling,&t_args[0]};
-
-  //t_args[0].np->mark_end_of_session();
-
   iot.join();
-
-  MPI_Barrier(MPI_COMM_WORLD);
 
   t2 = std::chrono::high_resolution_clock::now();
 
@@ -191,7 +193,7 @@ int main(int argc,char **argv)
 
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
+  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;*/
 /*
   t2 = std::chrono::high_resolution_clock::now();*/
   /*t = std::chrono::duration<double>(t2-t1).count();

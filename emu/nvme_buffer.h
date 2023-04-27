@@ -47,7 +47,11 @@ class nvme_buffers
 		nvme_files[i]->flush();
 		delete file_locks[i];
 	   }
-
+	   for(auto t = nvme_fnames.begin(); t != nvme_fnames.end(); ++t)
+	   {
+		std::string fn = t->first;
+		file_mapping::remove(fn.c_str());
+	   }
 	}
 
 	void create_nvme_buffer(std::string &s,event_metadata &em)
@@ -92,7 +96,7 @@ class nvme_buffers
 	   nvme_files[index]->flush();
 	}
 	
-	std::vector<struct event> *fetch_buffer(std::string &s)
+	std::vector<struct event> *fetch_buffer(std::string &s,int &index)
 	{
 	
 	  std::string fname = prefix+s;
@@ -100,7 +104,7 @@ class nvme_buffers
 
 	  if(r==nvme_fnames.end()) return nullptr;
 
-	  int index = r->second.first;
+	  index = r->second.first;
 
 	  boost::interprocess::scoped_lock<interprocess_sharable_mutex> lk(*file_locks[index]);
 
@@ -114,6 +118,7 @@ class nvme_buffers
 	  }
 
 	  nvme_ebufs[index]->clear();
+	  nvme_files[index]->flush();
 
 	  return data_array;
 	}

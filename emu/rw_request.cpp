@@ -54,29 +54,25 @@ void search_events(struct thread_arg *t)
 void open_write_stream(struct thread_arg *t)
 {
    boost::lockfree::queue<struct io_request*> *io_queue = t->np->get_io_queue();
-   int niter = 1;
+   int niter = 4;
    std::string filename = "file"+t->name+".h5";
    for(int i=0;i<niter;i++)
    {
 	t->np->create_events(t->num_events,t->name,1);
 	t->np->sort_events(t->name);
-	std::vector<hid_t> s1, s2,s3,s4;
-	t->np->create_data_spaces(t->name,s1,s2,s3,s4);
-	for(int j=0;j<s1.size();j++)
-	{	
-	   t->spaces.push_back(s1[j]);
-	   t->filespaces.push_back(s2[j]);
-	   t->memspaces.push_back(s3[j]);
-	   t->datasetpl.push_back(s4[j]);
-	}
-	/*H5Sclose(s1[0]);
-	H5Sclose(s2[0]);
-	H5Sclose(s3[0]);*/
+	/*hid_t s1, s2,s3,s4;
+	hsize_t total_records = t->np->create_data_spaces_from_memory(t->name,s1,s2,s3,s4);
+	   
+	t->spaces.push_back(s1);
+	t->filespaces.push_back(s2);
+	t->memspaces.push_back(s3);
+	t->datasetpl.push_back(s4);
+	t->total_records.push_back(total_records);*/
 	//std::vector<std::string> sname;
 	//sname.push_back(t->name);
 	//t->np->pwrite_files(sname);
-	//t->np->buffer_in_nvme(t->name);
-	//t->np->clear_events(t->name);
+	t->np->buffer_in_nvme(t->name);
+	t->np->clear_events(t->name);
 	//struct io_request *r = new struct io_request();
 	//r->name = t->name;
 	//r->from_nvme = true;
@@ -129,7 +125,6 @@ void io_polling(struct thread_arg *t)
        }
        else
        {
-	t->np->sort_events(r->name);
         std::string filename = "file"+r->name+".h5";
         t->np->pwrite(filename.c_str(),r->name);	
        }
@@ -138,11 +133,16 @@ void io_polling(struct thread_arg *t)
     }
 
     if(io_queue->empty()) break;
-    //if(t->np->get_end_of_session()==1 && io_queue->empty()) break;
 
  }
-  
-  t->np->pwrite_files(snames,t->spaces,t->filespaces,t->memspaces,t->datasetpl);
+    
+  t->np->pwrite_files_from_memory(snames,t->spaces,t->filespaces,t->memspaces,t->datasetpl,t->total_records);
+
+  t->spaces.clear();
+  t->filespaces.clear();
+  t->memspaces.clear();
+  t->datasetpl.clear();
+  t->total_records.clear();
 
   MPI_Barrier(MPI_COMM_WORLD);
 

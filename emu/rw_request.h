@@ -15,6 +15,7 @@ struct thread_arg
   hid_t async_fapl;
   hid_t async_dxpl;
   std::pair<uint64_t,uint64_t> range;
+  std::vector<hsize_t> total_records;
   std::vector<hid_t> meta_events;
   std::vector<hid_t> data_events;
   std::vector<hid_t> meta_end_events;

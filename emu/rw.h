@@ -20,6 +20,7 @@ struct io_request
 {
    std::string name;
    bool from_nvme;
+   hsize_t total_records;
 };
 
 
@@ -320,17 +321,15 @@ public:
 	void clear_events(std::string &s);
 	void get_range(std::string &s);
 	void pwrite(const char *,std::string &s);
-        void pwrite_new(const char *,std::string &s);
-	void pwrite_new_from_file(const char *,std::string &,hid_t&,hid_t&,hid_t&);
-	void pwrite_extend(const char*,std::string &s);
-	void pwrite_extend_from_file(const char *,std::string&);
+	void pwrite_extend_files_from_memory(const char*,std::string &s);
+	void pwrite_extend_files_from_nvme(const char *,std::string&);
 	void pwrite_from_file(const char *,std::string&,hid_t&,hid_t&,hid_t&);
-	void pwrite_files(std::vector<std::string> &,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&);
+	void pwrite_files_from_memory(std::vector<std::string> &,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hsize_t> &);
+	void pwrite_files_from_nvme(std::vector<std::string> &,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hsize_t> &,std::vector<std::vector<struct event>*>&);
 	void preaddata(const char*,std::string &s);
 	void preadfileattr(const char*);
-	void create_async(hid_t &,hid_t&);
-	void destroy_async(hid_t &,hid_t &);
-	void create_data_spaces(std::string &,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&,std::vector<hid_t>&);
+	hsize_t create_data_spaces_from_memory(std::string &,hid_t &,hid_t&,hid_t&,hid_t&);
+	std::vector<struct event>* create_data_spaces_from_nvme(std::string &,hid_t &,hid_t&,hid_t&,hid_t&,hsize_t&);
 };
 
 #endif
