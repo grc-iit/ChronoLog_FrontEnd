@@ -327,18 +327,38 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 }
 
 
-void read_write_process::pwrite(const char *filename,std::string &s)
+void read_write_process::pwrite_from_memory(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<hsize_t>&numrecords)
 {
-   std::string fname(filename);
+      std::vector<std::string> sts_n,sts_e;
+      std::vector<hsize_t> trec_n, trec_e;
+      std::vector<hsize_t> off_n,off_e;
+      std::vector<hsize_t> nrec_n, nrec_e;
 
-   /*
-   auto r = std::find(file_names.begin(),file_names.end(),fname);
-   if(r == file_names.end())
-   {
-	pwrite_new(filename,s);
-   }
-   else pwrite_extend(filename,s);
-*/
+      for(int i=0;i<sts.size();i++)
+      {
+	   std::string fname = "file"+sts[i]+".h5";
+
+	   m1.lock();
+	   auto r = std::find(file_names.begin(),file_names.end(),fname);
+	   m1.unlock();
+	   if(r == file_names.end())
+	   {	
+		sts_n.push_back(sts[i]);
+		trec_n.push_back(total_records[i]);
+		off_n.push_back(offsets[i]);
+		nrec_n.push_back(numrecords[i]);
+	   }
+	   else
+	   {
+		sts_e.push_back(sts[i]);
+		trec_e.push_back(total_records[i]);
+		off_e.push_back(offsets[i]);
+		nrec_e.push_back(numrecords[i]);
+	   }	
+      }
+
+      pwrite_files_from_memory(sts_n,trec_n,off_n,nrec_n);
+      pwrite_extend_files_from_memory(sts_e,trec_e,off_e,nrec_e);
 }
 
 
@@ -561,6 +581,10 @@ void read_write_process::pwrite_files_from_memory(std::vector<std::string> &sts,
 	H5Sclose(memspaces[i]);
 	myevents[indices[i]]->m.unlock();
 	clear_events(sts[i]);
+	std::string filename = "file"+sts[i]+".h5";
+	m1.lock();
+	file_names.insert(filename);
+	m1.unlock();
     }
 
     H5Sclose(attr_space[0]);
@@ -663,6 +687,10 @@ void read_write_process::pwrite_files_from_nvme(std::vector<std::string> &sts,st
         H5Sclose(filespaces[i]);
         H5Sclose(memspaces[i]);
 	delete data_arrays[i];
+	std::string filename = "file"+sts[i]+".h5";
+	m1.lock();
+	file_names.insert(filename);
+	m1.unlock();
     }
 
     H5Sclose(attr_space[0]);
@@ -793,17 +821,37 @@ void read_write_process::pwrite_extend_files_from_memory(std::vector<std::string
 
 }
 
-void read_write_process::pwrite_from_file(const char *filename,std::string &s,hid_t& meta,hid_t &meta_e,hid_t &dtag)
+void read_write_process::pwrite_from_nvme(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::vector<struct event>*>& data_arrays)
 {
 
-   /*std::string fname(filename);
+   std::vector<std::string> sts_n, sts_e;
+   std::vector<hsize_t> trec_n, trec_e;
+   std::vector<hsize_t> off_n, off_e;
+   std::vector<std::vector<struct event>*> darray_n, darray_e;
 
-   auto r = std::find(file_names.begin(),file_names.end(),fname);
 
-   if(r == file_names.end())
+   for(int i=0;i<sts.size();i++)
    {
-	pwrite_new_from_file(filename);
+	std::string fname = "file"+sts[i]+".h5";
+        auto r = std::find(file_names.begin(),file_names.end(),fname);
+
+        if(r == file_names.end())
+        {
+	   sts_n.push_back(sts[i]);
+	   trec_n.push_back(total_records[i]);
+	   off_n.push_back(offsets[i]);
+	   darray_n.push_back(data_arrays[i]);
+        }
+	else
+	{
+	   sts_e.push_back(sts[i]);	
+	   trec_e.push_back(total_records[i]);
+	   off_e.push_back(offsets[i]);
+	   darray_e.push_back(data_arrays[i]);	
+	}
    }
-   else pwrite_extend_from_file(filename,s);
-*/
+
+   pwrite_files_from_nvme(sts_n,trec_n,off_n,darray_n);
+   pwrite_extend_files_from_nvme(sts_e,trec_e,off_e,darray_e);
+
 }

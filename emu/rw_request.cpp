@@ -14,8 +14,6 @@ void sort_events(struct thread_arg *t)
 
 void write_events(struct thread_arg *t)
 {
-	std::string filename = "file"+t->name+".h5";
- 	t->np->pwrite(filename.c_str(),t->name);
 }
 
 void get_events_range(struct thread_arg *t)
@@ -123,7 +121,6 @@ void io_polling(struct thread_arg *t)
        else
        {
         std::string filename = "file"+r->name+".h5";
-        t->np->pwrite(filename.c_str(),r->name);	
        }
   
        delete r;  
