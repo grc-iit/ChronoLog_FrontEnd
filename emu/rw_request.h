@@ -16,13 +16,8 @@ struct thread_arg
   hid_t async_dxpl;
   std::pair<uint64_t,uint64_t> range;
   std::vector<hsize_t> total_records;
-  std::vector<hid_t> meta_events;
-  std::vector<hid_t> data_events;
-  std::vector<hid_t> meta_end_events;
-  std::vector<hid_t> spaces;
-  std::vector<hid_t> filespaces;
-  std::vector<hid_t> memspaces;
-  std::vector<hid_t> datasetpl;
+  std::vector<hsize_t> offsets;
+  std::vector<hsize_t> numrecords;
 };
 
 void create_events_total_order(struct thread_arg *);

@@ -60,14 +60,11 @@ void open_write_stream(struct thread_arg *t)
    {
 	t->np->create_events(t->num_events,t->name,1);
 	t->np->sort_events(t->name);
-	/*hid_t s1, s2,s3,s4;
-	hsize_t total_records = t->np->create_data_spaces_from_memory(t->name,s1,s2,s3,s4);
-	   
-	t->spaces.push_back(s1);
-	t->filespaces.push_back(s2);
-	t->memspaces.push_back(s3);
-	t->datasetpl.push_back(s4);
-	t->total_records.push_back(total_records);*/
+	/*hsize_t offset,numrecords;
+	hsize_t total_records = t->np->create_data_spaces_from_memory(t->name,offset,numrecords);
+	t->total_records.push_back(total_records);
+     	t->offsets.push_back(offset);
+	t->numrecords.push_back(numrecords);	
 	//std::vector<std::string> sname;
 	//sname.push_back(t->name);
 	//t->np->pwrite_files(sname);
@@ -92,7 +89,7 @@ void close_write_stream(struct thread_arg *t)
    {
 	 std::vector<std::string> name;
 	 name.push_back(t->name);
-	//t->np->pwrite(filename.c_str(),t->name);
+	//t->np->pwrite(filename.c_str(),t->name);*/
 	/*hid_t meta, meta_e, dtag;
 	t->np->pwrite_new_from_file(filename.c_str(),t->name,meta,meta_e,dtag);
 	t->meta_events.push_back(meta);
@@ -136,13 +133,11 @@ void io_polling(struct thread_arg *t)
 
  }
     
-  t->np->pwrite_files_from_memory(snames,t->spaces,t->filespaces,t->memspaces,t->datasetpl,t->total_records);
+  //t->np->pwrite_files_from_memory(snames,t->total_records);
 
-  t->spaces.clear();
-  t->filespaces.clear();
-  t->memspaces.clear();
-  t->datasetpl.clear();
   t->total_records.clear();
+  t->offsets.clear();
+  t->numrecords.clear();
 
   MPI_Barrier(MPI_COMM_WORLD);
 
