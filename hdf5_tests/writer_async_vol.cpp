@@ -13,6 +13,7 @@ std::vector<hid_t> fspaces;
 std::vector<hid_t> memspaces;
 std::vector<hid_t> fapls;
 std::vector<hid_t> gapls;
+std::vector<hid_t> dapls;
 std::vector<std::vector<uint32_t>*> data;
 
 };
@@ -35,29 +36,39 @@ void pcreate(struct thread_arg *t)
     hid_t es_id = H5EScreate();
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
-    std::string dsetname = "dataset1";
 
     std::string filename = "file"+std::to_string(t->tid)+".h5";
 
     hid_t fid = H5Fcreate_async(filename.c_str(), H5F_ACC_TRUNC|H5F_ACC_SWMR_WRITE, H5P_DEFAULT, fapl,es_id);
 
-    hsize_t total_ints = 500000000;
+    hsize_t total_ints = 1000000000;
     hid_t filespace = H5Screate_simple(1,&total_ints,NULL);
-
+    hid_t memspace = H5Screate_simple(1,&total_ints,NULL);
     std::string grp_name = "async"+std::to_string(t->tid);
 
-    hid_t grp_id = H5Gcreate_async(fid,grp_name.c_str(),H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT,es_id);
+    //hid_t grp_id = H5Gcreate_async(fid,grp_name.c_str(),H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT,es_id);
 
-    hid_t dset = H5Dcreate_async(fid,dsetname.c_str(),H5T_NATIVE_UINT,filespace,H5P_DEFAULT,dataset_pl,H5P_DEFAULT,es_id);
+    //hid_t dset = H5Dcreate_async(fid,"dataset1",H5T_NATIVE_UINT,filespace,H5P_DEFAULT,dataset_pl,H5P_DEFAULT,es_id);
+    //hid_t dset1 = H5Dcreate_async(fid,"dataset2",H5T_NATIVE_UINT,filespace,H5P_DEFAULT,dataset_pl,H5P_DEFAULT,es_id);
 
-    H5Dclose_async(dset,es_id);
-    H5Gclose_async(grp_id,es_id);
-    H5Fclose_async(fid,es_id);
+    hsize_t offset = 0;
+    hsize_t block_size = total_ints;
+    int ret = H5Sselect_hyperslab(filespace, H5S_SELECT_SET,&offset, NULL,&block_size, NULL);
+
+    std::vector<uint32_t> *data_array = new std::vector<uint32_t> ();
+    data_array->resize(total_ints);
+    t->data.push_back(data_array);
+    t->fspaces.push_back(filespace);
+    t->memspaces.push_back(memspace);
+
+    //H5Dclose_async(dset,es_id);
+    //H5Dclose_async(dset1,es_id);
+    //H5Gclose_async(grp_id,es_id);
+    //H5Fclose_async(fid,es_id);
 
     size_t num;
     hbool_t op_failed = false;
     H5ESwait(es_id,H5ES_WAIT_FOREVER,&num,&op_failed);
-    H5Sclose(filespace);
     H5Pclose(fapl);
     H5ESclose(es_id);
 }
@@ -81,51 +92,58 @@ void pwrite(struct thread_arg *t)
     hid_t gapl = H5Pcreate(H5P_GROUP_ACCESS);
     std::string dsetname = "dataset1";
 
+    hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
     std::string filename = "file"+std::to_string(t->tid)+".h5";
 
     hid_t file = H5Fopen_async(filename.c_str(),H5F_ACC_RDWR|H5F_ACC_SWMR_WRITE,fapl,es_id);
 
     std::string grp_name = "async"+std::to_string(t->tid);
 
-    hid_t grp_id = H5Gopen_async(file,grp_name.c_str(),gapl,es_id);
+    hid_t grp_id = H5Gcreate_async(file,grp_name.c_str(),H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT,es_id);
 
-    hid_t dset = H5Dopen_async(file,"dataset1",H5P_DEFAULT,es_id);
+    hid_t dset1 = H5Dcreate_async(file,"dataset1",H5T_NATIVE_UINT,t->fspaces[0],H5P_DEFAULT,dataset_pl,H5P_DEFAULT,es_id);
+    hid_t dset2 = H5Dcreate_async(file,"dataset2",H5T_NATIVE_UINT,t->fspaces[0],H5P_DEFAULT,dataset_pl,H5P_DEFAULT,es_id);
+    hid_t dset3 = H5Dcreate_async(file,"dataset3",H5T_NATIVE_UINT,t->fspaces[0],H5P_DEFAULT,dataset_pl,H5P_DEFAULT,es_id);
+    hid_t dset4 = H5Dcreate_async(file,"dataset4",H5T_NATIVE_UINT,t->fspaces[0],H5P_DEFAULT,dataset_pl,H5P_DEFAULT,es_id);
+    hid_t dset5 = H5Dcreate_async(file,"dataset5",H5T_NATIVE_UINT,t->fspaces[0],H5P_DEFAULT,dataset_pl,H5P_DEFAULT,es_id);
+    //hid_t dset = H5Dopen_async(file,"dataset1",H5P_DEFAULT,es_id);
+    //hid_t dset1 = H5Dopen_async(file,"dataset2",H5P_DEFAULT,es_id);
 
-    hsize_t block_size = 500000000;
-
-    hid_t filespace =  H5Screate_simple(1,&block_size,NULL);
-
-    hid_t memspace = H5Screate_simple(1,&block_size,NULL);
-
-    std::vector<uint32_t> *data_array = new std::vector<uint32_t> ();
-
-    data_array->resize(block_size);
+    hsize_t block_size = 1000000000;
 
     hsize_t offset = 0;
 
-    int ret = H5Dwrite_async(dset,H5T_NATIVE_UINT,H5S_ALL,H5S_ALL,H5P_DEFAULT,data_array->data(),es_id);
+    int ret = H5Dwrite_async(dset1,H5T_NATIVE_UINT,t->fspaces[0],t->memspaces[0],H5P_DEFAULT,t->data[0]->data(),es_id);
+    ret = H5Dwrite_async(dset2,H5T_NATIVE_UINT,t->fspaces[0],t->memspaces[0],H5P_DEFAULT,t->data[0]->data(),es_id);
+    ret = H5Dwrite_async(dset3,H5T_NATIVE_UINT,t->fspaces[0],t->memspaces[0],H5P_DEFAULT,t->data[0]->data(),es_id);
+    ret = H5Dwrite_async(dset4,H5T_NATIVE_UINT,t->fspaces[0],t->memspaces[0],H5P_DEFAULT,t->data[0]->data(),es_id);
+    ret = H5Dwrite_async(dset5,H5T_NATIVE_UINT,t->fspaces[0],t->memspaces[0],H5P_DEFAULT,t->data[0]->data(),es_id);
     
 
-    H5Dclose_async(dset,es_id);
+    H5Dclose_async(dset1,es_id);
+    H5Dclose_async(dset2,es_id);
+    H5Dclose_async(dset3,es_id);
+    H5Dclose_async(dset4,es_id);
+    H5Dclose_async(dset5,es_id);
+    //H5Dclose_async(dset1,es_id);
     H5Gclose_async(grp_id,es_id);
     size_t num;
     hbool_t op_failed = false;
     H5Fclose_async(file,es_id);
 
     t->event_ids.push_back(es_id);
-    t->fspaces.push_back(filespace);
-    t->memspaces.push_back(memspace);
     t->fapls.push_back(fapl);
     t->gapls.push_back(gapl);
-    t->data.push_back(data_array); 
+    t->dapls.push_back(dataset_pl);
+    
     /*H5ESwait(es_id,H5ES_WAIT_FOREVER,&num,&op_failed);
 	  
     H5ESclose(es_id);
     H5Pclose(gapl);
     H5Pclose(fapl);
-    delete data_array;
-    H5Sclose(filespace);
-    H5Sclose(memspace);*/
+    delete t->data[0];
+    H5Sclose(t->fspaces[0]);
+    H5Sclose(t->memspaces[0]);*/
 }
 
 void completion(struct thread_arg *t)
@@ -139,6 +157,7 @@ void completion(struct thread_arg *t)
 	H5ESclose(t->event_ids[i]);
 	H5Pclose(t->gapls[i]);
 	H5Pclose(t->fapls[i]);
+	H5Pclose(t->dapls[i]);
 	delete t->data[i];
 	H5Sclose(t->fspaces[i]);
 	H5Sclose(t->memspaces[i]);
@@ -197,7 +216,7 @@ void pread(struct thread_arg *t)
 
 void thread_create(struct thread_arg *t)
 {
-   if(t->tid/4==0) pcreate(t);
+   pcreate(t);
 
 }
 
@@ -205,9 +224,9 @@ void thread_work(struct thread_arg *t)
 {
 
 
-  if(t->tid/4==0) pwrite(t);
-  if(t->tid/4==1)
-  pread(t);
+  pwrite(t);
+  /*if(t->tid/4==1)
+  pread(t);*/
 
 
 }

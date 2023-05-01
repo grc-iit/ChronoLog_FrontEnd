@@ -37,12 +37,20 @@ void pcreate(struct thread_arg *t)
 
     H5Pclose(fapl);
 
-    hsize_t total_ints = 500000000;
+    hsize_t total_ints = 1000000000;
     hid_t filespace = H5Screate_simple(1,&total_ints,NULL);
 
-    hid_t dset = H5Dcreate2(file,dsetname.c_str(),H5T_NATIVE_UINT,filespace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+    hid_t dset1 = H5Dcreate2(file,"dataset1",H5T_NATIVE_UINT,filespace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+    hid_t dset2 = H5Dcreate2(file,"dataset2",H5T_NATIVE_UINT,filespace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+    hid_t dset3 = H5Dcreate2(file,"dataset3",H5T_NATIVE_UINT,filespace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+    hid_t dset4 = H5Dcreate2(file,"dataset4",H5T_NATIVE_UINT,filespace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+    hid_t dset5 = H5Dcreate2(file,"dataset5",H5T_NATIVE_UINT,filespace,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
 
-    H5Dclose(dset);
+    H5Dclose(dset1);
+    H5Dclose(dset2);
+    H5Dclose(dset3);
+    H5Dclose(dset4);
+    H5Dclose(dset5);
     H5Sclose(filespace);
     H5Fclose(file);
 }
@@ -75,9 +83,13 @@ void pwrite(struct thread_arg *t)
 
     H5Pclose(fapl);
 
-    hid_t dset = H5Dopen2(file,"dataset1",H5P_DEFAULT);
+    hid_t dset1 = H5Dopen2(file,"dataset1",H5P_DEFAULT);
+    hid_t dset2 = H5Dopen2(file,"dataset2",H5P_DEFAULT);
+    hid_t dset3 = H5Dopen2(file,"dataset3",H5P_DEFAULT);
+    hid_t dset4 = H5Dopen2(file,"dataset4",H5P_DEFAULT);
+    hid_t dset5 = H5Dopen2(file,"dataset5",H5P_DEFAULT);
 
-    hsize_t block_size = 500000000;
+    hsize_t block_size = 1000000000;
 
     hid_t filespace =  H5Screate_simple(1,&block_size,NULL);
 
@@ -90,10 +102,18 @@ void pwrite(struct thread_arg *t)
     hsize_t offset = 0;
     int ret = H5Sselect_hyperslab(filespace, H5S_SELECT_SET,&offset, NULL,&block_size, NULL);
 
-    ret = H5Dwrite(dset,H5T_NATIVE_UINT,memspace,filespace,H5P_DEFAULT,data_array->data());
+    ret = H5Dwrite(dset1,H5T_NATIVE_UINT,memspace,filespace,H5P_DEFAULT,data_array->data());
+    ret = H5Dwrite(dset2,H5T_NATIVE_UINT,memspace,filespace,H5P_DEFAULT,data_array->data());
+    ret = H5Dwrite(dset3,H5T_NATIVE_UINT,memspace,filespace,H5P_DEFAULT,data_array->data());
+    ret = H5Dwrite(dset4,H5T_NATIVE_UINT,memspace,filespace,H5P_DEFAULT,data_array->data());
+    ret = H5Dwrite(dset5,H5T_NATIVE_UINT,memspace,filespace,H5P_DEFAULT,data_array->data());
 
 
-    H5Dclose(dset);
+    H5Dclose(dset1);
+    H5Dclose(dset2);
+    H5Dclose(dset3);
+    H5Dclose(dset4);
+    H5Dclose(dset5);
     H5Sclose(filespace);
     H5Sclose(memspace);
 
