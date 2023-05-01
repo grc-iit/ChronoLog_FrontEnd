@@ -1,1 +1,0 @@
-/usr/bin/c++  -gdwarf-2 -g3 -lm -lc -ldl -pthread -g CMakeFiles/writer.dir/writer.cpp.o -o writer  -Wl,-rpath,/home/asasidharan/spack/var/spack/environments/new-env4/.spack-env/view/lib /home/asasidharan/spack/var/spack/environments/new-env4/.spack-env/view/lib/libhdf5.so.310.0.0 -lpthread -lrt -ldl 
