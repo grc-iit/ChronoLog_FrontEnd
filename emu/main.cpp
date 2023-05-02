@@ -158,7 +158,7 @@ int main(int argc,char **argv)
 
   if(rank==0) std::cout <<" total_order time = "<<total_time<<std::endl;
 
-  /*boost::lockfree::queue<struct io_request*> *io_queue = t_args[0].np->get_io_queue();
+  boost::lockfree::queue<struct io_request*> *io_queue = t_args[0].np->get_io_queue();
   t1 = std::chrono::high_resolution_clock::now();
 
   for(int i=0;i<num_threads;i++)
@@ -167,16 +167,7 @@ int main(int argc,char **argv)
          r->name = t_args[i].name;
          r->from_nvme = true;
          io_queue->push(r);
-	 for(int j=0;j<t_args[i].spaces.size();j++)
-	 {
-		t_args[num_threads].spaces.push_back(t_args[i].spaces[j]);
-		t_args[num_threads].filespaces.push_back(t_args[i].filespaces[j]);
-		t_args[num_threads].memspaces.push_back(t_args[i].memspaces[j]);
-		t_args[num_threads].datasetpl.push_back(t_args[i].datasetpl[j]);
-		t_args[num_threads].total_records.push_back(t_args[i].total_records[j]);
-	 }
   }
-
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -193,7 +184,7 @@ int main(int argc,char **argv)
 
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;*/
+  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
 /*
   t2 = std::chrono::high_resolution_clock::now();*/
   /*t = std::chrono::duration<double>(t2-t1).count();

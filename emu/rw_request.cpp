@@ -52,20 +52,12 @@ void search_events(struct thread_arg *t)
 void open_write_stream(struct thread_arg *t)
 {
    boost::lockfree::queue<struct io_request*> *io_queue = t->np->get_io_queue();
-   int niter = 4;
+   int niter = 1;
    std::string filename = "file"+t->name+".h5";
    for(int i=0;i<niter;i++)
    {
 	t->np->create_events(t->num_events,t->name,1);
 	t->np->sort_events(t->name);
-	/*hsize_t offset,numrecords;
-	hsize_t total_records = t->np->create_data_spaces_from_memory(t->name,offset,numrecords);
-	t->total_records.push_back(total_records);
-     	t->offsets.push_back(offset);
-	t->numrecords.push_back(numrecords);	
-	//std::vector<std::string> sname;
-	//sname.push_back(t->name);
-	//t->np->pwrite_files(sname);
 	t->np->buffer_in_nvme(t->name);
 	t->np->clear_events(t->name);
 	//struct io_request *r = new struct io_request();
@@ -87,7 +79,7 @@ void close_write_stream(struct thread_arg *t)
    {
 	 std::vector<std::string> name;
 	 name.push_back(t->name);
-	//t->np->pwrite(filename.c_str(),t->name);*/
+	//t->np->pwrite(filename.c_str(),t->name);
 	/*hid_t meta, meta_e, dtag;
 	t->np->pwrite_new_from_file(filename.c_str(),t->name,meta,meta_e,dtag);
 	t->meta_events.push_back(meta);
@@ -103,6 +95,7 @@ void io_polling(struct thread_arg *t)
   boost::lockfree::queue<struct io_request*> *io_queue = t->np->get_io_queue();
 
   std::vector<std::string> snames;
+  std::vector<std::vector<struct event>*> data;
 
   int nreq = 0;
   while(true)
@@ -116,7 +109,14 @@ void io_polling(struct thread_arg *t)
 
        if(r->from_nvme)
        {
-	 snames.push_back(r->name);
+	   hsize_t total_records, offset, numrecords;
+	   std::vector<struct event> *data_r = nullptr;
+           data_r = t->np->create_data_spaces_from_nvme(r->name,offset,total_records);	
+	   snames.push_back(r->name);
+	   t->total_records.push_back(total_records);
+	   t->offsets.push_back(offset); 
+	   //t->numrecords.push_back(numrecords);
+	   data.push_back(data_r);
        }
        else
        {
@@ -129,9 +129,9 @@ void io_polling(struct thread_arg *t)
     if(io_queue->empty()) break;
 
  }
-    
-  //t->np->pwrite_files_from_memory(snames,t->total_records);
-
+ 
+ //t->np->pwrite_from_memory(snames,t->total_records,t->offsets,t->numrecords); 
+   t->np->pwrite_from_nvme(snames,t->total_records,t->offsets,data);
   t->total_records.clear();
   t->offsets.clear();
   t->numrecords.clear();
