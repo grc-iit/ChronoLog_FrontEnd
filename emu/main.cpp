@@ -138,7 +138,12 @@ int main(int argc,char **argv)
   MPI_Barrier(MPI_COMM_WORLD);*/
 
   //std::thread iot{io_polling,&t_args[2]};
-  t1 = std::chrono::high_resolution_clock::now();
+
+  std::thread iot{io_polling,&t_args[num_threads]};
+  int nbatches = 2;
+
+  for(int n=0;n<nbatches;n++)
+  {
 
   for(int i=0;i<num_threads;i++)
   {
@@ -149,14 +154,17 @@ int main(int argc,char **argv)
   for(int i=0;i<num_threads;i++)
 	  workers[i].join();
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  //MPI_Barrier(MPI_COMM_WORLD);
 
   t2 = std::chrono::high_resolution_clock::now();
 
-  t = std::chrono::duration<double>(t2-t1).count();
-  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+  //t = std::chrono::duration<double>(t2-t1).count();
+  //MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  if(rank==0) std::cout <<" total_order time = "<<total_time<<std::endl;
+  //if(rank==0) std::cout <<" total_order time = "<<total_time<<std::endl;
+
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+
 
   boost::lockfree::queue<struct io_request*> *io_queue = t_args[0].np->get_io_queue();
   t1 = std::chrono::high_resolution_clock::now();
@@ -169,10 +177,14 @@ int main(int argc,char **argv)
          io_queue->push(r);
   }
 
-  t1 = std::chrono::high_resolution_clock::now();
+  t_args[0].np->set_num_streams(num_threads);
+  std::atomic_thread_fence(std::memory_order_seq_cst); 
+  while(t_args[0].np->get_num_streams()!=0);
 
-  std::thread iot{io_polling,&t_args[num_threads]};
+  }
 
+  //std::cout <<" rank = "<<rank<<std::endl;
+  t_args[0].np->mark_end_of_session();
 
   iot.join();
 
@@ -182,9 +194,9 @@ int main(int argc,char **argv)
 
   total_time = 0;
 
-  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+  //MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
+  //if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
 /*
   t2 = std::chrono::high_resolution_clock::now();*/
   /*t = std::chrono::duration<double>(t2-t1).count();

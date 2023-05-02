@@ -50,6 +50,7 @@ private:
       data_server_client *dsc;
       boost::lockfree::queue<struct io_request*> *io_queue;
       std::atomic<int> end_of_session;
+      std::atomic<int> num_streams;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n) : myrank(r), numprocs(np), numcores(n)
 	{
@@ -71,6 +72,7 @@ public:
 	   nm = new nvme_buffers(numprocs,myrank);
 	   io_queue = new boost::lockfree::queue<struct io_request*> (128);
 	   end_of_session.store(0);
+	   num_streams.store(0);
 	}
 	~read_write_process()
 	{
@@ -97,6 +99,17 @@ public:
 	{
 	    return end_of_session.load();
 	}
+
+	void set_num_streams(int n)
+	{
+	   num_streams.store(n);
+	}
+
+	int get_num_streams()
+	{
+	   return num_streams.load();
+	}
+
 	void create_write_buffer(std::string &s,event_metadata &em)
 	{
             m1.lock(); 

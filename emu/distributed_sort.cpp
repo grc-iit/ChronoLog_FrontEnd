@@ -57,9 +57,9 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    int num_splitters = 0;
    for(int i=0;i<numprocs;i++) num_splitters += splitter_counts[i];
 
-   if(myrank==0)
+   /*if(myrank==0)
    std::cout <<" num_splitters = "<<num_splitters<<" index = "<<index<<std::endl;
-
+*/
    std::vector<uint64_t> splitters;
    splitters.resize(num_splitters);
 

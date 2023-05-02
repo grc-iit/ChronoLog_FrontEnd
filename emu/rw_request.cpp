@@ -52,7 +52,7 @@ void search_events(struct thread_arg *t)
 void open_write_stream(struct thread_arg *t)
 {
    boost::lockfree::queue<struct io_request*> *io_queue = t->np->get_io_queue();
-   int niter = 1;
+   int niter = 4;
    std::string filename = "file"+t->name+".h5";
    for(int i=0;i<niter;i++)
    {
@@ -73,20 +73,6 @@ void open_write_stream(struct thread_arg *t)
 
 void close_write_stream(struct thread_arg *t)
 {
-   int niter = 1;
-   std::string filename = "file"+t->name+".h5";
-   for(int i=0;i<niter;i++)
-   {
-	 std::vector<std::string> name;
-	 name.push_back(t->name);
-	//t->np->pwrite(filename.c_str(),t->name);
-	/*hid_t meta, meta_e, dtag;
-	t->np->pwrite_new_from_file(filename.c_str(),t->name,meta,meta_e,dtag);
-	t->meta_events.push_back(meta);
-	t->meta_end_events.push_back(meta_e);
-	t->data_events.push_back(dtag);*/
-	/*MPI_Barrier(MPI_COMM_WORLD);*/
-   }
 }
 
 void io_polling(struct thread_arg *t)
@@ -101,7 +87,17 @@ void io_polling(struct thread_arg *t)
   while(true)
   {
 
-     while(!io_queue->empty())
+     std::atomic_thread_fence(std::memory_order_seq_cst);
+
+     while(t->np->get_num_streams()==0 && t->np->get_end_of_session()==0);
+
+     if(t->np->get_end_of_session()==1) break;
+
+     int nstreams = t->np->get_num_streams();
+
+     snames.clear(); data.clear();
+
+     for(int i=0;i<nstreams;i++)
      {
        struct io_request *r;
 
@@ -126,15 +122,15 @@ void io_polling(struct thread_arg *t)
        delete r;  
     }
 
-    if(io_queue->empty()) break;
+    t->np->set_num_streams(0);
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    t->np->pwrite_from_nvme(snames,t->total_records,t->offsets,data);
 
- }
+     /*t->total_records.clear();
+     t->offsets.clear();
+     t->numrecords.clear();*/
+    }
  
- //t->np->pwrite_from_memory(snames,t->total_records,t->offsets,t->numrecords); 
-   t->np->pwrite_from_nvme(snames,t->total_records,t->offsets,data);
-  t->total_records.clear();
-  t->offsets.clear();
-  t->numrecords.clear();
 
   MPI_Barrier(MPI_COMM_WORLD);
 
