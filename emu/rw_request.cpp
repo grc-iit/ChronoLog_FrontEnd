@@ -107,7 +107,7 @@ void io_polling(struct thread_arg *t)
        {
 	   hsize_t total_records, offset, numrecords;
 	   std::vector<struct event> *data_r = nullptr;
-           data_r = t->np->create_data_spaces_from_nvme(r->name,offset,total_records);	
+           data_r = t->np->create_data_spaces(r->name,offset,total_records,true);	
 	   snames.push_back(r->name);
 	   t->total_records.push_back(total_records);
 	   t->offsets.push_back(offset); 
@@ -124,11 +124,11 @@ void io_polling(struct thread_arg *t)
 
     t->np->set_num_streams(0);
     std::atomic_thread_fence(std::memory_order_seq_cst);
-    t->np->pwrite_from_nvme(snames,t->total_records,t->offsets,data);
+    t->np->pwrite(snames,t->total_records,t->offsets,data);
 
-     /*t->total_records.clear();
+     t->total_records.clear();
      t->offsets.clear();
-     t->numrecords.clear();*/
+     t->numrecords.clear();
     }
  
 

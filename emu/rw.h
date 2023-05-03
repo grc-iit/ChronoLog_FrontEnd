@@ -333,17 +333,13 @@ public:
 	void create_events(int num_events,std::string &s,double);
 	void clear_events(std::string &s);
 	void get_range(std::string &s);
-	void pwrite_from_memory(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<hsize_t>&);
-	void pwrite_extend_files_from_memory(std::vector<std::string> &,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<hsize_t>&);
-	void pwrite_extend_files_from_nvme(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&);
+	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&);
 	void pwrite_from_file(const char *,std::string&,hid_t&,hid_t&,hid_t&);
-	void pwrite_from_nvme(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&);
-	void pwrite_files_from_memory(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<hsize_t>&);
-	void pwrite_files_from_nvme(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&);
+	void pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&);
+	void pwrite_files(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&);
 	void preaddata(const char*,std::string &s);
 	void preadfileattr(const char*);
-	hsize_t create_data_spaces_from_memory(std::string &,hsize_t&,hsize_t&);
-	std::vector<struct event>* create_data_spaces_from_nvme(std::string &,hsize_t&,hsize_t&);
+	std::vector<struct event>* create_data_spaces(std::string &,hsize_t&,hsize_t&,bool);
 };
 
 #endif
