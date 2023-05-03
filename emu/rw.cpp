@@ -26,7 +26,7 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
 	e.ts = ts;
 	      
 	dm->add_event(e,index);
-	//sleep(ceil(arrival_rate));
+	usleep(20000);
     }
 
 }
@@ -89,8 +89,6 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     H5Pset_fapl_mpio(async_fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
     H5Pset_dxpl_mpio(async_dxpl, H5FD_MPIO_COLLECTIVE);
 
-    std::string grp_name = "async_g";
-
     size_t num;
     hbool_t op_failed = false;
 
@@ -121,7 +119,9 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     std::string filename = "file"+sts[i]+".h5";
     fid = H5Fopen_async(filename.c_str(), H5F_ACC_RDWR, async_fapl,es_id);
 
-    hid_t grp_id = H5Gcreate_async(fid, grp_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT, es_id); 
+    hid_t gapl = H5Pcreate(H5P_GROUP_ACCESS);
+    std::string grp_name = "async_g"+sts[i];
+    hid_t grp_id = H5Gopen_async(fid, grp_name.c_str(),gapl, es_id); 
     
     dataset1 = H5Dopen_async(fid, DATASETNAME1, H5P_DEFAULT,es_id);
 
@@ -160,6 +160,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     event_ids.push_back(es_id);
     H5Dclose_async(dataset1,es_id);
     H5Gclose_async(grp_id,es_id);
+    H5Pclose(gapl);
     H5Fclose_async(fid,es_id);
     filespaces.push_back(file_dataspace);
     memspaces.push_back(mem_dataspace);

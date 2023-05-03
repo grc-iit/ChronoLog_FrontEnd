@@ -98,7 +98,7 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  int num_threads = 4;
+  int num_threads = 8;
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -140,7 +140,9 @@ int main(int argc,char **argv)
   //std::thread iot{io_polling,&t_args[2]};
 
   std::thread iot{io_polling,&t_args[num_threads]};
-  int nbatches = 2;
+  int nbatches = 8;
+
+  t1 = std::chrono::high_resolution_clock::now();
 
   for(int n=0;n<nbatches;n++)
   {
@@ -154,28 +156,34 @@ int main(int argc,char **argv)
   for(int i=0;i<num_threads;i++)
 	  workers[i].join();
 
-  //MPI_Barrier(MPI_COMM_WORLD);
-
   t2 = std::chrono::high_resolution_clock::now();
-
-  //t = std::chrono::duration<double>(t2-t1).count();
-  //MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-
-  //if(rank==0) std::cout <<" total_order time = "<<total_time<<std::endl;
 
   std::atomic_thread_fence(std::memory_order_seq_cst);
 
-
   boost::lockfree::queue<struct io_request*> *io_queue = t_args[0].np->get_io_queue();
-  t1 = std::chrono::high_resolution_clock::now();
+
+  std::vector<std::string> snames;
+  std::vector<std::vector<struct event>*> data;
+  std::vector<hsize_t> total_records, offsets;
 
   for(int i=0;i<num_threads;i++)
   {
+           
+      /*std::vector<struct event> *data_r = nullptr;
+      hsize_t offset, trecords;
+      data_r = t_args[0].np->create_data_spaces(t_args[i].name,offset,trecords,true);
+      snames.push_back(t_args[i].name);
+      data.push_back(data_r);
+      total_records.push_back(trecords);
+      offsets.push_back(offset);*/
+
          struct io_request *r = new struct io_request();
          r->name = t_args[i].name;
          r->from_nvme = true;
          io_queue->push(r);
   }
+
+  //t_args[0].np->pwrite(snames,total_records,offsets,data);
 
   t_args[0].np->set_num_streams(num_threads);
   std::atomic_thread_fence(std::memory_order_seq_cst); 
@@ -183,7 +191,6 @@ int main(int argc,char **argv)
 
   }
 
-  //std::cout <<" rank = "<<rank<<std::endl;
   t_args[0].np->mark_end_of_session();
 
   iot.join();
@@ -192,24 +199,10 @@ int main(int argc,char **argv)
 
   t = std::chrono::duration<double> (t2-t1).count();
 
-  total_time = 0;
 
-  //MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-
-  //if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
-/*
-  t2 = std::chrono::high_resolution_clock::now();*/
-  /*t = std::chrono::duration<double>(t2-t1).count();
-  total_time = 0;
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  if(rank==0) std::cout <<" total order time = "<<total_time<<std::endl;
-
-  t = std::chrono::duration<double> (t3-t2).count();
-  total_time = 0;
-  MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-  if(rank==0) std::cout <<" writing time = "<<total_time<<std::endl;
-*/
+  if(rank==0) std::cout <<" Total time = "<<total_time<<std::endl;
   /*
   int numevents = t_args[0].np->num_write_events(t_args[0].name);
 

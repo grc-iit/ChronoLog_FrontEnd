@@ -126,6 +126,7 @@ void io_polling(struct thread_arg *t)
     std::atomic_thread_fence(std::memory_order_seq_cst);
     t->np->pwrite(snames,t->total_records,t->offsets,data);
 
+    //t->np->set_num_streams(0);
      t->total_records.clear();
      t->offsets.clear();
      t->numrecords.clear();
