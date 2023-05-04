@@ -63,7 +63,7 @@ class ClockSynchronization
 	 else unit = 1;
 	 myoffset = 0;
 	 maxError = 0;
-	 epsilon = 80000000;  //400 microseconds (scheduling, measurement errors)
+	 epsilon = 200000000;  //400 microseconds (scheduling, measurement errors)
 	 delay = 500000; // 200 microseconds network delay for reasonably large messages
 	 delay = delay/unit;
 	 epsilon = epsilon/unit;

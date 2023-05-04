@@ -62,7 +62,8 @@ class nvme_buffers
 	   if(r == nvme_fnames.end())
 	   {
 	      file_mapping::remove(fname.c_str());
-	      managed_mapped_file *mf = new managed_mapped_file(create_only,fname.c_str(),MAXFILESIZE);
+	      int maxsize = 65536*VALUESIZE;
+	      managed_mapped_file *mf = new managed_mapped_file(create_only,fname.c_str(),maxsize);
 	      const allocator_event_t allocator_e(mf->get_segment_manager());
 	      std::string vecname = fname+"MyEventVector";
 	      MyEventVect *ev = mf->construct<MyEventVect> (vecname.c_str()) (allocator_e); 

@@ -91,7 +91,7 @@ int main(int argc,char **argv)
   {
 	std::string name = "table"+std::to_string(i);
 	story_names.push_back(name);
-	total_events.push_back(8192);
+	total_events.push_back(32768);
 	np->prepare_service(name,em);
   }
 
@@ -156,6 +156,8 @@ int main(int argc,char **argv)
   for(int i=0;i<num_threads;i++)
 	  workers[i].join();
 
+  //MPI_Barrier(MPI_COMM_WORLD);
+
   t2 = std::chrono::high_resolution_clock::now();
 
   std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -169,22 +171,24 @@ int main(int argc,char **argv)
   for(int i=0;i<num_threads;i++)
   {
            
-      /*std::vector<struct event> *data_r = nullptr;
+     /* std::vector<struct event> *data_r = nullptr;
       hsize_t offset, trecords;
       data_r = t_args[0].np->create_data_spaces(t_args[i].name,offset,trecords,true);
       snames.push_back(t_args[i].name);
       data.push_back(data_r);
       total_records.push_back(trecords);
-      offsets.push_back(offset);*/
-
+      offsets.push_back(offset);
+*/
+      
          struct io_request *r = new struct io_request();
          r->name = t_args[i].name;
          r->from_nvme = true;
          io_queue->push(r);
   }
 
-  //t_args[0].np->pwrite(snames,total_records,offsets,data);
+  /*t_args[0].np->pwrite(snames,total_records,offsets,data);
 
+  MPI_Barrier(MPI_COMM_WORLD);*/
   t_args[0].np->set_num_streams(num_threads);
   std::atomic_thread_fence(std::memory_order_seq_cst); 
   while(t_args[0].np->get_num_streams()!=0);
