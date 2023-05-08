@@ -22,7 +22,7 @@ private:
       std::string server_addr;
       metadata_server *MS; 	
       metadata_client *MC;
-      query_parser Q;
+      query_parser *Q;
 public:
 
       emu_process(int np,int r,int n) : numprocs(np), myrank(r), numcores(n)
@@ -74,6 +74,7 @@ public:
 	}	
 	MPI_Barrier(MPI_COMM_WORLD);
         MC = new metadata_client(server_addr);
+	Q = new query_parser(4);
       }
 
       metadata_client *getclientobj()
@@ -89,7 +90,7 @@ public:
 
       query_parser * get_query_parser_obj()
       {
-	    return &Q;
+	    return Q;
       }
       std::string & get_serveraddr()
       {
@@ -153,12 +154,21 @@ public:
 	rwp->preaddata(filename,s);
 
       }
+
+      void data_streams(std::vector<std::string> &snames,std::vector<int> &total_events,int &nbatches)
+      {
+
+	rwp->spawn_write_streams(snames,total_events,nbatches);
+
+      }
+
       ~emu_process()
       {
 	if(MS != nullptr) delete MS;
 	delete MC;
 	delete rwp;
 	delete CM;
+	delete Q;
       }
 
 

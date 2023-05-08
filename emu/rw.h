@@ -13,8 +13,21 @@
 #include "nvme_buffer.h"
 #include <boost/lockfree/queue.hpp>
 #include "h5_async_lib.h"
+#include <thread>
 
 using namespace boost;
+
+struct thread_arg_w
+{
+  int tid;
+  int num_events;
+  std::string name;
+  std::pair<uint64_t,uint64_t> range;
+  std::vector<hsize_t> total_records;
+  std::vector<hsize_t> offsets;
+  std::vector<hsize_t> numrecords;
+};
+
 
 struct io_request
 {
@@ -48,6 +61,8 @@ private:
       std::vector<struct atomic_buffer*> readevents;
       dsort *ds;
       data_server_client *dsc;
+      std::vector<struct thread_arg_w> t_args;
+      std::vector<std::thread> workers;    
       boost::lockfree::queue<struct io_request*> *io_queue;
       std::atomic<int> end_of_session;
       std::atomic<int> num_streams;
@@ -100,14 +115,66 @@ public:
 	    return end_of_session.load();
 	}
 
-	void set_num_streams(int n)
+	void spawn_write_streams(std::vector<std::string> &snames,std::vector<int> &total_events,int nbatches)
 	{
-	   num_streams.store(n);
-	}
 
-	int get_num_streams()
-	{
-	   return num_streams.load();
+		num_streams.store(snames.size());
+
+		int num_threads = num_streams.load()+1;
+		t_args.resize(num_threads);
+		workers.resize(num_threads);
+
+		for(int i=0;i<snames.size();i++)
+		{
+	   	   t_args[i].tid = i;
+		   int numevents = total_events[i];
+		   int events_per_proc = numevents/numprocs;
+		   int rem = numevents%numprocs;
+		   if(myrank < rem)  
+		   t_args[i].num_events = events_per_proc+1;
+		   else t_args[i].num_events = events_per_proc;
+		   t_args[i].name = snames[i];
+		}
+		
+		t_args[num_threads-1].tid = num_threads-1;
+
+		std::function<void(struct thread_arg_w *)> IOFunc(
+                std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
+
+		std::function<void(struct thread_arg_w *)> DataFunc(
+		std::bind(&read_write_process::data_stream,this,std::placeholders::_1));
+		
+		std::thread iot{IOFunc,&t_args[num_threads-1]};
+
+		for(int i=0;i<nbatches;i++)
+		{
+			for(int j=0;j<num_threads-1;j++)
+  			{
+        			std::thread t{DataFunc,&t_args[j]};
+        			workers[j] = std::move(t);
+  			}
+
+  			for(int j=0;j<num_threads-1;j++) workers[j].join();
+	
+
+			for(int j=0;j<num_threads-1;j++)
+			{
+				 struct io_request *r = new struct io_request();
+         			 r->name = t_args[j].name;
+         		         r->from_nvme = true;
+         			 io_queue->push(r);
+			}
+			num_streams.store(num_threads-1);
+			while(num_streams.load()!=0);
+
+
+		}			
+		
+		end_of_session.store(1);
+
+		iot.join();
+		
+
 	}
 
 	void create_write_buffer(std::string &s,event_metadata &em)
@@ -340,6 +407,8 @@ public:
 	void preaddata(const char*,std::string &s);
 	void preadfileattr(const char*);
 	std::vector<struct event>* create_data_spaces(std::string &,hsize_t&,hsize_t&,bool);
+	void io_polling(struct thread_arg_w*);
+	void data_stream(struct thread_arg_w*);
 };
 
 #endif

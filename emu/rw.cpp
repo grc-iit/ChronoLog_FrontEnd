@@ -529,3 +529,71 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
    pwrite_extend_files(sts_e,trec_e,off_e,darray_e);
 
 }
+
+void read_write_process::data_stream(struct thread_arg_w *t)
+{
+   int niter = 4;
+   for(int i=0;i<niter;i++)
+   {
+        create_events(t->num_events,t->name,1);
+        sort_events(t->name);
+        buffer_in_nvme(t->name);
+        clear_events(t->name);
+  }
+
+}
+
+void read_write_process::io_polling(struct thread_arg_w *t)
+{
+    std::vector<std::string> snames;
+    std::vector<std::vector<struct event>*> data;
+    std::vector<hsize_t> total_records, offsets,numrecords;
+
+
+   while(true)
+   {
+
+     std::atomic_thread_fence(std::memory_order_seq_cst);
+
+     while(num_streams.load()==0 && get_end_of_session()==0);
+
+     if(get_end_of_session()==1) break;
+
+
+     int nstreams = num_streams.load();
+
+     snames.clear(); data.clear(); total_records.clear(); offsets.clear(); numrecords.clear();
+
+     for(int i=0;i<nstreams;i++)
+     {
+       struct io_request *r;
+
+       io_queue->pop(r);
+
+       if(r->from_nvme)
+       {
+           hsize_t trecords, offset, numrecords;
+           std::vector<struct event> *data_r = nullptr;
+           data_r = create_data_spaces(r->name,offset,trecords,true);
+           snames.push_back(r->name);
+           total_records.push_back(trecords);
+           offsets.push_back(offset);
+           //t->numrecords.push_back(numrecords);
+           data.push_back(data_r);
+       }
+   }
+
+    num_streams.store(0);
+    std::atomic_thread_fence(std::memory_order_seq_cst);
+    pwrite(snames,total_records,offsets,data);
+
+    snames.clear();
+    data.clear();
+    total_records.clear();
+    offsets.clear();
+    numrecords.clear();
+
+  }
+
+
+}
