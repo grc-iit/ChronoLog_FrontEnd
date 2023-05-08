@@ -117,7 +117,9 @@ int main(int argc,char **argv)
 
   if(rank==0) std::cout <<" Total time = "<<total_time<<std::endl;
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  //MPI_Barrier(MPI_COMM_WORLD);
+
+  np->end_qp_sessions();
 
   delete np;
   MPI_Finalize();

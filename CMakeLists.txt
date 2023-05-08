@@ -29,8 +29,10 @@ endif ()
 include_directories(${MPI_CXX_INCLUDE_DIRS})
 include_directories(${Boost_INC_DIRS})
 set(LIB_FLAGS ${RPC_LIB_FLAGS} ${MPI_CXX_LIBRARIES} -lpthread -lrt)
+set(HDF5_VOL_ASYNC "/home/asasidharan/spack/opt/spack/linux-ubuntu22.04-skylake_avx512/gcc-11.3.0/hdf5-vol-async-1.5-fr5n4kr6agu52ynzxp7nnm4xhyugulxw") 
 
 include_directories(${HDF5_C_INCLUDE_DIRS})
+include_directories(${HDF5_VOL_ASYNC}/include)
 
 # libs for NATS tests
 #set(LIB_FLAGS ${LIB_FLAGS} -lnats)

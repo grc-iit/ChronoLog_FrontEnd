@@ -64,15 +64,25 @@ class query_parser
 		   std::thread t{RequestFunc,&t_args[i]};
 		   workers[i] = std::move(t);
 		}
+	
+		//for(int i=0;i<helper_threads;i++) workers[i].join();
+		
 
 	   }
 	   ~query_parser()
 	   {
-		   end_of_session.store(1);
+		   //end_of_session.store(1);
 
-		   for(int i=0;i<helper_threads;i++) workers[i].join();
+		   //for(int i=0;i<helper_threads;i++) workers[i].join();
 
 		   delete query_req_queue;
+	   }
+	   void end_sessions()
+	   {
+		end_of_session.store(1);
+
+		for(int i=0;i<helper_threads;i++) workers[i].join();
+
 	   }
 	   void set_rw_pointer(read_write_process *p)
 	   {

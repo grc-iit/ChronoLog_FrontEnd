@@ -555,9 +555,9 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      std::atomic_thread_fence(std::memory_order_seq_cst);
 
-     while(num_streams.load()==0 && get_end_of_session()==0);
+     while(num_streams.load()==0 && end_of_session.load()==0);
 
-     if(get_end_of_session()==1) break;
+     if(end_of_session.load()==1) break;
 
 
      int nstreams = num_streams.load();
@@ -566,12 +566,14 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      for(int i=0;i<nstreams;i++)
      {
-       struct io_request *r;
+       struct io_request *r=nullptr;
 
        io_queue->pop(r);
 
-       if(r->from_nvme)
+       if(r != nullptr)
        {
+         if(r->from_nvme)
+         {
            hsize_t trecords, offset, numrecords;
            std::vector<struct event> *data_r = nullptr;
            data_r = create_data_spaces(r->name,offset,trecords,true);
@@ -580,6 +582,9 @@ void read_write_process::io_polling(struct thread_arg_w *t)
            offsets.push_back(offset);
            //t->numrecords.push_back(numrecords);
            data.push_back(data_r);
+        }
+
+	delete r;
        }
    }
 

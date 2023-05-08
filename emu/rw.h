@@ -66,6 +66,10 @@ private:
       boost::lockfree::queue<struct io_request*> *io_queue;
       std::atomic<int> end_of_session;
       std::atomic<int> num_streams;
+      int num_io_threads;
+      std::vector<struct thread_arg_w> t_args_io;
+      std::vector<std::thread> io_threads;
+
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n) : myrank(r), numprocs(np), numcores(n)
 	{
@@ -88,6 +92,16 @@ public:
 	   io_queue = new boost::lockfree::queue<struct io_request*> (128);
 	   end_of_session.store(0);
 	   num_streams.store(0);
+	   num_io_threads = 1;
+	   std::function<void(struct thread_arg_w *)> IOFunc(
+           std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
+	   t_args_io.resize(num_io_threads);
+	   io_threads.resize(num_io_threads);
+	   t_args_io[0].tid = 0;
+
+	   std::thread iothread{IOFunc,&t_args_io[0]};
+	   io_threads[0] = std::move(iothread);
+
 	}
 	~read_write_process()
 	{
@@ -105,22 +119,17 @@ public:
 
 	}
 
-	void mark_end_of_session()
+	void end_sessions()
 	{
-	   end_of_session.store(1);
-	}
+		end_of_session.store(1);
 
-	int get_end_of_session()
-	{
-	    return end_of_session.load();
-	}
+		for(int i=0;i<num_io_threads;i++) io_threads[i].join();
 
+	}
 	void spawn_write_streams(std::vector<std::string> &snames,std::vector<int> &total_events,int nbatches)
 	{
 
-		num_streams.store(snames.size());
-
-		int num_threads = num_streams.load()+1;
+		int num_threads = snames.size();
 		t_args.resize(num_threads);
 		workers.resize(num_threads);
 
@@ -136,45 +145,34 @@ public:
 		   t_args[i].name = snames[i];
 		}
 		
-		t_args[num_threads-1].tid = num_threads-1;
-
-		std::function<void(struct thread_arg_w *)> IOFunc(
-                std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
 
 		std::function<void(struct thread_arg_w *)> DataFunc(
 		std::bind(&read_write_process::data_stream,this,std::placeholders::_1));
 		
-		std::thread iot{IOFunc,&t_args[num_threads-1]};
-
 		for(int i=0;i<nbatches;i++)
 		{
-			for(int j=0;j<num_threads-1;j++)
+			for(int j=0;j<num_threads;j++)
   			{
         			std::thread t{DataFunc,&t_args[j]};
         			workers[j] = std::move(t);
   			}
 
-  			for(int j=0;j<num_threads-1;j++) workers[j].join();
+  			for(int j=0;j<num_threads;j++) workers[j].join();
 	
 
-			for(int j=0;j<num_threads-1;j++)
+			for(int j=0;j<num_threads;j++)
 			{
 				 struct io_request *r = new struct io_request();
          			 r->name = t_args[j].name;
          		         r->from_nvme = true;
          			 io_queue->push(r);
 			}
-			num_streams.store(num_threads-1);
+			num_streams.store(num_threads);
 			while(num_streams.load()!=0);
 
 
 		}			
 		
-		end_of_session.store(1);
-
-		iot.join();
-		
-
 	}
 
 	void create_write_buffer(std::string &s,event_metadata &em)

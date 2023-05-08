@@ -171,6 +171,11 @@ public:
 	delete Q;
       }
 
+      void end_qp_sessions()
+      {
+	Q->end_sessions();
+	rwp->end_sessions();
+      }
 
 };
 

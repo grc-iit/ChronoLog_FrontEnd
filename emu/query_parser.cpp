@@ -191,11 +191,11 @@ bool query_parser::add_view_to_cache(std::string &s,std::string &a_name,std::vec
 void query_parser::process_requests(struct thread_arg_q* t)
 {
 
-   while(true)
+   /*while(true)
    {
       if(end_of_session.load()==1) break;
 
 
 
-   }
+   }*/
 }
