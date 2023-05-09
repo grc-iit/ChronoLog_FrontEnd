@@ -172,6 +172,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	H5ESclose(event_ids[i]);
         H5Sclose(filespaces[i]);
         H5Sclose(memspaces[i]);
+	nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	delete data_arrays[i];
     }
 
@@ -291,7 +292,7 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 
     boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
 
-    readevents[index]->buffer->resize(num_events);
+    readevents[index]->buffer->resize(total_k);
 
     hsize_t adims[1];
     adims[0] = datasize;
@@ -471,6 +472,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         //H5Pclose(lists[i]);
 	H5Sclose(filespaces[i]);
         H5Sclose(memspaces[i]);
+	nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	delete data_arrays[i];
 	std::string filename = "file"+sts[i]+".h5";
 	m1.lock();

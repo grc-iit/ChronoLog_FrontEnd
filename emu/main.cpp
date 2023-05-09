@@ -100,7 +100,7 @@ int main(int argc,char **argv)
 
   int num_writer_threads = 4;
 
-  int nbatches = 1;
+  int nbatches = 8;
 
   t1 = std::chrono::high_resolution_clock::now();
 

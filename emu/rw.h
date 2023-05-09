@@ -181,10 +181,10 @@ public:
          			 io_queue_async->push(r);
 			}
 			
-			struct io_request *r = new struct io_request();
-			r->name = "table"+std::to_string(1);
+			/*struct io_request *r = new struct io_request();
+			r->name = "table"+std::to_string(0);
 		        r->from_nvme = false;
-			io_queue_sync->push(r);
+			io_queue_sync->push(r);*/
 
 			num_streams.store(num_threads);
 			while(num_streams.load()!=0);

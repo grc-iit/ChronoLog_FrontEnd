@@ -96,7 +96,24 @@ class nvme_buffers
 	     ev->push_back((*inp)[i]);
 	   nvme_files[index]->flush();
 	}
-	
+
+	void erase_from_nvme(std::string &s, int numevents)
+	{
+	   std::string fname = prefix+s;
+	   auto r = nvme_fnames.find(fname);
+
+	   if(r==nvme_fnames.end()) return;
+
+	   int index = r->second.first;
+
+	   boost::interprocess::scoped_lock<interprocess_sharable_mutex> lk(*file_locks[index]);
+
+	   MyEventVect *ev = nvme_ebufs[index];
+
+	   ev->erase(ev->begin(),ev->begin()+numevents);
+
+	   nvme_files[index]->flush();
+	}	
 	std::vector<struct event> *fetch_buffer(std::string &s,int &index)
 	{
 	
@@ -118,8 +135,8 @@ class nvme_buffers
 		data_array->push_back((*ev)[i]);
 	  }
 
-	  nvme_ebufs[index]->clear();
-	  nvme_files[index]->flush();
+	  //nvme_ebufs[index]->clear();
+	  //nvme_files[index]->flush();
 
 	  return data_array;
 	}
