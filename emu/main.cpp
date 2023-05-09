@@ -51,8 +51,6 @@ int main(int argc,char **argv)
 
   if(rank==0) std::cout <<" numprocs = "<<size<<" sync time = "<<total_time<<std::endl;
 
-  query_parser *Q = np->get_query_parser_obj();
-
   /*metadata_client *CC = np->getclientobj();
 
 
@@ -74,7 +72,7 @@ int main(int argc,char **argv)
 
   }*/
 
-  int numstories = 4;
+  int numstories = 1;
   std::vector<std::string> story_names;
   std::vector<int> total_events;
 
@@ -93,8 +91,8 @@ int main(int argc,char **argv)
   {
 	std::string name = "table"+std::to_string(i);
 	story_names.push_back(name);
-	total_events.push_back(1024);
-	np->prepare_service(name,em);
+	total_events.push_back(2048);
+	np->prepare_service(name,em,2048);
   }
 
 
@@ -116,10 +114,6 @@ int main(int argc,char **argv)
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
   if(rank==0) std::cout <<" Total time = "<<total_time<<std::endl;
-
-  //MPI_Barrier(MPI_COMM_WORLD);
-
-  np->end_qp_sessions();
 
   delete np;
   MPI_Finalize();

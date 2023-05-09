@@ -13,10 +13,10 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
     event_metadata em = (r->second).second;
     m1.unlock();
     datasize = em.get_datasize();
-    
-    auto ab = dm->get_atomic_buffer(index);
+   
+    atomic_buffer *ab = dm->get_atomic_buffer(index);
 
-    boost::upgrade_lock<boost::shared_mutex> lk(ab->m);
+    boost::shared_lock<boost::shared_mutex> lk(ab->m); 
 
     for(int i=0;i<num_events;i++)
     {
@@ -197,7 +197,7 @@ void read_write_process::preadfileattr(const char *filename)
 
     hid_t ret = H5Pclose(fapl);
 
-    attr_name[0] = "DataSizes";
+    attr_name[0] = "Datasizes";
 
     hid_t dataset1 = H5Dopen2(fid, DATASETNAME1, H5P_DEFAULT);
 
@@ -209,7 +209,7 @@ void read_write_process::preadfileattr(const char *filename)
     auto r = file_minmax.find(fname);
     ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
-    if(r==file_minmax.end())
+    /*if(r==file_minmax.end())
     {
 	std::pair<std::string,std::pair<uint64_t,uint64_t>> p;
 	p.first = fname;
@@ -221,7 +221,7 @@ void read_write_process::preadfileattr(const char *filename)
     {
 	r->second.first = attrs[3];
 	r->second.second = attrs[4];
-    }
+    }*/
 
     ret = H5Aclose(attr_id);
     ret = H5Dclose(dataset1);
@@ -543,6 +543,19 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 
 }
 
+void read_write_process::io_polling_seq(struct thread_arg_w *t)
+{
+ 
+   while(true)
+   {
+	if(end_of_session.load()==1) break;
+
+
+
+   }
+
+}
+
 void read_write_process::io_polling(struct thread_arg_w *t)
 {
     std::vector<std::string> snames;
@@ -555,50 +568,77 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      std::atomic_thread_fence(std::memory_order_seq_cst);
 
-     while(num_streams.load()==0 && end_of_session.load()==0);
+     while(num_streams.load()==0 && end_of_session.load()==0 && io_queue_sync->empty());
 
-     if(end_of_session.load()==1) break;
+     int sync_async[3];
+     int sync_empty = io_queue_sync->empty() ? 0 : 1;
+     sync_async[0] = sync_empty;
+     int async_empty = num_streams.load() == 0 ? 0 : 1;
+     sync_async[1] = async_empty;
+     int end_sessions = end_of_session.load()==0 ? 0 : 1;
+     sync_async[2] = end_sessions;
 
+     int sync_empty_all[3];
 
-     int nstreams = num_streams.load();
+     MPI_Allreduce(&sync_async,&sync_empty_all,3,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
-     snames.clear(); data.clear(); total_records.clear(); offsets.clear(); numrecords.clear();
+     if(sync_empty_all[2]==numprocs) break;
 
-     for(int i=0;i<nstreams;i++)
+     if(sync_empty_all[0]==numprocs)
      {
-       struct io_request *r=nullptr;
-
-       io_queue->pop(r);
-
-       if(r != nullptr)
+       while(!io_queue_sync->empty())
        {
-         if(r->from_nvme)
-         {
-           hsize_t trecords, offset, numrecords;
-           std::vector<struct event> *data_r = nullptr;
-           data_r = create_data_spaces(r->name,offset,trecords,true);
-           snames.push_back(r->name);
-           total_records.push_back(trecords);
-           offsets.push_back(offset);
-           //t->numrecords.push_back(numrecords);
-           data.push_back(data_r);
-        }
+	struct io_request *r = nullptr;
+
+	io_queue_sync->pop(r);
+
+	std::string filename = "file"+r->name+".h5";
+
+	preadfileattr(filename.c_str());
 
 	delete r;
        }
-   }
+     }
 
-    num_streams.store(0);
-    std::atomic_thread_fence(std::memory_order_seq_cst);
-    pwrite(snames,total_records,offsets,data);
 
-    snames.clear();
-    data.clear();
-    total_records.clear();
-    offsets.clear();
-    numrecords.clear();
+     if(sync_empty_all[1]==numprocs)
+     {
+       snames.clear(); data.clear(); total_records.clear(); offsets.clear(); numrecords.clear();
+
+       while(!io_queue_async->empty())
+       {
+         struct io_request *r=nullptr;
+
+         io_queue_async->pop(r);
+
+         if(r != nullptr)
+         {
+           if(r->from_nvme)
+           {
+              hsize_t trecords, offset, numrecords;
+              std::vector<struct event> *data_r = nullptr;
+              data_r = create_data_spaces(r->name,offset,trecords,true);
+              snames.push_back(r->name);
+              total_records.push_back(trecords);
+              offsets.push_back(offset);
+           //t->numrecords.push_back(numrecords);
+              data.push_back(data_r);
+          }
+
+	  delete r;
+         }
+      }
+
+      num_streams.store(0);
+      std::atomic_thread_fence(std::memory_order_seq_cst);
+      pwrite(snames,total_records,offsets,data);
+
+      snames.clear();
+      data.clear();
+      total_records.clear();
+      offsets.clear();
+      numrecords.clear();
+     }
 
   }
-
-
 }

@@ -34,7 +34,7 @@ class dsort
 	       events[index] = inp;
 	   }
 
-	   void sort_data(int,uint64_t&,uint64_t&);
+	   void sort_data(int,int,uint64_t&,uint64_t&);
 
 	   std::vector<struct event> * get_sorted_data(int index)
 	   {

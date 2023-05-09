@@ -74,7 +74,7 @@ public:
 	}	
 	MPI_Barrier(MPI_COMM_WORLD);
         MC = new metadata_client(server_addr);
-	Q = new query_parser(4);
+	Q = new query_parser(numprocs,myrank,4,rwp);
       }
 
       metadata_client *getclientobj()
@@ -87,71 +87,27 @@ public:
 	CM->ComputeErrorInterval();
 
       }
-
-      query_parser * get_query_parser_obj()
-      {
-	    return Q;
-      }
       std::string & get_serveraddr()
       {
 	      return server_addr;
       }
-      void prepare_service(std::string &name, event_metadata &em)
+      void prepare_service(std::string &name, event_metadata &em,int maxsize)
       {
-	   rwp->create_write_buffer(name,em);
+	   int max_size_per_proc = maxsize/numprocs;
+	   int rem = maxsize% numprocs;
+	   if(myrank < rem) max_size_per_proc++;
+	   rwp->create_write_buffer(name,em,max_size_per_proc);
 
       }
       read_write_process* get_rw_object()
       {
 	      return rwp;
       }
-      void create_events(int num_events,std::string &s,double arrival_rate)
+      
+      void read_events(const char *filename)
       {
-	auto t1 = std::chrono::high_resolution_clock::now();
-
-	rwp->create_events(num_events,s,arrival_rate);
-
-	MPI_Barrier(MPI_COMM_WORLD);
-	auto t2 = std::chrono::high_resolution_clock::now();
-	double t = std::chrono::duration<double>(t2-t1).count();
-
-	double et = 0;
-	MPI_Allreduce(&t,&et,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-	if(myrank==0) std::cout <<" event_creation time = "<<et<<std::endl;
-	int de = rwp->dropped_events();
-	int total_de = 0;
-	MPI_Allreduce(&de,&total_de,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-	if(myrank==0) std::cout <<" dropped events = "<<total_de<<std::endl;
-      }
-
-      void write_events(const char *filename,std::string &s)
-      {
-	auto t1 = std::chrono::high_resolution_clock::now();
-
-	rwp->sort_events(s);
-        int nevents = rwp->num_write_events(s);
-
-	auto t2 = std::chrono::high_resolution_clock::now();
-	double stime = std::chrono::duration<double>(t2-t1).count();
-
-	int events_t = 0;
-	MPI_Allreduce(&nevents,&events_t,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-	if(myrank==0) std::cout <<" num_events = "<<events_t<<std::endl;
-	double stime_t = 0;
-	MPI_Allreduce(&stime,&stime_t,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-	if(myrank==0) std::cout <<" sorting time = "<<stime_t<<std::endl;
-
-	//rwp->pwrite_new(filename,s);
-
-      }
-
-      void clear_events(std::string &s)
-      {
-	rwp->clear_events(s);
-      }
-      void read_events(const char *filename,std::string &s)
-      {
-	rwp->preaddata(filename,s);
+	//rwp->preaddata(filename,s);
+	rwp->preadfileattr(filename);
 
       }
 
@@ -160,21 +116,19 @@ public:
 
 	rwp->spawn_write_streams(snames,total_events,nbatches);
 
+	Q->end_sessions();
+	rwp->end_sessions();
       }
 
       ~emu_process()
       {
+	//Q->end_sessions();
+	//rwp->end_sessions();
 	if(MS != nullptr) delete MS;
 	delete MC;
 	delete rwp;
 	delete CM;
 	delete Q;
-      }
-
-      void end_qp_sessions()
-      {
-	Q->end_sessions();
-	rwp->end_sessions();
       }
 
 };

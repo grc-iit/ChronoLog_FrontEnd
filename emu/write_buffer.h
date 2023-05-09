@@ -82,13 +82,14 @@ class databuffers
   {
 	  return dmap->num_dropped();
   }
-  void create_write_buffer()
+  void create_write_buffer(int maxsize)
   {
      int total_size = 65536*2;
      uint64_t maxkey = UINT64_MAX;
      dmap->create_table(total_size,maxkey);
      struct atomic_buffer *a = new struct atomic_buffer();
-     a->buffer = new std::vector<struct event> ();
+     a->buffer_size.store(0);
+     a->buffer = new std::vector<struct event> (maxsize);
      m1.lock();
      atomicbuffers.push_back(a);
      m1.unlock();
@@ -97,6 +98,7 @@ class databuffers
   {
 	boost::upgrade_lock<boost::shared_mutex> lk(atomicbuffers[index]->m);
 	dmap->LocalClearMap(index);
+	atomicbuffers[index]->buffer_size.store(0);
 	atomicbuffers[index]->buffer->clear();
   }
   void set_valid_range(int index,uint64_t &n1,uint64_t &n2)
@@ -120,7 +122,9 @@ class databuffers
       if(b) 
       {
 	      std::memset(e.data,0,VALUESIZE);
-	      atomicbuffers[index]->buffer->push_back(e);
+	      int ps = atomicbuffers[index]->buffer_size.load();
+	      (*atomicbuffers[index]->buffer)[ps] = e;
+	      atomicbuffers[index]->buffer_size.fetch_add(1);
 	      event_count++; 
       }
   }

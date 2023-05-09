@@ -35,6 +35,8 @@ class query_parser
 {
 
     private:
+	   int numprocs;
+	   int myrank;
 	   std::mutex eh;
            std::unordered_map<std::string,event_metadata> event_headers;
            read_write_process *np;      
@@ -48,7 +50,7 @@ class query_parser
 	   std::vector<struct thread_arg_q> t_args;
 	   std::vector<std::thread> workers;
     public:
-	   query_parser(int n) : helper_threads(n)
+	   query_parser(int num,int rank,int n,read_write_process *pr) : numprocs(num),myrank(rank),helper_threads(n), np(pr)
 	   {
 		query_req_queue = new boost::lockfree::queue<query_request*> (128);
 		end_of_session.store(0);
@@ -65,15 +67,10 @@ class query_parser
 		   workers[i] = std::move(t);
 		}
 	
-		//for(int i=0;i<helper_threads;i++) workers[i].join();
-		
 
 	   }
 	   ~query_parser()
 	   {
-		   //end_of_session.store(1);
-
-		   //for(int i=0;i<helper_threads;i++) workers[i].join();
 
 		   delete query_req_queue;
 	   }
@@ -84,10 +81,7 @@ class query_parser
 		for(int i=0;i<helper_threads;i++) workers[i].join();
 
 	   }
-	   void set_rw_pointer(read_write_process *p)
-	   {
-		   np = p;
-	   }
+	   
 	   void add_event_header(std::string s,int nattrs,std::vector<std::string> &attr_names,std::vector<int> &vsizes,std::vector<bool> &sign,std::vector<bool> &end)
 	   {
 		auto r = event_headers.find(s);

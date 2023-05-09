@@ -7,12 +7,12 @@ bool compare_fn(struct event &e1, struct event &e2)
     return e1.ts <= e2.ts;
 }
 
-void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
+void dsort::sort_data(int index,int size,uint64_t& min_v,uint64_t &max_v)
 {
 
    int total_events = 0;
 
-   int local_events = events[index]->size();
+   int local_events = size;
    
    std::vector<uint64_t> mysplitters;
    if(local_events >= 2)
@@ -119,7 +119,7 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    std::vector<int> event_count(numprocs);
    std::fill(event_count.begin(),event_count.end(),0);
 
-   for(int i=0;i<events[index]->size();i++)
+   for(int i=0;i<size;i++)
    {
 	int dest = -1;
         uint64_t ts = (*events[index])[i].ts;
@@ -184,11 +184,11 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    total_records = 0;
    for(int i=0;i<numprocs;i++) total_records += recv_sizes[i];
 
-   send_buffer_u.resize(events[index]->size());
+   send_buffer_u.resize(size);
    recv_buffer_u.resize(total_recv_size);
 
    int datasize = VALUESIZE;
-   for(int i=0;i<events[index]->size();i++)
+   for(int i=0;i<size;i++)
    {
 	uint64_t ts = (*events[index])[i].ts;
 	int dest = event_dest[i];
@@ -249,7 +249,7 @@ void dsort::sort_data(int index,uint64_t& min_v,uint64_t &max_v)
    send_buffer_char.resize(total_send_size_data);
    recv_buffer_char.resize(total_recv_size_data);
 
-   for(int i=0;i<events[index]->size();i++)
+   for(int i=0;i<size;i++)
    {
 	int dest = event_dest[i];
 	int start = send_displ[dest];

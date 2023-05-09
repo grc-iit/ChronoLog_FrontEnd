@@ -63,7 +63,8 @@ private:
       data_server_client *dsc;
       std::vector<struct thread_arg_w> t_args;
       std::vector<std::thread> workers;    
-      boost::lockfree::queue<struct io_request*> *io_queue;
+      boost::lockfree::queue<struct io_request*> *io_queue_async;
+      boost::lockfree::queue<struct io_request*> *io_queue_sync;
       std::atomic<int> end_of_session;
       std::atomic<int> num_streams;
       int num_io_threads;
@@ -89,18 +90,25 @@ public:
 	   dm->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 	   ds = new dsort(numprocs,myrank);
 	   nm = new nvme_buffers(numprocs,myrank);
-	   io_queue = new boost::lockfree::queue<struct io_request*> (128);
+	   io_queue_async = new boost::lockfree::queue<struct io_request*> (128);
+	   io_queue_sync = new boost::lockfree::queue<struct io_request*> (128);
 	   end_of_session.store(0);
 	   num_streams.store(0);
-	   num_io_threads = 1;
+	   num_io_threads = 2;
 	   std::function<void(struct thread_arg_w *)> IOFunc(
            std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
+
+	   std::function<void(struct thread_arg_w*)> IOFuncSeq(
+	   std::bind(&read_write_process::io_polling_seq,this,std::placeholders::_1));
+
 	   t_args_io.resize(num_io_threads);
 	   io_threads.resize(num_io_threads);
 	   t_args_io[0].tid = 0;
-
-	   std::thread iothread{IOFunc,&t_args_io[0]};
-	   io_threads[0] = std::move(iothread);
+	   std::thread iothread0{IOFunc,&t_args_io[0]};
+	   io_threads[0] = std::move(iothread0);
+	   t_args_io[1].tid = 1;
+	   std::thread iothread1{IOFuncSeq,&t_args_io[1]};
+	   io_threads[1] = std::move(iothread1);
 
 	}
 	~read_write_process()
@@ -114,7 +122,8 @@ public:
 		delete readevents[i];
 	   }
 	   delete nm;
-	   delete io_queue;
+	   delete io_queue_async;
+	   delete io_queue_sync;
 	   H5close();
 
 	}
@@ -125,6 +134,10 @@ public:
 
 		for(int i=0;i<num_io_threads;i++) io_threads[i].join();
 
+	}
+	void sync_queue_push(struct io_request *r)
+	{
+		io_queue_sync->push(r);
 	}
 	void spawn_write_streams(std::vector<std::string> &snames,std::vector<int> &total_events,int nbatches)
 	{
@@ -159,23 +172,28 @@ public:
 
   			for(int j=0;j<num_threads;j++) workers[j].join();
 	
-
+			
 			for(int j=0;j<num_threads;j++)
 			{
 				 struct io_request *r = new struct io_request();
          			 r->name = t_args[j].name;
          		         r->from_nvme = true;
-         			 io_queue->push(r);
+         			 io_queue_async->push(r);
 			}
+			
+			struct io_request *r = new struct io_request();
+			r->name = "table"+std::to_string(1);
+		        r->from_nvme = false;
+			io_queue_sync->push(r);
+
 			num_streams.store(num_threads);
 			while(num_streams.load()!=0);
-
-
+		
 		}			
 		
 	}
 
-	void create_write_buffer(std::string &s,event_metadata &em)
+	void create_write_buffer(std::string &s,event_metadata &em,int maxsize)
 	{
             m1.lock(); 
 	    if(write_names.find(s)==write_names.end())
@@ -185,7 +203,7 @@ public:
 	      std::pair<int,event_metadata> p1(myevents.size()-1,em);
 	      std::pair<std::string,std::pair<int,event_metadata>> p2(s,p1);
 	      write_names.insert(p2);
-	      dm->create_write_buffer();
+	      dm->create_write_buffer(maxsize);
 	      ds->create_sort_buffer();
 	      nm->create_nvme_buffer(s,em);
 	    }
@@ -225,7 +243,8 @@ public:
 	    boost::upgrade_lock<boost::shared_mutex> lk(myevents[index]->m);
 	    ds->get_unsorted_data(myevents[index]->buffer,index);
 	    uint64_t min_v,max_v;
-	    ds->sort_data(index,min_v,max_v);
+	    ds->sort_data(index,myevents[index]->buffer_size.load(),min_v,max_v);
+	    myevents[index]->buffer_size.store(myevents[index]->buffer->size());
 	    m1.lock();
 	    auto r1 = write_interval.find(s);
 	    if(r1 == write_interval.end())
@@ -251,7 +270,7 @@ public:
 
 	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 	
-	   nm->copy_to_nvme(s,myevents[index]->buffer);
+	   nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
 	}
 	event_metadata & get_metadata(std::string &s)
 	{
@@ -312,8 +331,7 @@ public:
 		auto r = write_names.find(s);
 		int index = (r->second).first;
 		m1.unlock();
-		boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
-		int size = myevents[index]->buffer->size();
+		int size = myevents[index]->buffer_size.load();
 		return size;
 	}
 	int dropped_events()
@@ -382,7 +400,7 @@ public:
 	     if(index != -1)
 	     {
 		   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
-		   for(int i=0;i<myevents[index]->buffer->size();i++)
+		   for(int i=0;i<myevents[index]->buffer_size.load();i++)
 		   {
 		     uint64_t ts = (*(myevents[index]->buffer))[i].ts;
 		     if(ts >= min && ts <= max) oup.push_back((*(myevents[index]->buffer))[i]);
@@ -391,10 +409,7 @@ public:
 	     }
 	     return err;
 	}
-	boost::lockfree::queue<struct io_request*> *get_io_queue()
-	{
-	    return io_queue;
-	};
+	
 	void create_events(int num_events,std::string &s,double);
 	void clear_events(std::string &s);
 	void get_range(std::string &s);
@@ -406,6 +421,7 @@ public:
 	void preadfileattr(const char*);
 	std::vector<struct event>* create_data_spaces(std::string &,hsize_t&,hsize_t&,bool);
 	void io_polling(struct thread_arg_w*);
+	void io_polling_seq(struct thread_arg_w*);
 	void data_stream(struct thread_arg_w*);
 };
 

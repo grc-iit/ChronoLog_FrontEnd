@@ -79,7 +79,7 @@ class nvme_buffers
 	   }
 	}
 
-	void copy_to_nvme(std::string &s,std::vector<struct event> *inp)
+	void copy_to_nvme(std::string &s,std::vector<struct event> *inp,int numevents)
 	{
 	   std::string fname = prefix+s;
 	   auto r = nvme_fnames.find(fname);
@@ -92,7 +92,7 @@ class nvme_buffers
 
 	   MyEventVect *ev = nvme_ebufs[index];
 
-	   for(int i=0;i<inp->size();i++)
+	   for(int i=0;i<numevents;i++)
 	     ev->push_back((*inp)[i]);
 	   nvme_files[index]->flush();
 	}

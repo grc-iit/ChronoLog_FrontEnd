@@ -27,6 +27,7 @@ struct event
 struct atomic_buffer
 {
    boost::shared_mutex m;
+   std::atomic<int> buffer_size;
    std::vector<struct event> *buffer;
 };
 
