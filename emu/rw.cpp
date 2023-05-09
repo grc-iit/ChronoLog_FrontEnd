@@ -192,7 +192,7 @@ void read_write_process::preadfileattr(const char *filename)
     const char *attr_name[1];
 
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
-    H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
+    //H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
     fid = H5Fopen(filename, H5F_ACC_RDONLY, fapl);
 
     hid_t ret = H5Pclose(fapl);
@@ -243,12 +243,11 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     int      i, j, k;
 
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
-    H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
     fid = H5Fopen(filename, H5F_ACC_RDONLY, fapl);
 
     hid_t ret = H5Pclose(fapl);
 
-    attr_name[0] = "DataSizes";
+    attr_name[0] = "Datasizes";
 
     dataset1 = H5Dopen2(fid, DATASETNAME1, H5P_DEFAULT);
 
@@ -267,17 +266,7 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 
     hsize_t offset = 0;
 
-    for(int i=0;i<myrank;i++)
-    {
-	    if(i < rem) offset += k_per_process+1;
-	    else offset += k_per_process;
-    }
-
-    int num_events = 0;
-    if(myrank < rem) num_events = k_per_process+1;
-    else num_events = k_per_process;
-
-    hsize_t block_size = (hsize_t)num_events;
+    hsize_t block_size = (hsize_t)total_k;
 
     event_metadata em1;
     em1.set_numattrs(5);
@@ -316,7 +305,7 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&block_size,NULL);
     mem_dataspace = H5Screate_simple(1,&block_size, NULL);
     xfer_plist = H5Pcreate(H5P_DATASET_XFER);
-    ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
+    ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_INDEPENDENT);
     ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, readevents[index]->buffer->data());
      
     H5Sclose(file_dataspace);
@@ -548,10 +537,20 @@ void read_write_process::io_polling_seq(struct thread_arg_w *t)
  
    while(true)
    {
-	if(end_of_session.load()==1) break;
+	while(!io_queue_sync->empty())
+	{
+	    struct io_request *r = nullptr;
+	    io_queue_sync->pop(r);
+
+            std::string filename = "file"+r->name+".h5";
+
+            preadfileattr(filename.c_str());
 
 
+	    delete r;
+	}
 
+	if(end_of_session.load()==1 && io_queue_sync->empty()) break;
    }
 
 }
@@ -586,18 +585,6 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      if(sync_empty_all[0]==numprocs)
      {
-       while(!io_queue_sync->empty())
-       {
-	struct io_request *r = nullptr;
-
-	io_queue_sync->pop(r);
-
-	std::string filename = "file"+r->name+".h5";
-
-	preadfileattr(filename.c_str());
-
-	delete r;
-       }
      }
 
 
