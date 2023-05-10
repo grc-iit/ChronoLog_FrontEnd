@@ -118,6 +118,7 @@ public:
 
 	Q->end_sessions();
 	rwp->end_sessions();
+
       }
 
       ~emu_process()
