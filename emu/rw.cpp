@@ -68,7 +68,7 @@ void read_write_process::clear_events(std::string &s)
 
 }
 
-void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::vector<struct event>*>&data_arrays)
+void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::vector<struct event>*>&data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys)
 {
     hid_t       fid;
     hid_t       acc_tpl;
@@ -99,7 +99,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
 
     hsize_t attr_size[1];
-    attr_size[0] = 5;
+    attr_size[0] = 100*3+4;
     hid_t attr_space[1];
     attr_name[0] = "Datasizes";
     attr_space[0] = H5Screate_simple(1, attr_size, NULL);
@@ -127,7 +127,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 
     hid_t attr_id = H5Aopen_async(dataset1,attr_name[0],H5P_DEFAULT,es_id);
     std::vector<uint64_t> attrs;
-    attrs.resize(5);
+    attrs.resize(attr_size[0]);
 
     int ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
@@ -149,6 +149,14 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     ret = H5Dwrite_async(dataset1,s2, mem_dataspace, file_dataspace,async_dxpl,data_arrays[i]->data(),es_id);
 
     attrs[0] += total_records[i];
+    int pos = attrs[3];
+    pos = 4+pos*3;
+    attrs[3] += 1;
+    attrs[pos] = minkeys[i];
+    pos++;
+    attrs[pos] = maxkeys[i];
+    pos++;
+    attrs[pos] = attrs[3];
 
     ret = H5Awrite_async(attr_id,H5T_NATIVE_UINT64,attrs.data(),es_id);
 
@@ -320,7 +328,7 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 
 }
 
-std::vector<struct event>* read_write_process::create_data_spaces(std::string &s,hsize_t &poffset,hsize_t &trecords,bool from_nvme)
+std::vector<struct event>* read_write_process::create_data_spaces(std::string &s,hsize_t &poffset,hsize_t &trecords,uint64_t &minkey,uint64_t &maxkey,bool from_nvme)
 {
 
    std::vector<int> num_events_recorded_l,num_events_recorded;
@@ -356,10 +364,6 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
    
    hsize_t total_records = 0;
    for(int j=0;j<num_events_recorded.size();j++) total_records += (hsize_t)num_events_recorded[j];
-   if(myrank==0)
-   {
-       std::cout <<" datasize = "<<VALUESIZE<<" total_records = "<<total_records<<std::endl;
-   }
 
    uint64_t num_records = total_records;
    uint64_t total_size = num_records*VALUESIZE+num_records*sizeof(uint64_t);
@@ -371,12 +375,26 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
         offset += (hsize_t)num_events_recorded[i];
 
    poffset = offset;
-   trecords = total_records; 
+   trecords = total_records;
+
+   uint64_t min_key, max_key;
+
+   if(myrank==0) min_key = (*data_array)[0].ts;
+   if(myrank==numprocs-1) max_key = (*data_array)[data_array->size()-1].ts;
+
+   MPI_Bcast(&min_key,1,MPI_UINT64_T,0,MPI_COMM_WORLD);
+
+   MPI_Bcast(&max_key,1,MPI_UINT64_T,numprocs-1,MPI_COMM_WORLD); 
+
+   minkey = min_key;
+   maxkey = max_key;
+
+   if(myrank==0) std::cout <<" total_records = "<<total_records<<" minkey = "<<minkey<<" maxkey = "<<maxkey<<std::endl;
 
    return data_array;
 }
 
-void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<hsize_t>&total_records,std::vector<hsize_t> &offsets,std::vector<std::vector<struct event>*> &data_arrays)
+void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<hsize_t>&total_records,std::vector<hsize_t> &offsets,std::vector<std::vector<struct event>*> &data_arrays,std::vector<uint64_t>& minkeys,std::vector<uint64_t>&maxkeys)
 {
 
   hid_t async_fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -397,7 +415,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
   H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
 
   hsize_t attr_size[1];
-  attr_size[0] = 5;
+  attr_size[0] = 100*3+4;
   hid_t attr_space[1];
   attr_name[0] = "Datasizes";
   attr_space[0] = H5Screate_simple(1, attr_size, NULL);
@@ -443,10 +461,19 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         ret = H5Dwrite_async(dataset1,s2, mem_dataspace,file_dataspace,async_dxpl,data_arrays[i]->data(),es_id);
 
         std::vector<uint64_t> attr_data;
-        attr_data.push_back(total_records[i]);
-        attr_data.push_back(8);
-        attr_data.push_back(VALUESIZE);
- 
+	attr_data.resize(attr_size[0]);
+        attr_data[0] = total_records[i];
+        attr_data[1] = 8;
+        attr_data[2] = VALUESIZE;
+	attr_data[3] = 1;
+	
+	int pos = 4;
+	attr_data[pos] = minkeys[i];
+	pos++;
+	attr_data[pos] = maxkeys[i];
+	pos++;
+	attr_data[pos] = 1;
+
 	hid_t attr_id[1];
         attr_id[0] = H5Acreate_async(dataset1, attr_name[0], H5T_NATIVE_UINT64, attr_space[0], H5P_DEFAULT, H5P_DEFAULT,es_id);
 
@@ -486,14 +513,15 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 
 }
 
-void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::vector<struct event>*>& data_arrays)
+void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::vector<struct event>*>& data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys)
 {
 
    std::vector<std::string> sts_n, sts_e;
    std::vector<hsize_t> trec_n, trec_e;
    std::vector<hsize_t> off_n, off_e;
    std::vector<std::vector<struct event>*> darray_n, darray_e;
-
+   std::vector<uint64_t> minkeys_n, minkeys_e;
+   std::vector<uint64_t> maxkeys_n, maxkeys_e;
 
    for(int i=0;i<sts.size();i++)
    {
@@ -506,18 +534,22 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 	   trec_n.push_back(total_records[i]);
 	   off_n.push_back(offsets[i]);
 	   darray_n.push_back(data_arrays[i]);
+	   minkeys_n.push_back(minkeys[i]);
+	   maxkeys_n.push_back(maxkeys[i]);
         }
 	else
 	{
 	   sts_e.push_back(sts[i]);	
 	   trec_e.push_back(total_records[i]);
 	   off_e.push_back(offsets[i]);
-	   darray_e.push_back(data_arrays[i]);	
+	   darray_e.push_back(data_arrays[i]);
+   	   minkeys_e.push_back(minkeys[i]);
+	   maxkeys_e.push_back(maxkeys[i]);	   
 	}
    }
 
-   pwrite_files(sts_n,trec_n,off_n,darray_n);
-   pwrite_extend_files(sts_e,trec_e,off_e,darray_e);
+   pwrite_files(sts_n,trec_n,off_n,darray_n,minkeys_n,maxkeys_n);
+   pwrite_extend_files(sts_e,trec_e,off_e,darray_e,minkeys_e,maxkeys_e);
 
 }
 
@@ -562,7 +594,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
     std::vector<std::string> snames;
     std::vector<std::vector<struct event>*> data;
     std::vector<hsize_t> total_records, offsets,numrecords;
-
+    std::vector<uint64_t> minkeys, maxkeys;
 
    while(true)
    {
@@ -593,6 +625,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
      if(sync_empty_all[1]==numprocs)
      {
        snames.clear(); data.clear(); total_records.clear(); offsets.clear(); numrecords.clear();
+       minkeys.clear(); maxkeys.clear();
 
        while(!io_queue_async->empty())
        {
@@ -605,11 +638,14 @@ void read_write_process::io_polling(struct thread_arg_w *t)
            if(r->from_nvme)
            {
               hsize_t trecords, offset, numrecords;
+	      uint64_t min_key,max_key;
               std::vector<struct event> *data_r = nullptr;
-              data_r = create_data_spaces(r->name,offset,trecords,true);
+              data_r = create_data_spaces(r->name,offset,trecords,min_key,max_key,true);
               snames.push_back(r->name);
               total_records.push_back(trecords);
               offsets.push_back(offset);
+	      minkeys.push_back(min_key);
+	      maxkeys.push_back(max_key);
            //t->numrecords.push_back(numrecords);
               data.push_back(data_r);
           }
@@ -620,7 +656,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
       num_streams.store(0);
       std::atomic_thread_fence(std::memory_order_seq_cst);
-      pwrite(snames,total_records,offsets,data);
+      pwrite(snames,total_records,offsets,data,minkeys,maxkeys);
 
       snames.clear();
       data.clear();
