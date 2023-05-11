@@ -72,13 +72,12 @@ private:
       std::vector<std::thread> io_threads;
 
 public:
-	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n) : myrank(r), numprocs(np), numcores(n)
+	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n,data_server_client *rc) : myrank(r), numprocs(np), numcores(n), dsc(rc)
 	{
            H5open();
 	   H5VLis_connector_registered_by_name("async");
            std::string unit = "microsecond";
 	   CM = C;
-	   dsc = new data_server_client(numprocs,myrank);
 	   tl::engine *t_server = dsc->get_thallium_server();
 	   tl::engine *t_server_shm = dsc->get_thallium_shm_server();
 	   tl::engine *t_client = dsc->get_thallium_client();
@@ -115,7 +114,6 @@ public:
 	{
 	   delete dm;
 	   delete ds;
-	   delete dsc;
 	   for(int i=0;i<readevents.size();i++)
 	   {
 		delete readevents[i]->buffer;
@@ -181,10 +179,10 @@ public:
          			 io_queue_async->push(r);
 			}
 			
-			struct io_request *r = new struct io_request();
+			/*struct io_request *r = new struct io_request();
 			r->name = "table"+std::to_string(0);
 		        r->from_nvme = false;
-			io_queue_sync->push(r);
+			io_queue_sync->push(r);*/
 
 			num_streams.store(num_threads);
 			while(num_streams.load()!=0);
@@ -211,7 +209,7 @@ public:
 	}	
 	void create_read_buffer(std::string &s,event_metadata &em)
 	{
-	    //m2.lock();
+	    m2.lock();
 	    auto r = read_names.find(s);;
 	    if(r==read_names.end())
 	    {
@@ -222,7 +220,7 @@ public:
 		std::pair<std::string,std::pair<int,event_metadata>> p2(s,p1);
 		read_names.insert(p2);
 	    }	
-	    //m2.unlock();
+	    m2.unlock();
 	}
 	void get_events_from_map(std::string &s)
 	{

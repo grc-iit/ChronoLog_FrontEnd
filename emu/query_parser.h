@@ -16,12 +16,6 @@ typedef struct view_
 }view;
 
 
-struct thread_arg_q
-{
-   int tid;
-
-};
-
 typedef struct query_request_
 {
    uint64_t min_key;
@@ -44,44 +38,15 @@ class query_parser
            std::unordered_map<std::string,std::vector<view>*> cached_views;
 	   std::mutex ltab;
 	   std::unordered_map<std::string,std::unordered_map<uint64_t,int>> lookup_tables;
-	   boost::lockfree::queue<query_request *> *query_req_queue;
 	   std::atomic<int> end_of_session; 
-	   int helper_threads;
-	   std::vector<struct thread_arg_q> t_args;
-	   std::vector<std::thread> workers;
     public:
-	   query_parser(int num,int rank,int n,read_write_process *pr) : numprocs(num),myrank(rank),helper_threads(n), np(pr)
+	   query_parser(int num,int rank) : numprocs(num),myrank(rank)
 	   {
-		query_req_queue = new boost::lockfree::queue<query_request*> (128);
-		end_of_session.store(0);
-		t_args.resize(helper_threads);
-		workers.resize(helper_threads);
-
-		std::function<void(struct thread_arg_q *)> RequestFunc(
-                std::bind(&query_parser::process_requests,this, std::placeholders::_1));
-
-		for(int i=0;i<helper_threads;i++)
-		{
-		   t_args[i].tid = i;
-		   std::thread t{RequestFunc,&t_args[i]};
-		   workers[i] = std::move(t);
-		}
-	
 
 	   }
 	   ~query_parser()
 	   {
-
-		   delete query_req_queue;
 	   }
-	   void end_sessions()
-	   {
-		end_of_session.store(1);
-
-		for(int i=0;i<helper_threads;i++) workers[i].join();
-
-	   }
-	   
 	   void add_event_header(std::string s,int nattrs,std::vector<std::string> &attr_names,std::vector<int> &vsizes,std::vector<bool> &sign,std::vector<bool> &end)
 	   {
 		auto r = event_headers.find(s);
@@ -122,7 +87,6 @@ class query_parser
 	   bool add_view_to_cache(std::string&,std::string&,std::vector<view>&);
 	   template<typename T,class EqualFcn=std::equal_to<T>>
 	   bool select_unique_by_attr(std::string &,std::string &,std::vector<struct event>&,event_metadata&,T&,std::vector<view>&);
-	   void process_requests(struct thread_arg_q*);
 };
 
 

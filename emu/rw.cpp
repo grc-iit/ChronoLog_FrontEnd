@@ -264,6 +264,8 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     fid = H5Fopen(filename, H5F_ACC_RDONLY, fapl);
 
+    if(fid<0) std::cout <<" file not found"<<std::endl;
+
     hid_t ret = H5Pclose(fapl);
 
     attr_name[0] = "Datasizes";
@@ -296,9 +298,23 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 	offset += attrs[pos+block_id*4+3];
 
     hsize_t block_size = attrs[pos+block_id*4+3];
+  
+   int size_per_proc = block_size/numprocs;
+   int rem = block_size%numprocs;
+
+   for(int i=0;i<myrank;i++)
+   {
+        int size_p;
+	if(i < rem) size_p = size_per_proc+1;
+	else size_p = size_per_proc;
+	offset += size_p;
+   } 
    
     
-    
+   hsize_t blocksize = 0;
+   if(myrank < rem) blocksize = size_per_proc+1;
+   else blocksize = size_per_proc;
+     
     event_metadata em1;
     em1.set_numattrs(625);
     for(int i=0;i<625;i++)
@@ -312,20 +328,17 @@ void read_write_process::preaddata(const char *filename,std::string &name)
         
     create_read_buffer(name,em1);
 
-    /*m2.lock();
+    m2.lock();
     auto r = read_names.find(name);
     int index = (r->second).first;
     event_metadata em = (r->second).second;
-    m2.unlock();*/
+    m2.unlock();
 
-    /*int datasize = em.get_datasize();
+    int datasize = VALUESIZE;
 
     boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
 
-    readevents[index]->buffer->resize(block_size);
-*/
-    /*std::vector<struct event> *data_array = new std::vector<struct event> ();
-    data_array->resize(block_size);
+    readevents[index]->buffer->resize(blocksize);
 
     hsize_t adims[1];
     adims[0] = VALUESIZE;
@@ -335,22 +348,20 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
  
     file_dataspace = H5Dget_space(dataset1);
-    ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&block_size,NULL);
-    mem_dataspace = H5Screate_simple(1,&block_size, NULL);
+    ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&blocksize,NULL);
+    mem_dataspace = H5Screate_simple(1,&blocksize, NULL);
     xfer_plist = H5Pcreate(H5P_DATASET_XFER);
-    //ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_INDEPENDENT);
-    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist, data_array->data());
+    ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_INDEPENDENT);
+    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,readevents[index]->buffer->data());
      
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
-    H5Pclose(xfer_plist);*/
+    H5Pclose(xfer_plist);
 
-    H5Sclose(file_dataspace);
     H5Aclose(attr_id);
 
     H5Dclose(dataset1);
 
-    //delete data_array;
    H5Fclose(fid);  
 
 }

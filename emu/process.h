@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "client.h"
-#include "query_parser.h"
+#include "query_engine.h"
 
 class emu_process
 {
@@ -17,12 +17,13 @@ private:
       int numprocs;
       int myrank;
       int numcores;
+      data_server_client *dsc;
       read_write_process *rwp;
       ClockSynchronization<ClocksourceCPPStyle> *CM;
       std::string server_addr;
-      metadata_server *MS; 	
-      metadata_client *MC;
-      query_parser *Q;
+      //metadata_server *MS; 	
+      //metadata_client *MC;
+      query_engine *QE;
 public:
 
       emu_process(int np,int r,int n) : numprocs(np), myrank(r), numcores(n)
@@ -34,7 +35,11 @@ public:
 	int num_cores_ms = std::ceil(0.5*(double)numcores);
 
 	if(myrank!=0) num_cores_rw = numcores;
-	rwp = new read_write_process(r,np,CM,num_cores_rw);
+
+	dsc = new data_server_client(numprocs,myrank); 
+
+	rwp = new read_write_process(r,np,CM,num_cores_rw,dsc);
+	QE = new query_engine(numprocs,myrank,dsc,rwp);
 	int nchars;
 	std::vector<char> addr_string;
 
@@ -66,20 +71,19 @@ public:
 	int port_no = 1234;
 	server_addr = "ofi+sockets://"+addr_ip+":"+std::to_string(port_no);
 
-	MS = nullptr;
+	/*MS = nullptr;
 	if(myrank==0)
 	{
 	   MS = new metadata_server(numprocs,myrank,server_addr,num_cores_ms);
 	   MS->bind_functions();
 	}	
 	MPI_Barrier(MPI_COMM_WORLD);
-        MC = new metadata_client(server_addr);
-	Q = new query_parser(numprocs,myrank,4,rwp);
+        MC = new metadata_client(server_addr);*/
       }
 
       metadata_client *getclientobj()
       {
-	return MC;
+	return nullptr;//MC;
       }
       void synchronize()
       {
@@ -116,20 +120,24 @@ public:
 
 	rwp->spawn_write_streams(snames,total_events,nbatches);
 
-	Q->end_sessions();
 	rwp->end_sessions();
 
+	QE->send_query();
+
+	MPI_Barrier(MPI_COMM_WORLD);
+
+	QE->end_sessions();
       }
 
       ~emu_process()
       {
-	//Q->end_sessions();
 	//rwp->end_sessions();
-	if(MS != nullptr) delete MS;
-	delete MC;
+	/*if(MS != nullptr) delete MS;
+	delete MC;*/
 	delete rwp;
+	delete QE;
 	delete CM;
-	delete Q;
+	delete dsc;
       }
 
 };
