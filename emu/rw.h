@@ -270,6 +270,13 @@ public:
 	
 	   nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
 	}
+
+	std::vector<struct event> *get_nvme_buffer(std::string &s)
+	{
+		int index = 0;
+		return nm->fetch_buffer(s,index);
+	}
+
 	event_metadata & get_metadata(std::string &s)
 	{
 	        m1.lock(); 
@@ -409,7 +416,7 @@ public:
 	}
 	
 	void create_events(int num_events,std::string &s,double);
-	void clear_events(std::string &s);
+	void clear_write_events(std::string &s);
 	void get_range(std::string &s);
 	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&);
 	void pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&);

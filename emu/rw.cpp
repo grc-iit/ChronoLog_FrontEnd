@@ -31,22 +31,8 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
 
 }
 
-void read_write_process::clear_events(std::string &s)
+void read_write_process::clear_write_events(std::string &s)
 {
-   //m2.lock();
-   /*auto r = read_names.find(s);
-   int index = -1;
-   if(r!=read_names.end())
-   {
-	index = (r->second).first;
-   }*/
-   //m2.unlock();
-   
-  // if(index != -1)
-   //{
-	//boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
-	//readevents[index]->buffer->clear();
-  // }
    int index = -1;
    m1.lock();
    auto r = write_names.find(s); 
@@ -261,12 +247,18 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     size_t   num_points;    
     int      i, j, k;
 
+    m1.lock();
+    std::string filenamestring(filename);
+    auto f = std::find(file_names.begin(),file_names.end(),filenamestring);
+    m1.unlock();
+
+    if(f == file_names.end()) return;
+
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     fid = H5Fopen(filename, H5F_ACC_RDONLY, fapl);
 
-    if(fid<0) std::cout <<" file not found"<<std::endl;
-
     hid_t ret = H5Pclose(fapl);
+
 
     attr_name[0] = "Datasizes";
 
@@ -601,7 +593,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
         create_events(t->num_events,t->name,1);
         sort_events(t->name);
         buffer_in_nvme(t->name);
-        clear_events(t->name);
+        clear_write_events(t->name);
   }
 
 }

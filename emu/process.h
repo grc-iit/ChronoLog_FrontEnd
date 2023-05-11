@@ -10,6 +10,14 @@
 #include "client.h"
 #include "query_engine.h"
 
+struct thread_arg_p
+{
+  int tid;
+  std::vector<std::string> snames;
+  std::vector<int> total_events;
+  int nbatches;
+};
+
 class emu_process
 {
 
@@ -24,6 +32,9 @@ private:
       //metadata_server *MS; 	
       //metadata_client *MC;
       query_engine *QE;
+      std::vector<struct thread_arg_p> t_args;
+      std::vector<std::thread> dw;
+      std::vector<std::thread> qp;
 public:
 
       emu_process(int np,int r,int n) : numprocs(np), myrank(r), numcores(n)
@@ -71,6 +82,7 @@ public:
 	int port_no = 1234;
 	server_addr = "ofi+sockets://"+addr_ip+":"+std::to_string(port_no);
 
+	t_args.resize(2);
 	/*MS = nullptr;
 	if(myrank==0)
 	{
@@ -115,20 +127,65 @@ public:
 
       }
 
-      void data_streams(std::vector<std::string> &snames,std::vector<int> &total_events,int &nbatches)
+      void data_streams(struct thread_arg_p *t)
       {
 
-	rwp->spawn_write_streams(snames,total_events,nbatches);
 
-	rwp->end_sessions();
+        rwp->spawn_write_streams(t->snames,t->total_events,t->nbatches);
 
-	QE->send_query();
+        //dw[0].join();
+        //rwp->end_sessions();
 
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	QE->end_sessions();
+        //QE->end_sessions();
       }
 
+
+      void data_streams_s(std::vector<std::string> &snames, std::vector<int> &total_events, int &nbatches)
+      {
+
+	std::function<void(struct thread_arg_p *)> DataT(
+        std::bind(&emu_process::data_streams,this, std::placeholders::_1));
+	
+	dw.resize(1);
+	t_args[0].tid = 0;
+	t_args[0].snames.assign(snames.begin(),snames.end());
+	t_args[0].total_events.assign(total_events.begin(),total_events.end());
+	t_args[0].nbatches = nbatches;
+
+	std::thread t_d{DataT,&t_args[0]};
+	dw[0] = std::move(t_d);
+
+	//dw[0].join();
+	//rwp->end_sessions();
+      }
+
+      void process_queries(struct thread_arg_p *t)
+      {
+
+	  if(t->snames.size() > 0)
+	  QE->send_query(t->snames[0]);
+      }
+
+      void generate_queries(std::vector<std::string> &snames)
+      {
+	 std::function<void(struct thread_arg_p *)> QT(
+         std::bind(&emu_process::process_queries,this, std::placeholders::_1));
+
+	 qp.resize(1);
+
+	 std::thread qt{QT,&t_args[1]};
+	 qp[0] = std::move(qt);
+
+      }
+
+      void end_sessions()
+      {
+	dw[0].join();
+	rwp->end_sessions();
+	QE->end_sessions();
+	qp[0].join();
+
+      }
       ~emu_process()
       {
 	//rwp->end_sessions();

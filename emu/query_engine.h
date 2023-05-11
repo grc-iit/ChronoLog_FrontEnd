@@ -63,12 +63,12 @@ class query_engine
 
 	   workers[0].join();
 	}
-	void send_query()
+	void send_query(std::string &s)
 	{
 		struct query_req r;
-		r.name = "table";
+		r.name = s;
 		r.minkey = 0;
-		r.maxkey = 1000;
+		r.maxkey = UINT64_MAX;
 		if(myrank==0)
 		Q->PutAll(r);
 
@@ -83,8 +83,11 @@ class query_engine
 	      struct query_req *r=nullptr;
 	      r = Q->Get();
 
+	      int index = 0;
+	      std::vector<struct event> *ev = rwp->get_nvme_buffer(r->name);
+
 	      std::string filename = "file";
-	      filename += r->name+std::to_string(0)+".h5";
+	      filename += r->name+".h5";
 	      rwp->preaddata(filename.c_str(),r->name);
 
 
