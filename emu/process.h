@@ -115,28 +115,10 @@ public:
 	   rwp->create_write_buffer(name,em,max_size_per_proc);
 
       }
-      read_write_process* get_rw_object()
-      {
-	      return rwp;
-      }
       
-      void read_events(const char *filename)
-      {
-	//rwp->preaddata(filename,s);
-	rwp->preadfileattr(filename);
-
-      }
-
       void data_streams(struct thread_arg_p *t)
       {
-
-
         rwp->spawn_write_streams(t->snames,t->total_events,t->nbatches);
-
-        //dw[0].join();
-        //rwp->end_sessions();
-
-        //QE->end_sessions();
       }
 
 
@@ -155,15 +137,16 @@ public:
 	std::thread t_d{DataT,&t_args[0]};
 	dw[0] = std::move(t_d);
 
-	//dw[0].join();
-	//rwp->end_sessions();
       }
 
       void process_queries(struct thread_arg_p *t)
       {
 
 	  if(t->snames.size() > 0)
-	  QE->send_query(t->snames[0]);
+	  {
+            usleep(16*128*20000);
+	    QE->send_query(t->snames[0]);
+	  }
       }
 
       void generate_queries(std::vector<std::string> &snames)
@@ -172,7 +155,7 @@ public:
          std::bind(&emu_process::process_queries,this, std::placeholders::_1));
 
 	 qp.resize(1);
-
+	 t_args[1].snames.assign(snames.begin(),snames.end());
 	 std::thread qt{QT,&t_args[1]};
 	 qp[0] = std::move(qt);
 
@@ -188,7 +171,6 @@ public:
       }
       ~emu_process()
       {
-	//rwp->end_sessions();
 	/*if(MS != nullptr) delete MS;
 	delete MC;*/
 	delete rwp;

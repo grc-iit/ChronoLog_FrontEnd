@@ -54,6 +54,29 @@ void read_write_process::clear_write_events(std::string &s)
 
 }
 
+void read_write_process::clear_read_events(std::string &s)
+{
+   int index = -1;
+   m2.lock();
+   auto r = read_names.find(s);
+   if(r != read_names.end()) index = (r->second).first;
+   m2.unlock();
+
+   if(index==-1) return;
+
+   boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
+   m2.lock();
+
+   readevents[index]->buffer->clear();
+   auto r1 = read_interval.find(s);
+   if(r1 != read_interval.end())
+   {
+	r1->second.first = UINT64_MAX;
+	r1->second.second = 0;
+   }
+   m2.unlock();
+}
+
 void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::vector<struct event>*>&data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys)
 {
     hid_t       fid;
@@ -189,6 +212,16 @@ void read_write_process::preadfileattr(const char *filename)
     hsize_t attr_space[1];
     attr_space[0] = 100*4+4;
     const char *attr_name[1];
+
+    std::string filestring(filename);
+
+    m1.lock();
+
+    auto r1 = std::find(file_names.begin(),file_names.end(),filestring);
+
+    m1.unlock();
+
+    if(r1==file_names.end()) return;
 
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     //H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
@@ -345,7 +378,24 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     xfer_plist = H5Pcreate(H5P_DATASET_XFER);
     ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_INDEPENDENT);
     ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,readevents[index]->buffer->data());
-     
+   
+    uint64_t minkey = (*readevents[index]->buffer)[0].ts;
+    uint64_t maxkey = (*readevents[index]->buffer)[blocksize-1].ts;
+
+    m2.lock();
+
+    auto r1 = read_interval.find(name);
+    if(r1 == read_interval.end())
+    {
+	std::pair<uint64_t,uint64_t> p1(minkey,maxkey);
+	std::pair<std::string,std::pair<uint64_t,uint64_t>> p2(name,p1);
+	read_interval.insert(p2);
+    } 
+    else 
+	r1->second.first = minkey; r1->second.second = maxkey;
+
+    m2.unlock();
+
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
     H5Pclose(xfer_plist);

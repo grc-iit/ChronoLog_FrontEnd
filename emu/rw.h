@@ -93,7 +93,7 @@ public:
 	   io_queue_sync = new boost::lockfree::queue<struct io_request*> (128);
 	   end_of_session.store(0);
 	   num_streams.store(0);
-	   num_io_threads = 2;
+	   num_io_threads = 1;
 	   std::function<void(struct thread_arg_w *)> IOFunc(
            std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
 
@@ -105,9 +105,6 @@ public:
 	   t_args_io[0].tid = 0;
 	   std::thread iothread0{IOFunc,&t_args_io[0]};
 	   io_threads[0] = std::move(iothread0);
-	   t_args_io[1].tid = 1;
-	   std::thread iothread1{IOFuncSeq,&t_args_io[1]};
-	   io_threads[1] = std::move(iothread1);
 
 	}
 	~read_write_process()
@@ -171,7 +168,7 @@ public:
   			for(int j=0;j<num_threads;j++) workers[j].join();
 	
 			
-			for(int j=0;j<num_threads;j++)
+			/*for(int j=0;j<num_threads;j++)
 			{
 				 struct io_request *r = new struct io_request();
          			 r->name = t_args[j].name;
@@ -179,13 +176,8 @@ public:
          			 io_queue_async->push(r);
 			}
 			
-			/*struct io_request *r = new struct io_request();
-			r->name = "table"+std::to_string(0);
-		        r->from_nvme = false;
-			io_queue_sync->push(r);*/
-
 			num_streams.store(num_threads);
-			while(num_streams.load()!=0);
+			while(num_streams.load()!=0);*/
 		
 		}			
 		
@@ -230,7 +222,19 @@ public:
 	   m1.unlock();
 	   myevents[index] = dm->get_atomic_buffer(index);
 	}
-	
+
+	atomic_buffer * get_write_buffer(std::string &s)
+	{
+	   m1.lock();
+	   int index = -1;
+	   auto r = write_names.find(s);
+	   if(r != write_names.end()) index = (r->second).first;
+	   m1.unlock();
+
+	   if(index==-1) return nullptr;
+	   else return dm->get_atomic_buffer(index);
+	}
+
 	void sort_events(std::string &s)
 	{
 	    m1.lock();
@@ -271,10 +275,12 @@ public:
 	   nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
 	}
 
-	std::vector<struct event> *get_nvme_buffer(std::string &s)
+	std::vector<struct event> * get_nvme_buffer(std::string &s)
 	{
 		int index = 0;
-		return nm->fetch_buffer(s,index);
+
+		std::vector<struct event> *buffer = nm->fetch_buffer(s,index);
+		return buffer;
 	}
 
 	event_metadata & get_metadata(std::string &s)
@@ -417,6 +423,7 @@ public:
 	
 	void create_events(int num_events,std::string &s,double);
 	void clear_write_events(std::string &s);
+	void clear_read_events(std::string &s);
 	void get_range(std::string &s);
 	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&);
 	void pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&);

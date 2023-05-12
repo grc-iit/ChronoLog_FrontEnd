@@ -100,7 +100,7 @@ int main(int argc,char **argv)
 
   int num_writer_threads = 4;
 
-  int nbatches = 8;
+  int nbatches = 4;
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -108,15 +108,14 @@ int main(int argc,char **argv)
 
   np->generate_queries(story_names);
 
-  t2 = std::chrono::high_resolution_clock::now();
-
-  t = std::chrono::duration<double> (t2-t1).count();
-
   np->end_sessions();
+  
+  t2 = std::chrono::high_resolution_clock::now();
+  t = std::chrono::duration<double> (t2-t1).count();
 
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  //if(rank==0) std::cout <<" Total time = "<<total_time<<std::endl;
+  if(rank==0) std::cout <<" Total time = "<<total_time<<std::endl;
 
   delete np;
   MPI_Finalize();
