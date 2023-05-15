@@ -168,7 +168,7 @@ public:
   			for(int j=0;j<num_threads;j++) workers[j].join();
 	
 			
-			/*for(int j=0;j<num_threads;j++)
+			for(int j=0;j<num_threads;j++)
 			{
 				 struct io_request *r = new struct io_request();
          			 r->name = t_args[j].name;
@@ -177,7 +177,7 @@ public:
 			}
 			
 			num_streams.store(num_threads);
-			while(num_streams.load()!=0);*/
+			while(num_streams.load()!=0);
 		
 		}			
 		
@@ -247,6 +247,7 @@ public:
 	    uint64_t min_v,max_v;
 	    ds->sort_data(index,myevents[index]->buffer_size.load(),min_v,max_v);
 	    myevents[index]->buffer_size.store(myevents[index]->buffer->size());
+	    nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
 	    m1.lock();
 	    auto r1 = write_interval.find(s);
 	    if(r1 == write_interval.end())
@@ -257,10 +258,13 @@ public:
 	    }
 	    else 
 	    {
-		(r1->second).first = min_v;
-		(r1->second).second = max_v;
+		uint64_t min_vp = (r1->second).first;
+		uint64_t max_vp = (r1->second).second;
+		(r1->second).first = std::min(min_vp,min_v);
+		(r1->second).second = std::max(max_vp,max_v);
 	    }
 	    m1.unlock();
+	    clear_write_events(index,min_v,max_v);
 	}
 
 	void buffer_in_nvme(std::string &s)
@@ -422,7 +426,7 @@ public:
 	}
 	
 	void create_events(int num_events,std::string &s,double);
-	void clear_write_events(std::string &s);
+	void clear_write_events(int,uint64_t&,uint64_t&);
 	void clear_read_events(std::string &s);
 	void get_range(std::string &s);
 	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&);

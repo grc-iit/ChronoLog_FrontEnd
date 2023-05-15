@@ -144,7 +144,7 @@ public:
 
 	  if(t->snames.size() > 0)
 	  {
-            usleep(16*128*20000);
+            usleep(20*128*20000);
 	    QE->send_query(t->snames[0]);
 	  }
       }

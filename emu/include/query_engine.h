@@ -72,7 +72,7 @@ class query_engine
 		if(myrank==0)
 		{
 		 std::cout <<" send_query = "<<s<<std::endl;
-		Q->PutAll(r);
+		 Q->PutAll(r);
 		}
 
 	}
@@ -109,7 +109,8 @@ class query_engine
 
 	      std::string filename = "file";
 	      filename += r->name+".h5";
-	      //rwp->preaddata(filename.c_str(),r->name);
+	      //rwp->preadfileattr(filename.c_str());
+	      rwp->preaddata(filename.c_str(),r->name);
 
 
 	      if(r != nullptr) delete r;

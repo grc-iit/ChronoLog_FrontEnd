@@ -101,6 +101,12 @@ class databuffers
 	atomicbuffers[index]->buffer_size.store(0);
 	atomicbuffers[index]->buffer->clear();
   }
+  void clear_write_buffer_no_lock(int index)
+  {
+	dmap->LocalClearMap(index);
+	atomicbuffers[index]->buffer_size.store(0);
+	atomicbuffers[index]->buffer->clear();
+  }
   void set_valid_range(int index,uint64_t &n1,uint64_t &n2)
   {
 	dmap->set_valid_range(index,n1,n2);

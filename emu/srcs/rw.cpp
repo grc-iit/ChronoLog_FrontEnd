@@ -31,25 +31,14 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
 
 }
 
-void read_write_process::clear_write_events(std::string &s)
+void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& max_k)
 {
-   int index = -1;
-   m1.lock();
-   auto r = write_names.find(s); 
-   uint64_t min_k, max_k;
-   if(r != write_names.end())
-   {
-	index = (r->second).first;
-	auto r1 = write_interval.find(s);
-	min_k = r1->second.second+1;
-	max_k = UINT64_MAX;
-	r1->second.first = UINT64_MAX; r1->second.second = 0;
-   }
-   m1.unlock();
    if(index != -1)
    {
-	dm->clear_write_buffer(index);
-	dm->set_valid_range(index,min_k,max_k);
+	dm->clear_write_buffer_no_lock(index);
+	uint64_t min_n = max_k+1;
+	uint64_t max_n = UINT64_MAX;
+	dm->set_valid_range(index,min_n,max_n);
    }
 
 }
@@ -244,6 +233,8 @@ void read_write_process::preadfileattr(const char *filename)
     auto r = file_minmax.find(fname);
     ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
+    std::cout <<" rank = "<<myrank<<" num_records = "<<attrs[0]<<std::endl;
+
     /*if(r==file_minmax.end())
     {
 	std::pair<std::string,std::pair<uint64_t,uint64_t>> p;
@@ -318,12 +309,11 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     pos = 4;
 
     offset = 0;
-    block_id = 3;
     for(int i=0;i<block_id;i++)
 	offset += attrs[pos+block_id*4+3];
 
     hsize_t block_size = attrs[pos+block_id*4+3];
-  
+
    int size_per_proc = block_size/numprocs;
    int rem = block_size%numprocs;
 
@@ -376,12 +366,14 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&blocksize,NULL);
     mem_dataspace = H5Screate_simple(1,&blocksize, NULL);
     xfer_plist = H5Pcreate(H5P_DATASET_XFER);
-    ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_INDEPENDENT);
+    //ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_INDEPENDENT);
     ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,readevents[index]->buffer->data());
-   
+  
+    
     uint64_t minkey = (*readevents[index]->buffer)[0].ts;
     uint64_t maxkey = (*readevents[index]->buffer)[blocksize-1].ts;
 
+    /*
     m2.lock();
 
     auto r1 = read_interval.find(name);
@@ -395,6 +387,7 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 	r1->second.first = minkey; r1->second.second = maxkey;
 
     m2.unlock();
+*/
 
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
@@ -404,7 +397,7 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 
     H5Dclose(dataset1);
 
-   H5Fclose(fid);  
+    H5Fclose(fid);  
 
 }
 
@@ -642,15 +635,16 @@ void read_write_process::data_stream(struct thread_arg_w *t)
    {
         create_events(t->num_events,t->name,1);
         sort_events(t->name);
-        buffer_in_nvme(t->name);
-        clear_write_events(t->name);
+        //buffer_in_nvme(t->name);
+        //clear_write_events(t->name);
   }
 
 }
 
 void read_write_process::io_polling_seq(struct thread_arg_w *t)
 {
- 
+
+       /*	
    while(true)
    {
 	while(!io_queue_sync->empty())
@@ -668,7 +662,7 @@ void read_write_process::io_polling_seq(struct thread_arg_w *t)
 	}
 
 	if(end_of_session.load()==1 && io_queue_sync->empty()) break;
-   }
+   }*/
 
 }
 
