@@ -98,6 +98,6 @@ class ClockSynchronization
 
 };
 
-#include "clocksync.cpp"
+#include "../srcs/clocksync.cpp"
 
 #endif
