@@ -109,18 +109,16 @@ public:
       }
       void prepare_service(std::string &name, event_metadata &em,int maxsize)
       {
-	   int max_size_per_proc = maxsize/numprocs;
-	   int rem = maxsize% numprocs;
-	   if(myrank < rem) max_size_per_proc++;
-	   rwp->create_write_buffer(name,em,max_size_per_proc);
-
+	 int max_size_per_proc = maxsize/numprocs;
+    	 int rem = maxsize% numprocs;
+         if(myrank < rem) max_size_per_proc++;
+         rwp->create_write_buffer(name,em,max_size_per_proc);
       }
-      
+
       void data_streams(struct thread_arg_p *t)
       {
-        rwp->spawn_write_streams(t->snames,t->total_events,t->nbatches);
+         rwp->spawn_write_streams(t->snames,t->total_events,t->nbatches);
       }
-
 
       void data_streams_s(std::vector<std::string> &snames, std::vector<int> &total_events, int &nbatches)
       {

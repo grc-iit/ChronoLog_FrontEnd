@@ -373,21 +373,24 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     uint64_t minkey = (*readevents[index]->buffer)[0].ts;
     uint64_t maxkey = (*readevents[index]->buffer)[blocksize-1].ts;
 
-    /*
+    
     m2.lock();
 
     auto r1 = read_interval.find(name);
     if(r1 == read_interval.end())
     {
-	std::pair<uint64_t,uint64_t> p1(minkey,maxkey);
-	std::pair<std::string,std::pair<uint64_t,uint64_t>> p2(name,p1);
+	std::pair<std::string,std::pair<uint64_t,uint64_t>> p2;
+	p2.first.assign(name);
+	p2.second.first = minkey;
+	p2.second.second = maxkey;
 	read_interval.insert(p2);
     } 
     else 
-	r1->second.first = minkey; r1->second.second = maxkey;
-
+    {
+	(r1->second).first = minkey; (r1->second).second = maxkey;
+    }
     m2.unlock();
-*/
+
 
     H5Sclose(file_dataspace);
     H5Sclose(mem_dataspace);
@@ -635,34 +638,12 @@ void read_write_process::data_stream(struct thread_arg_w *t)
    {
         create_events(t->num_events,t->name,1);
         sort_events(t->name);
-        //buffer_in_nvme(t->name);
-        //clear_write_events(t->name);
-  }
+   }
 
 }
 
 void read_write_process::io_polling_seq(struct thread_arg_w *t)
 {
-
-       /*	
-   while(true)
-   {
-	while(!io_queue_sync->empty())
-	{
-	    struct io_request *r = nullptr;
-	    io_queue_sync->pop(r);
-
-            std::string filename = "file"+r->name+".h5";
-
-	    //preadfileattr(filename.c_str());
-            preaddata(filename.c_str(),r->name);
-
-
-	    delete r;
-	}
-
-	if(end_of_session.load()==1 && io_queue_sync->empty()) break;
-   }*/
 
 }
 
