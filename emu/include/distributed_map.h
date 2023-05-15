@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <cassert>
+#include "ClockSync.h"
 
 namespace tl=thallium;
 

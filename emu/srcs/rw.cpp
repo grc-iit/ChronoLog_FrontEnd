@@ -31,6 +31,38 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
 
 }
 
+void read_write_process::sort_events(std::string &s)
+{
+      m1.lock();
+      auto r = write_names.find(s);
+      int index = (r->second).first;
+      m1.unlock();
+      get_events_from_map(s);
+      boost::upgrade_lock<boost::shared_mutex> lk(myevents[index]->m);
+      ds->get_unsorted_data(myevents[index]->buffer,index);
+      uint64_t min_v,max_v;
+      ds->sort_data(index,myevents[index]->buffer_size.load(),min_v,max_v);
+      myevents[index]->buffer_size.store(myevents[index]->buffer->size());
+      nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
+      m1.lock();
+      auto r1 = write_interval.find(s);
+      if(r1 == write_interval.end())
+      {
+          std::pair<uint64_t,uint64_t> p(min_v,max_v);
+          std::pair<std::string,std::pair<uint64_t,uint64_t>> q(s,p);
+          write_interval.insert(q);
+       }
+       else
+       {
+          uint64_t min_vp = (r1->second).first;
+          uint64_t max_vp = (r1->second).second;
+          (r1->second).first = std::min(min_vp,min_v);
+          (r1->second).second = std::max(max_vp,max_v);
+        }
+	m1.unlock();
+        clear_write_events(index,min_v,max_v);
+}
+
 void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& max_k)
 {
    if(index != -1)
@@ -64,6 +96,129 @@ void read_write_process::clear_read_events(std::string &s)
 	r1->second.second = 0;
    }
    m2.unlock();
+}
+
+ bool read_write_process::get_events_in_range_from_read_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup)
+{
+     uint64_t min = range.first; uint64_t max = range.second;
+     bool err = false;
+     m2.lock();
+     auto r = read_interval.find(s);
+     int index = -1;
+     uint64_t min_s, max_s;
+             
+     if(r != read_interval.end())
+     {
+          min_s = (r->second).first;
+          max_s = (r->second).second;
+          if(!((max < min_s) && (min > max_s)))
+          {
+              min_s = std::max(min_s,min);
+              max_s = std::min(max_s,max);
+
+              auto r1 = read_names.find(s);
+              index = (r1->second).first;
+           }
+       }
+       m2.unlock();
+
+        if(index != -1)
+	{
+            boost::shared_lock<boost::shared_mutex> lk(readevents[index]->m);
+            for(int i=0;i<readevents[index]->buffer->size();i++)
+            {
+                 uint64_t ts = (*readevents[index]->buffer)[i].ts;
+                 if(ts >= min_s && ts <= max_s) oup.push_back((*readevents[index]->buffer)[i]);
+            }
+            err = true;
+        }
+
+             return err;
+}
+
+bool read_write_process::get_events_in_range_from_write_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup)
+{
+             
+    bool err = false;
+    uint64_t min = range.first; uint64_t max = range.second;
+    m1.lock();
+    auto r = write_interval.find(s);
+    uint64_t min_s,max_s;
+    int index = -1;
+    if(r != write_interval.end())
+    {
+          min_s = (r->second).first;
+          max_s = (r->second).second;
+          if(!((min > max_s) && (max < min_s)))
+          {
+             min_s = std::max(min,min_s);
+             max_s = std::min(max,max_s);
+             auto r1 = write_names.find(s);
+             index = (r1->second).first;
+          }
+    }
+    m1.unlock();
+
+    if(index != -1)
+    {
+       boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
+       for(int i=0;i<myevents[index]->buffer_size.load();i++)
+       {
+             uint64_t ts = (*(myevents[index]->buffer))[i].ts;
+             if(ts >= min && ts <= max) oup.push_back((*(myevents[index]->buffer))[i]);
+       }
+       err = true;
+    }
+             
+    return err;
+}
+
+
+void read_write_process::spawn_write_streams(std::vector<std::string> &snames,std::vector<int> &total_events,int nbatches)
+{
+
+	int num_threads = snames.size();
+        t_args.resize(num_threads);
+        workers.resize(num_threads);
+
+        for(int i=0;i<snames.size();i++)
+        {
+               t_args[i].tid = i;
+               int numevents = total_events[i];
+               int events_per_proc = numevents/numprocs;
+               int rem = numevents%numprocs;
+               if(myrank < rem) t_args[i].num_events = events_per_proc+1;
+               else t_args[i].num_events = events_per_proc;
+               t_args[i].name = snames[i];
+         }
+
+	 std::function<void(struct thread_arg_w *)> DataFunc(
+         std::bind(&read_write_process::data_stream,this,std::placeholders::_1));
+
+         for(int i=0;i<nbatches;i++)
+         {
+               for(int j=0;j<num_threads;j++)
+               {
+                      std::thread t{DataFunc,&t_args[j]};
+                      workers[j] = std::move(t);
+               }
+
+               for(int j=0;j<num_threads;j++) workers[j].join();
+
+
+               for(int j=0;j<num_threads;j++)
+               {
+                    struct io_request *r = new struct io_request();
+                    r->name = t_args[j].name;
+                    r->from_nvme = true;
+                    io_queue_async->push(r);
+                }
+
+                num_streams.store(num_threads);
+                while(num_streams.load()!=0);
+
+           }
+
 }
 
 void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::vector<struct event>*>&data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys)
