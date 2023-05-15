@@ -40,15 +40,13 @@ class memory_pool
 	  std::atomic<uint64_t> num_chunks;
 	  boost::lockfree::queue<node_type *> *memory_chunks;
 	  boost::lockfree::queue<node_type *> *active_queue;
-	  boost::lockfree::queue<node_type *> *free_queue;
 
   public :
 	  memory_pool(uint32_t csize) : chunk_size(csize)
 	 {
 	     memory_chunks = new boost::lockfree::queue<node_type*> (1024);
 	     active_queue = new boost::lockfree::queue<node_type*> (1024);
-	     free_queue = new boost::lockfree::queue<node_type*> (1024);
-	     assert (memory_chunks != nullptr && active_queue != nullptr && free_queue != nullptr);
+	     assert (memory_chunks != nullptr && active_queue != nullptr);
 	     node_type *chunk = (node_type *)std::malloc(chunk_size*sizeof(node_type));
 	     assert (chunk != nullptr);
 	     for(uint32_t i=0;i<chunk_size;i++)
@@ -74,7 +72,6 @@ class memory_pool
 		}
 		delete memory_chunks;
 		delete active_queue;
-		delete free_queue;
 	 }
 
 	 node_type* memory_pool_pop()
@@ -82,14 +79,6 @@ class memory_pool
 		node_type *n = nullptr;
 		while(!active_queue->pop(n))
 		{
-		    /*node_type *t = nullptr;
-		    while(free_queue->pop(t))
-		    {
-			active_queue->push(t);
-			t = nullptr;
-		    }
-		    free_nodes.store(0);*/
-		  
 		    if(active_queue->pop(n)) break;  
 
 		    node_type *chunk = (node_type*)std::malloc(chunk_size*sizeof(node_type));
@@ -103,7 +92,6 @@ class memory_pool
 			active_queue->push(&(chunk[i]));
 		    }
 		    memory_chunks->push(chunk);
-		    if(free_queue->empty()) free_nodes.store(0);
 		}
 
 		n->next = nullptr;
