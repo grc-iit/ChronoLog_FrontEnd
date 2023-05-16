@@ -171,7 +171,7 @@ public:
 	   myevents[index] = dm->get_atomic_buffer(index);
 	}
 
-	atomic_buffer * get_write_buffer(std::string &s)
+	atomic_buffer* get_write_buffer(std::string &s)
 	{
 	   m1.lock();
 	   int index = -1;
@@ -181,6 +181,18 @@ public:
 
 	   if(index==-1) return nullptr;
 	   else return dm->get_atomic_buffer(index);
+	}
+
+	atomic_buffer* get_read_buffer(std::string &s)
+	{
+	   m2.lock();
+	   int index = -1;
+	   auto r = read_names.find(s);
+	   if(r != read_names.end()) index = (r->second).first;
+	   m2.unlock();
+	
+	   if(index==-1) return nullptr;
+	   else return readevents[index];
 	}
 
 	void sort_events(std::string &);

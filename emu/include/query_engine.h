@@ -2,6 +2,7 @@
 #define __QUERY_ENGINE_H_
 
 #include "query_request.h"
+#include "query_response.h"
 #include "distributed_queue.h"
 #include "query_parser.h"
 #include "rw.h"
@@ -24,6 +25,7 @@ class query_engine
  	std::vector<struct thread_arg_q> t_args;
 	std::vector<std::thread> workers;
 	int numthreads;
+	std::atomic<int> query_number;
 
    public:
 	query_engine(int n,int r,data_server_client *c,read_write_process *w) : numprocs(n), myrank(r), dsc(c), rwp(w)
@@ -39,6 +41,7 @@ class query_engine
            std::vector<std::string> shmaddrs = dsc->get_shm_addrs();
 	   Q->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
    	   Q->bind_functions();
+	   query_number.store(0);
 	   MPI_Barrier(MPI_COMM_WORLD);	  
 	   S = new query_parser(numprocs,myrank);
 	   end_of_session.store(0);
