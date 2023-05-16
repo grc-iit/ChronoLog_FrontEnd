@@ -10,6 +10,7 @@ struct query_req
  std::string name;
  uint64_t minkey;
  uint64_t maxkey;
+ bool collective;
  int op;
 };
 

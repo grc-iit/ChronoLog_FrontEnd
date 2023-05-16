@@ -384,16 +384,18 @@ void read_write_process::preadfileattr(const char *filename)
     std::vector<uint64_t> attrs;
     attrs.resize(attr_space[0]);
 
-    std::string fname(filename);
-    auto r = file_minmax.find(fname);
     ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
+    std::string fname(filename);
 
-    std::cout <<" rank = "<<myrank<<" num_records = "<<attrs[0]<<std::endl;
+    m2.lock();
+    auto r = file_minmax.find(fname);
 
-    /*if(r==file_minmax.end())
+    //std::cout <<" rank = "<<myrank<<" num_records = "<<attrs[0]<<std::endl;
+
+    if(r==file_minmax.end())
     {
 	std::pair<std::string,std::pair<uint64_t,uint64_t>> p;
-	p.first = fname;
+	p.first.assign(fname);
 	p.second.first = attrs[3];
 	p.second.second = attrs[4];
 	file_minmax.insert(p);
@@ -402,7 +404,8 @@ void read_write_process::preadfileattr(const char *filename)
     {
 	r->second.first = attrs[3];
 	r->second.second = attrs[4];
-    }*/
+    }
+    m2.unlock();
 
     H5Sclose(file_dataspace);
     ret = H5Aclose(attr_id);

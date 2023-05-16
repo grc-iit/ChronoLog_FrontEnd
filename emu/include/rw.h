@@ -22,10 +22,6 @@ struct thread_arg_w
   int tid;
   int num_events;
   std::string name;
-  std::pair<uint64_t,uint64_t> range;
-  std::vector<hsize_t> total_records;
-  std::vector<hsize_t> offsets;
-  std::vector<hsize_t> numrecords;
 };
 
 
@@ -201,7 +197,7 @@ public:
 	   nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
 	}
 
-	std::vector<struct event> * get_nvme_buffer(std::string &s)
+	std::vector<struct event>* get_nvme_buffer(std::string &s)
 	{
 		int index = 0;
 
@@ -228,6 +224,17 @@ public:
 	      preadfileattr(s.c_str());
 	   }
 
+	   m2.lock();
+	   auto r1 = file_minmax.find(s);
+	   if(r1 != file_minmax.end())
+	   {
+		min_v = (r1->second).first;
+		max_v = (r1->second).second;
+		err = true;
+	   }
+	   m2.unlock();
+
+	   return err;
 	}
 
         bool get_range_in_read_buffers(std::string &s,uint64_t &min_v,uint64_t &max_v)
