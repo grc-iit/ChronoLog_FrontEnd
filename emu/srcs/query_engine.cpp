@@ -24,6 +24,9 @@ void query_engine::service_query(struct thread_arg_q* t)
               struct query_req *r=nullptr;
               r = Q->Get();
 
+	      if(r==nullptr) break;
+
+	      
               atomic_buffer *au = nullptr;
 
               au = rwp->get_write_buffer(r->name);
@@ -43,18 +46,17 @@ void query_engine::service_query(struct thread_arg_q* t)
               int size2 = 0;
               size2 = (buf==nullptr)? 0 : buf->size();
 
-              std::cout <<" rank = "<<myrank<<" size1 = "<<size1<<" size2 = "<<size2<<std::endl;
+              //std::cout <<" rank = "<<myrank<<" size1 = "<<size1<<" size2 = "<<size2<<std::endl;
 
               std::string filename = "file";
               filename += r->name+".h5";
 
-	       rwp->preaddata(filename.c_str(),r->name);
+	      rwp->preaddata(filename.c_str(),r->name);
 
-
-              if(r != nullptr) delete r;
+              delete r;
              }
 
-             if(end_of_session.load()==1 && Q->Empty()) break;
+             if(end_of_session.load()==1) break;
            }
 }
 

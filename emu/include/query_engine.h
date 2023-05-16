@@ -23,7 +23,7 @@ class query_engine
 	std::atomic<int> end_of_session;
  	std::vector<struct thread_arg_q> t_args;
 	std::vector<std::thread> workers;
-
+	int numthreads;
 
    public:
 	query_engine(int n,int r,data_server_client *c,read_write_process *w) : numprocs(n), myrank(r), dsc(c), rwp(w)
@@ -42,13 +42,17 @@ class query_engine
 	   MPI_Barrier(MPI_COMM_WORLD);	  
 	   S = new query_parser(numprocs,myrank);
 	   end_of_session.store(0);
-	   t_args.resize(1);
-	   workers.resize(1);
+	   numthreads = 2;
+	   t_args.resize(numthreads);
+	   workers.resize(numthreads);
 	   std::function<void(struct thread_arg_q *)> QSFunc(
            std::bind(&query_engine::service_query,this, std::placeholders::_1));
 
-	   std::thread qe{QSFunc,&t_args[0]};
-	   workers[0] = std::move(qe);
+	   for(int i=0;i<numthreads;i++)
+	   {
+	     std::thread qe{QSFunc,&t_args[i]};
+	     workers[i] = std::move(qe);
+	   }
 
 	}
 	~query_engine()
@@ -61,7 +65,8 @@ class query_engine
 	{
 	   end_of_session.store(1);
 
-	   workers[0].join();
+	   for(int i=0;i<numthreads;i++)
+	   workers[i].join();
 	}
 	void send_query(std::string &s);
 	void service_query(struct thread_arg_q*);

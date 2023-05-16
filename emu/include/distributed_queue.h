@@ -97,8 +97,9 @@ class distributed_queue
 	   {
 
 		struct query_req *r = nullptr;
-		local_queue->pop(r);
+		if(local_queue->pop(r))
 		return r;
+		else return nullptr;
 	   }
 
 	   bool Empty()

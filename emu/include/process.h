@@ -144,6 +144,7 @@ public:
 	  {
             usleep(20*128*20000);
 	    QE->send_query(t->snames[0]);
+	    QE->send_query(t->snames[1]);
 	  }
       }
 

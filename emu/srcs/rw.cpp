@@ -486,8 +486,9 @@ void read_write_process::preaddata(const char *filename,std::string &name)
    else blocksize = size_per_proc;
      
     event_metadata em1;
-    em1.set_numattrs(625);
-    for(int i=0;i<625;i++)
+    int numattrs = (int)VALUESIZE/sizeof(double);
+    em1.set_numattrs(numattrs);
+    for(int i=0;i<numattrs;i++)
     {
            std::string a="attr"+std::to_string(i);
            int vsize = sizeof(double);

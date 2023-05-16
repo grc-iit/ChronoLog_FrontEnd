@@ -72,13 +72,15 @@ int main(int argc,char **argv)
 
   }*/
 
-  int numstories = 1;
+  int numstories = 4;
   std::vector<std::string> story_names;
   std::vector<int> total_events;
 
+  int numattrs = (int)VALUESIZE/sizeof(double);
+
   event_metadata em;
-  em.set_numattrs(625);
-  for(int i=0;i<625;i++)
+  em.set_numattrs(numattrs);
+  for(int i=0;i<numattrs;i++)
   {
     std::string a = "attr"+std::to_string(i);
     int vsize = sizeof(double);
