@@ -40,6 +40,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      std::vector<struct event> *buf1 = nullptr;
 	      std::vector<struct event> *buf2 = nullptr;
 	      std::vector<struct event> *buf3 = nullptr;
+	      std::vector<struct event> *resp_vec = nullptr;
 
 	      if(!(r->maxkey < min_key1 ||
 		 r->minkey > max_key1))
@@ -98,6 +99,52 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 		 }
 	      }
+
+	      resp_vec = new std::vector<struct event> ();
+
+	      uint64_t minkey = UINT64_MAX;
+	      uint64_t maxkey = 0;
+	      if(buf3 != nullptr) 
+	      {
+		  minkey = (*buf3)[0].ts;
+		  maxkey = (*buf3)[buf3->size()-1].ts;
+		  resp_vec->assign(buf3->begin(),buf3->end()); buf3->clear();
+	      }
+
+	      if(buf2 != nullptr)
+	      {
+		for(int i=0;i<buf2->size();i++)
+	      	{
+		   if((*buf2)[i].ts > maxkey) 
+	           {
+		     resp_vec->push_back((*buf2)[i]);
+		     maxkey = (*buf2)[i].ts;
+		   }
+		 }
+		 buf2->clear();			
+	      }
+
+	      if(buf1 != nullptr)
+	      {
+		for(int i=0;i<buf1->size();i++)
+		{
+		   if((*buf1)[i].ts > maxkey)
+		   {
+			resp_vec->push_back((*buf1)[i]);
+			maxkey = (*buf1)[i].ts;
+		   }
+
+		}
+		buf1->clear();
+
+	      }
+
+      	      struct query_resp *p = new struct query_resp();
+
+	      p->response_vector = nullptr;
+	      p->response_vector = resp_vec;
+
+	      O->push(p);	      
 
 	      if(buf1 != nullptr) delete buf1; 
 	      if(buf2 != nullptr) delete buf2;

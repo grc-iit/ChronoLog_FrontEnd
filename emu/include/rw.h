@@ -29,6 +29,7 @@ struct io_request
 {
    std::string name;
    bool from_nvme;
+   bool for_query;
    hsize_t total_records;
 };
 

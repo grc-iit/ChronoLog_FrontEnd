@@ -26,12 +26,14 @@ class query_engine
 	std::vector<std::thread> workers;
 	int numthreads;
 	std::atomic<int> query_number;
+	boost::lockfree::queue<struct query_resp*> *O; 
 
    public:
 	query_engine(int n,int r,data_server_client *c,read_write_process *w) : numprocs(n), myrank(r), dsc(c), rwp(w)
 	{
 
     	   Q = new distributed_queue(numprocs,myrank);
+	   O = new boost::lockfree::queue<struct query_resp*> (128);
 	   tl::engine *t_server = dsc->get_thallium_server();
            tl::engine *t_server_shm = dsc->get_thallium_shm_server();
            tl::engine *t_client = dsc->get_thallium_client();
@@ -62,6 +64,16 @@ class query_engine
 	{
 	    delete Q;
 	    delete S;
+	    while(!O->empty())
+	    {
+		struct query_resp *r = nullptr;
+		if(O->pop(r))
+		{
+		   delete r->response_vector;
+		   delete r;
+		}
+	    }
+	    delete O;
 	}
 
 	void end_sessions()
