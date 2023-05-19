@@ -18,7 +18,8 @@ class query_engine
 	int numprocs;
 	int myrank;
 	distributed_queue *Q;
- 	query_parser *S;   
+ 	query_parser *S;  
+        dsort *ds;	
 	read_write_process *rwp;
 	data_server_client *dsc;
 	std::atomic<int> end_of_session;
@@ -27,6 +28,9 @@ class query_engine
 	int numthreads;
 	std::atomic<int> query_number;
 	boost::lockfree::queue<struct query_resp*> *O; 
+	std::unordered_map<std::string,std::pair<int,int>> buffer_names;
+	std::vector<struct atomic_buffer*> sbuffers;
+	std::mutex m1;
 
    public:
 	query_engine(int n,int r,data_server_client *c,read_write_process *w) : numprocs(n), myrank(r), dsc(c), rwp(w)
@@ -46,6 +50,7 @@ class query_engine
 	   query_number.store(0);
 	   MPI_Barrier(MPI_COMM_WORLD);	  
 	   S = new query_parser(numprocs,myrank);
+	   ds = rwp->get_sorter();
 	   end_of_session.store(0);
 	   numthreads = 2;
 	   t_args.resize(numthreads);
@@ -84,8 +89,42 @@ class query_engine
 	   workers[i].join();
 	}
 	void send_query(std::string &s);
+	void sort_response(std::string&,int,std::vector<struct event>*);
+	void get_range(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,uint64_t minkeys[3],uint64_t maxkeys[3],int);
+	std::vector<struct event> *sort_response_full(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,int);
 	void service_query(struct thread_arg_q*);
 
+	int create_buffer(std::string &s, int &sort_id)
+	{
+	   m1.lock();
+	   auto r1 = buffer_names.find(s);
+	   int index1 = -1;
+	   int index2 = -1;
+	   if(r1 == buffer_names.end())
+	   {
+		struct atomic_buffer *n = new struct atomic_buffer();
+		n->buffer_size.store(0);
+		n->buffer = new std::vector<struct event> ();
+		sbuffers.push_back(n);
+		index2 = ds->create_sort_buffer();
+		std::pair<std::string,std::pair<int,int>> p;
+		p.first.assign(s);
+		p.second.first = sbuffers.size()-1;
+		p.second.second = index2;
+		buffer_names.insert(p);	
+		index1 = sbuffers.size()-1;
+	   }
+	   else 
+	   {
+		index1 = r1->second.first;
+		index2 = r1->second.second;
+	   }
+	   m1.unlock();
+
+	   sort_id = index2;
+	   return index1;
+
+	}
 };
 
 #endif

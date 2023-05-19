@@ -36,7 +36,6 @@ class dsort
 	   }
 
 	   void sort_data(int,int,int,uint64_t&,uint64_t&);
-	   void sort_data_t(int,int,int,uint64_t&,uint64_t&);
 
 	   std::vector<struct event> * get_sorted_data(int index)
 	   {
