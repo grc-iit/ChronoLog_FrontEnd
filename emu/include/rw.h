@@ -132,6 +132,10 @@ public:
 		io_queue_sync->push(r);
 	}
 	void spawn_write_streams(std::vector<std::string> &,std::vector<int> &,int);
+	dsort *get_sorter()
+	{
+		return ds;
+	}
 	void create_write_buffer(std::string &s,event_metadata &em,int maxsize)
 	{
             m1.lock(); 

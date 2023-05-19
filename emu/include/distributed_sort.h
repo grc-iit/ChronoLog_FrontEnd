@@ -24,17 +24,19 @@ class dsort
 	   {
 		
 	   }
-	   void create_sort_buffer()
+	   int create_sort_buffer()
 	   {
 		std::vector<struct event> *ev = nullptr;
 		events.push_back(ev);
+		return events.size()-1;
 	   }
 	   void get_unsorted_data(std::vector<struct event> *inp,int index)
 	   {
 	       events[index] = inp;
 	   }
 
-	   void sort_data(int,int,uint64_t&,uint64_t&);
+	   void sort_data(int,int,int,uint64_t&,uint64_t&);
+	   void sort_data_t(int,int,int,uint64_t&,uint64_t&);
 
 	   std::vector<struct event> * get_sorted_data(int index)
 	   {

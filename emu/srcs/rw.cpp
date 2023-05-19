@@ -41,7 +41,7 @@ void read_write_process::sort_events(std::string &s)
       boost::upgrade_lock<boost::shared_mutex> lk(myevents[index]->m);
       ds->get_unsorted_data(myevents[index]->buffer,index);
       uint64_t min_v,max_v;
-      ds->sort_data(index,myevents[index]->buffer_size.load(),min_v,max_v);
+      ds->sort_data(index,index,myevents[index]->buffer_size.load(),min_v,max_v);
       myevents[index]->buffer_size.store(myevents[index]->buffer->size());
       nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
       m1.lock();

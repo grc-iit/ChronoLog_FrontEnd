@@ -39,6 +39,11 @@ void serialize(A &ar,struct query_req &e)
         ar & e.name;
         ar & e.minkey;
 	ar & e.maxkey;
+	ar & e.id;
+	ar & e.sorted;
+	ar & e.collective;
+	ar & e.output_file;
+	ar & e.op;
 }
 
 
@@ -90,6 +95,11 @@ class distributed_queue
 		r_n->name = r.name;
 		r_n->minkey = r.minkey;
 		r_n->maxkey = r.maxkey;
+		r_n->id = r.id;
+		r_n->collective = r.collective;
+		r_n->sorted = r.sorted;
+		r_n->output_file = r.output_file;
+		r_n->op = r.op;
 		return local_queue->push(r_n);
 	   }
 

@@ -11,6 +11,7 @@ struct query_req
  uint64_t minkey;
  uint64_t maxkey;
  int id;
+ bool sorted;
  bool collective;
  bool output_file;
  int op;
