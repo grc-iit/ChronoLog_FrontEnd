@@ -18,14 +18,15 @@ void query_engine::send_query(std::string &s)
 
 }
 
-void query_engine::sort_response(std::string &s,int id,std::vector<struct event> *buf)
+void query_engine::sort_response(std::string &s,int id,std::vector<struct event> *buf,uint64_t &maxkey)
 {
      int index1,index2;
      index1 = create_buffer(s,index2);
 
      boost::upgrade_lock<boost::shared_mutex> lk(sbuffers[index1]->m);
      {
-	sbuffers[index1]->buffer->assign(buf->begin(),buf->end());
+	for(int i=0;i<buf->size();i++)
+	    if((*buf)[i].ts > maxkey) sbuffers[index1]->buffer->push_back((*buf)[i]);
 	ds->get_unsorted_data(sbuffers[index1]->buffer,index2);
 	int tag = 10000+id;
 	uint64_t minkey,maxkey;
@@ -92,7 +93,7 @@ void query_engine::get_range(std::vector<struct event> *buf1,std::vector<struct 
      std::free(reqs);
 }
 
-std::vector<struct event>* query_engine::sort_response_full(std::vector<struct event>* buf1,std::vector<struct event>* buf2,std::vector<struct event> *buf3,int tag)
+std::vector<struct event>* query_engine::sort_response_full(std::vector<struct event>* buf1,std::vector<struct event>* buf2,std::vector<struct event> *buf3,int tag,uint64_t maxkeys[3])
 {
 	std::vector<struct event> *result_vec = new std::vector<struct event> ();
 
@@ -126,11 +127,21 @@ std::vector<struct event>* query_engine::sort_response_full(std::vector<struct e
 	std::vector<int> buf_counts_l,buf_counts;
 	buf_counts_l.resize(3); buf_counts.resize(numprocs*3);
 	buf_counts_l[0] = buf1 == nullptr ? 0 : buf1->size();
-	buf_counts_l[1] = buf2 == nullptr ? 0 : buf2->size();
-	buf_counts_l[2] = buf3 == nullptr ? 0 : buf3->size();
+	buf_counts_l[1] = 0;
+	if(buf2 != nullptr)
+	{
+	    for(int i=0;i<buf2->size();i++)
+	    if((*buf2)[i].ts > maxkeys[2]) buf_counts_l[1]++;
+	}
+
+	buf_counts_l[2] = 0;
+	if(buf3 != nullptr)
+	{
+	    for(int i=0;i<buf3->size();i++)
+	     if((*buf3)[i].ts > maxkeys[2] && (*buf3)[i].ts > maxkeys[1]) buf_counts_l[2]++;
+	}
 
 	MPI_Request *reqs = (MPI_Request *)std::malloc(numprocs*3*sizeof(MPI_Request));
-	MPI_Status *stats = (MPI_Status *)std::malloc(numprocs*3*sizeof(MPI_Status));
 
 	int nreq = 0;
 	for(int i=0;i<numprocs;i++)
@@ -167,14 +178,6 @@ std::vector<struct event>* query_engine::sort_response_full(std::vector<struct e
 
 	for(int i=0;i<myrank;i++) start += buf_counts[3*i];
 
-	uint64_t minkey = UINT64_MAX, maxkey = 0;
-
-	if(buf_counts_l[0] > 0) 
-	{
-	   minkey = (*buf1)[0].ts;
-	   maxkey = (*buf1)[buf_counts_l[0]-1].ts;
-	}
-
 	for(int i=0;i<buf_counts_l[0];i++)
 	{
 	   int c = start+i;
@@ -188,9 +191,10 @@ std::vector<struct event>* query_engine::sort_response_full(std::vector<struct e
 	start = file_events;
 	for(int i=0;i<myrank;i++) start += buf_counts[3*i+1];
 
-	for(int i=0;i<buf_counts_l[1];i++)
+	if(buf2 != nullptr)
+	for(int i=0;i<buf2->size();i++)
 	{
-	   if((*buf2)[i].ts > maxkey)
+	   if((*buf2)[i].ts > maxkeys[2])
 	   {	   
 	     int c = start+i;
 	     int dest_proc = -1;
@@ -202,17 +206,14 @@ std::vector<struct event>* query_engine::sort_response_full(std::vector<struct e
 	   else dest2.push_back(-1);
 	}
 
-	if(buf_counts_l[1] > 0)
-	{
-	   maxkey = (*buf2)[buf_counts_l[1]-1].ts;
-	}
 	start = file_events+nvevents;
 
 	for(int i=0;i<myrank;i++) start += buf_counts[3*i+2];
 
-	for(int i=0;i<buf_counts_l[2];i++)
+	if(buf3 != nullptr)
+	for(int i=0;i<buf3->size();i++)
 	{
-           if((*buf3)[i].ts > maxkey)
+           if((*buf3)[i].ts > maxkeys[2] && (*buf3)[i].ts > maxkeys[1])
 	   {
 	     int c = start+i;
 	     int dest_proc=-1;
@@ -274,13 +275,14 @@ std::vector<struct event>* query_engine::sort_response_full(std::vector<struct e
 	for(int i=0;i<numprocs;i++)
 	{
 	   send_buffer[i].clear(); 
-	   buf1->clear();
+	   if(buf1 != nullptr) buf1->clear();
 	   for(int j=0;j<recv_buffer[i].size();j++) result_vec->push_back(recv_buffer[i][j]);
 	   recv_buffer[i].clear();
 	   if(recv_counts[3*i+1] > 0) recv_buffer[i].resize(recv_counts[3*i+1]);
 	}
 
-	for(int i=0;i<buf_counts_l[1];i++)
+	if(buf2 != nullptr)
+	for(int i=0;i<buf2->size();i++)
 	{
 	   int dest_proc = dest2[i];
 	   if(dest_proc != -1)
@@ -302,19 +304,20 @@ std::vector<struct event>* query_engine::sort_response_full(std::vector<struct e
 	   }
 	}
 
-	MPI_Waitall(nreq,reqs,stats);
+	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
 	for(int i=0;i<numprocs;i++)
 	{
 	   send_buffer[i].clear(); 
-	   buf2->clear();
+	   if(buf2 != nullptr) buf2->clear();
 	   for(int j=0;j<recv_buffer[i].size();j++)
 		 result_vec->push_back(recv_buffer[i][j]);
 	   recv_buffer[i].clear();
 	   if(recv_counts[3*i+2]>0) recv_buffer[i].resize(recv_counts[3*i+2]);
 	}
 
-	for(int i=0;i<buf_counts_l[2];i++)
+	if(buf3 != nullptr)
+	for(int i=0;i<buf3->size();i++)
 	{
 	   int dest_proc = dest3[i];
 	   if(dest_proc != -1)
@@ -341,7 +344,7 @@ std::vector<struct event>* query_engine::sort_response_full(std::vector<struct e
 	for(int i=0;i<numprocs;i++)
 	{
 	   send_buffer[i].clear();
-	   buf3->clear();
+	   if(buf3 != nullptr) buf3->clear();
 	   for(int j=0;j<recv_buffer[i].size();j++)
 		result_vec->push_back(recv_buffer[i][j]);
 	   recv_buffer[i].clear();
@@ -349,15 +352,17 @@ std::vector<struct event>* query_engine::sort_response_full(std::vector<struct e
 
 	MPI_Type_free(&key_value);
 	MPI_Type_free(&value_field);
-	std::free(reqs); std::free(stats);
+	std::free(reqs);
 
 	return result_vec;
 }
 
 void query_engine::service_query(struct thread_arg_q* t) 
 {
-           while(true)
-           {
+	int end_service = 0;
+
+         while(true)
+         {
               while(!Q->Empty())
              {
               struct query_req *r=nullptr;
@@ -403,6 +408,7 @@ void query_engine::service_query(struct thread_arg_q* t)
                   }
                 }
 
+		buf2 = nullptr;
                 buf2 = rwp->get_nvme_buffer(r->name);
 
                 int size2 = 0;
@@ -449,19 +455,9 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      if(r->sorted)
 	      {
 
-		  sort_response(r->name,r->id,buf1);
-		  if(buf3->size()>0)
-		  {
-			//if(myrank==numprocs-1) std::cout <<" id = "<<r->id<<" hdffile rank = "<<myrank<<" minkey = "<<(*buf3)[0].ts<<" maxkey = "<<(*buf3)[buf3->size()-1].ts<<std::endl;
-		  }
-		  if(buf2 != nullptr && buf2->size() > 0)
-		  {
-		     //if(myrank==numprocs-1)std::cout <<" id = "<<r->id<<" file rank = "<<myrank<<" minkey = "<<(*buf2)[0].ts<<" maxkey = "<<(*buf2)[buf2->size()-1].ts<<std::endl;
-
-		  }
-		  /*if(buf1->size()>0 && numprocs-1==myrank)
-			  std::cout <<" id = "<<r->id<<" mem rank = "<<myrank<<" minkey = "<<(*buf1)[0].ts<<" maxkey = "<<(*buf1)[buf1->size()-1].ts<<std::endl;*/
-	          resp_vec = sort_response_full(buf3,buf2,buf1,10000+r->id);
+		  uint64_t maxkey = std::max(maxkeys[1],maxkeys[2]);
+		  sort_response(r->name,r->id,buf1,maxkey);
+	          resp_vec = sort_response_full(buf3,buf2,buf1,10000+r->id,maxkeys);
 	      }
 	      else
 	      {
@@ -471,8 +467,6 @@ void query_engine::service_query(struct thread_arg_q* t)
 	        uint64_t maxkey = 0;
 	        if(buf3 != nullptr) 
 	        {
-		  minkey = (*buf3)[0].ts;
-		  maxkey = (*buf3)[buf3->size()-1].ts;
 		  resp_vec->assign(buf3->begin(),buf3->end()); buf3->clear();
 	        }
 
@@ -480,10 +474,9 @@ void query_engine::service_query(struct thread_arg_q* t)
 	        {
 		  for(int i=0;i<buf2->size();i++)
 	      	  {
-		   if((*buf2)[i].ts > maxkey) 
+		   if((*buf2)[i].ts > maxkeys[2]) 
 	           {
 		     resp_vec->push_back((*buf2)[i]);
-		     maxkey = (*buf2)[i].ts;
 		   }
 		 }
 		 buf2->clear();			
@@ -493,10 +486,9 @@ void query_engine::service_query(struct thread_arg_q* t)
 	       {
 		for(int i=0;i<buf1->size();i++)
 		{
-		   if((*buf1)[i].ts > maxkey)
+		   if((*buf1)[i].ts > maxkeys[2] && (*buf1)[i].ts > maxkeys[1])
 		   {
 			resp_vec->push_back((*buf1)[i]);
-			maxkey = (*buf1)[i].ts;
 		   }
 		}
 		buf1->clear();
@@ -516,7 +508,14 @@ void query_engine::service_query(struct thread_arg_q* t)
               delete r;
              }
 
-             if(end_of_session.load()==1) break;
+             if(end_of_session.load()==1 && Q->Empty())
+	     {
+		end_service = 1;
+
+		break;
+
+
+	     }
            }
 }
 

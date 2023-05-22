@@ -166,7 +166,6 @@ public:
 	rwp->end_sessions();
 	QE->end_sessions();
 	qp[0].join();
-
       }
       ~emu_process()
       {

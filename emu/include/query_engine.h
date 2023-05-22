@@ -89,9 +89,9 @@ class query_engine
 	   workers[i].join();
 	}
 	void send_query(std::string &s);
-	void sort_response(std::string&,int,std::vector<struct event>*);
+	void sort_response(std::string&,int,std::vector<struct event>*,uint64_t&);
 	void get_range(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,uint64_t minkeys[3],uint64_t maxkeys[3],int);
-	std::vector<struct event> *sort_response_full(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,int);
+	std::vector<struct event> *sort_response_full(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,int,uint64_t maxkeys[3]);
 	void service_query(struct thread_arg_q*);
 
 	int create_buffer(std::string &s, int &sort_id)

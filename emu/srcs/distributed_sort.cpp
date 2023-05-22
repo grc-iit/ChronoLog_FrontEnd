@@ -64,7 +64,6 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    splitter_counts_l[myrank] = mysplitters.size();
 
    MPI_Request *reqs = (MPI_Request *)std::malloc(3*numprocs*sizeof(MPI_Request));
-   MPI_Status *stats = (MPI_Status *)std::malloc(3*numprocs*sizeof(MPI_Status));
 
    int nreq = 0;
    for(int i=0;i<numprocs;i++)
@@ -289,7 +288,7 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
 	 MPI_Irecv(&recv_ts[2*i],2,MPI_UINT64_T,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
 	 nreq++;
     }
-    MPI_Waitall(nreq,reqs,stats);
+    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
     min_v = UINT64_MAX;
     max_v = 0;
@@ -302,5 +301,5 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    MPI_Type_free(&key_value);
    MPI_Type_free(&value_field);
  
-   free(reqs); free(stats);   
+   free(reqs); 
 }
