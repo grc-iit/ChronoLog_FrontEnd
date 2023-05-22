@@ -35,6 +35,7 @@ class nvme_buffers
 	std::vector<managed_mapped_file*> nvme_files;
 	std::vector<boost::shared_mutex*> file_locks;
         std::string prefix;
+	std::vector<std::atomic<int>*> buffer_state;
   public:
 	nvme_buffers(int np,int rank) : numprocs(np), myrank(rank)
 	{
@@ -53,12 +54,15 @@ class nvme_buffers
 		std::string fn = t->first;
 		file_mapping::remove(fn.c_str());
 	   }
+	   for(int i=0;i<buffer_state.size();i++) std::free(buffer_state[i]);
 	}
 
 	void create_nvme_buffer(std::string &s,event_metadata &em);
 	void copy_to_nvme(std::string &s,std::vector<struct event> *inp,int numevents);
+	boost::shared_mutex *get_mutex(std::string &);
+	void get_buffer(int,int,int);
 	void erase_from_nvme(std::string &s, int numevents);
-	std::vector<struct event> *fetch_buffer(std::string &s,int &index);
+	std::vector<struct event> *fetch_buffer(std::string &s,int &,int &);
 
 };
 

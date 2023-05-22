@@ -1,5 +1,5 @@
 #include "nvme_buffer.h"
-
+#include <mpi.h>
 
 void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
 {
@@ -23,7 +23,24 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
           std::pair<int,event_metadata> p1(file_names.size()-1,em);
           std::pair<std::string,std::pair<int,event_metadata>> p2(fname,p1);
           nvme_fnames.insert(p2);
+	  std::atomic<int> *bs = (std::atomic<int>*)std::malloc(sizeof(std::atomic<int>));
+	  bs->store(0);
+	  buffer_state.push_back(bs);
       }
+}
+
+boost::shared_mutex *nvme_buffers::get_mutex(std::string &s)
+{
+   std::string fname = prefix+s;
+   auto r = nvme_fnames.find(fname);
+
+   if(r==nvme_fnames.end()) return nullptr;
+   else
+   {
+     int index = r->second.first;
+
+     return file_locks[index];
+   }
 }
 
 void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,int numevents)
@@ -34,14 +51,21 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
     if(r == nvme_fnames.end()) return;
 
     int index = r->second.first;
+   
+    int tag = index;
 
-    boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
+    get_buffer(index,tag,1);
+
+    //boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
 
     MyEventVect *ev = nvme_ebufs[index];
 
     for(int i=0;i<numevents;i++)
       ev->push_back((*inp)[i]);
+
     nvme_files[index]->flush();
+    buffer_state[index]->store(0);
+
 }
 
 void nvme_buffers::erase_from_nvme(std::string &s, int numevents)
@@ -53,16 +77,60 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents)
 
       int index = r->second.first;
 
-      boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
+      int tag = 100+index;
+
+      get_buffer(index,tag,2);
+
+      //boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
 
       MyEventVect *ev = nvme_ebufs[index];
 
       ev->erase(ev->begin(),ev->begin()+numevents);
 
       nvme_files[index]->flush();
+      buffer_state[index]->store(0);
+
 }
 
-std::vector<struct event> *nvme_buffers::fetch_buffer(std::string &s,int &index)
+void nvme_buffers::get_buffer(int index,int tag,int type)
+{
+   MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+   int nreq = 0;
+
+   int s_req = type;
+   int op;
+
+   int m_tag = tag;
+   if(myrank==0)
+   {
+	int prev_value = 0;
+	int next_value = type;
+
+	while(!buffer_state[index]->compare_exchange_strong(prev_value,next_value));
+
+	for(int i=1;i<numprocs;i++)
+	{
+	   MPI_Isend(&s_req,1,MPI_INT,i,m_tag,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	}
+
+   }
+   else
+   {
+	MPI_Irecv(&op,1,MPI_INT,0,m_tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+   if(myrank != 0) buffer_state[index]->store(type);
+
+   std::free(reqs);
+
+}
+
+
+std::vector<struct event> *nvme_buffers::fetch_buffer(std::string &s,int &index, int &tag)
 {
 
      std::string fname = prefix+s;
@@ -72,7 +140,12 @@ std::vector<struct event> *nvme_buffers::fetch_buffer(std::string &s,int &index)
 
      index = r->second.first;
 
-     boost::shared_lock<boost::shared_mutex> lk(*file_locks[index]);
+     tag += index;
+
+
+     get_buffer(index,tag,3);
+
+     //boost::shared_lock<boost::shared_mutex> lk(*file_locks[index]);
 
      std::vector<struct event> *data_array = new std::vector<struct event> ();
 
@@ -85,6 +158,8 @@ std::vector<struct event> *nvme_buffers::fetch_buffer(std::string &s,int &index)
 
           //nvme_ebufs[index]->clear();
           //nvme_files[index]->flush();
+
+     buffer_state[index]->store(0);
 
      return data_array;
 }

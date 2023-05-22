@@ -38,7 +38,7 @@ void read_write_process::sort_events(std::string &s)
       int index = (r->second).first;
       m1.unlock();
       get_events_from_map(s);
-      boost::upgrade_lock<boost::shared_mutex> lk(myevents[index]->m);
+      boost::upgrade_lock<boost::shared_mutex> lk1(myevents[index]->m);
       ds->get_unsorted_data(myevents[index]->buffer,index);
       uint64_t min_v,max_v;
       ds->sort_data(index,index,myevents[index]->buffer_size.load(),min_v,max_v);
@@ -577,7 +577,8 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
    if(from_nvme)
    {
      int index;
-     data_array = nm->fetch_buffer(s,index);
+     int tag_p = 100;
+     data_array = nm->fetch_buffer(s,index,tag_p);
    }
    else
    {

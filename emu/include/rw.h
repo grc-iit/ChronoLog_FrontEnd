@@ -217,8 +217,8 @@ public:
 	std::vector<struct event>* get_nvme_buffer(std::string &s)
 	{
 		int index = 0;
-
-		std::vector<struct event> *buffer = nm->fetch_buffer(s,index);
+		int tag_p = 10000;
+		std::vector<struct event> *buffer = nm->fetch_buffer(s,index,tag_p);
 		return buffer;
 	}
 
