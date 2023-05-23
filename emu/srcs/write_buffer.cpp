@@ -1,4 +1,5 @@
 #include "write_buffer.h"
+#include <boost/container_hash/hash.hpp>
 
 
 void databuffers::create_write_buffer(int maxsize)
@@ -50,7 +51,29 @@ void databuffers::add_event(event &e,int index)
 
       if(b)
       {
-              std::memset(e.data,0,VALUESIZE);
+	      int bc = 0;
+	      int numuints = std::ceil(VALUESIZE/sizeof(uint64_t));
+	      for(int j=0;j<numuints;j++)
+	      {
+		uint64_t seed;      
+		boost::hash_combine(seed,key+j);
+		uint64_t mask = 127;
+		bool end = false;
+		for(int k=0;k<sizeof(uint64_t);k++)
+		{
+		   uint64_t v = mask & seed;
+		   char c = (char)v;
+		   seed = seed >> 8;
+		   e.data[bc] = c;
+		   bc++;
+		   if(bc==VALUESIZE) 
+		   {
+			end = true; break;
+		   }
+		}
+		if(end) break;
+	      }
+	     
               int ps = atomicbuffers[index]->buffer_size.load();
               (*atomicbuffers[index]->buffer)[ps] = e;
               atomicbuffers[index]->buffer_size.fetch_add(1);
