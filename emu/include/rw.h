@@ -306,10 +306,11 @@ public:
 	void clear_write_events(int,uint64_t&,uint64_t&);
 	void clear_read_events(std::string &s);
 	void get_range(std::string &s);
-	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&);
-	void pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&);
-	void pwrite_files(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&);
+	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool);
+	void pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool);
+	void pwrite_files(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool);
 	void preaddata(const char*,std::string &s);
+	void preadappend(const char*,const char*,std::string&);
 	void preadfileattr(const char*);
 	std::vector<struct event>* create_data_spaces(std::string &,hsize_t&,hsize_t&,uint64_t&,uint64_t&,bool);
 	void io_polling(struct thread_arg_w*);

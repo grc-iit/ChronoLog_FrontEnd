@@ -465,7 +465,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 		  uint64_t maxkey = std::max(maxkeys[1],maxkeys[2]);
 		  sort_response(r->name,r->id,buf1,maxkey);
-	          /*resp_vec = sort_response_full(buf3,buf2,buf1,10000+r->id,maxkeys);*/
+	          resp_vec = sort_response_full(buf3,buf2,buf1,10000+r->id,maxkeys);
 	      }
 	      else
 	      {

@@ -166,6 +166,13 @@ public:
 	qp[0].join();
 	rwp->end_sessions();
 	QE->end_sessions();
+	/*std::string filen = "file";
+	std::string name = "table0";
+	std::string re = "resp";
+	std::string srcfile = filen+name+".h5";
+	std::string dstfile = filen+name+re+".h5";
+	std::string namestring = "table0resp";
+	rwp->preadappend(srcfile.c_str(),dstfile.c_str(),namestring);*/
       }
       ~emu_process()
       {
