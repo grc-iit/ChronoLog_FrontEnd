@@ -22,10 +22,10 @@ class query_engine
         dsort *ds;	
 	read_write_process *rwp;
 	data_server_client *dsc;
-	std::atomic<int> end_of_session;
  	std::vector<struct thread_arg_q> t_args;
 	std::vector<std::thread> workers;
 	int numthreads;
+	std::atomic<int> end_session;
 	std::atomic<int> query_number;
 	boost::lockfree::queue<struct query_resp*> *O; 
 	std::unordered_map<std::string,std::pair<int,int>> buffer_names;
@@ -51,7 +51,7 @@ class query_engine
 	   MPI_Barrier(MPI_COMM_WORLD);	  
 	   S = new query_parser(numprocs,myrank);
 	   ds = rwp->get_sorter();
-	   end_of_session.store(0);
+	   end_session.store(0);
 	   numthreads = 2;
 	   t_args.resize(numthreads);
 	   workers.resize(numthreads);
@@ -60,6 +60,7 @@ class query_engine
 
 	   for(int i=0;i<numthreads;i++)
 	   {
+             t_args[i].tid = i;
 	     std::thread qe{QSFunc,&t_args[i]};
 	     workers[i] = std::move(qe);
 	   }
@@ -83,11 +84,21 @@ class query_engine
 
 	void end_sessions()
 	{
-	   end_of_session.store(1);
+	   if(myrank==0)
+	   {
+	      std::string s = "endsession";
+	      send_query(s);
+	   }
 
-	   for(int i=0;i<numthreads;i++)
-	   workers[i].join();
+	   for(int i=0;i<workers.size();i++) workers[i].join();
 	}
+
+	void end_service()
+	{
+	   for(int i=0;i<workers.size();i++)
+		   workers[i].join();
+	}
+
 	void send_query(std::string &s);
 	void sort_response(std::string&,int,std::vector<struct event>*,uint64_t&);
 	void get_range(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,uint64_t minkeys[3],uint64_t maxkeys[3],int);

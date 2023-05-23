@@ -163,16 +163,16 @@ public:
       void end_sessions()
       {
 	dw[0].join();
+	qp[0].join();
 	rwp->end_sessions();
 	QE->end_sessions();
-	qp[0].join();
       }
       ~emu_process()
       {
 	/*if(MS != nullptr) delete MS;
 	delete MC;*/
-	delete rwp;
 	delete QE;
+	delete rwp;
 	delete CM;
 	delete dsc;
       }
