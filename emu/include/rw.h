@@ -229,6 +229,17 @@ public:
 		m1.unlock();
 		return em;
 	}
+
+	void get_file_minmax(std::string &s,uint64_t &min_v,uint64_t &max_v)
+	{
+	   min_v = UINT64_MAX; max_v = 0;
+
+	   m1.lock();
+	   auto r = file_minmax.find(s);
+	   min_v = r->second.first;
+	   max_v = r->second.second;
+	   m1.unlock();
+	}
 	bool get_range_in_file(std::string &s, uint64_t &min_v,uint64_t &max_v)
 	{
 	   min_v = UINT64_MAX; max_v = 0;
@@ -246,7 +257,7 @@ public:
 	      preadfileattr(s.c_str());
 	   }
 
-	   m2.lock();
+	   m1.lock();
 	   auto r1 = file_minmax.find(s);
 	   if(r1 != file_minmax.end())
 	   {
@@ -254,7 +265,7 @@ public:
 		max_v = (r1->second).second;
 		err = true;
 	   }
-	   m2.unlock();
+	   m1.unlock();
 
 	   return err;
 	}
@@ -326,7 +337,7 @@ public:
 	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool);
 	void pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool);
 	void pwrite_files(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool);
-	bool preaddata(const char*,std::string &s,uint64_t,uint64_t,uint64_t&,uint64_t&,std::vector<struct event>*);
+	bool preaddata(const char*,std::string &s,uint64_t,uint64_t,uint64_t&,uint64_t&,uint64_t&,uint64_t&,std::vector<struct event>*);
 	void preadappend(const char*,const char*,std::string&);
 	bool preadfileattr(const char*);
 	std::vector<struct event>* create_data_spaces(std::string &,hsize_t&,hsize_t&,uint64_t&,uint64_t&,bool);

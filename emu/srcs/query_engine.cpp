@@ -398,6 +398,8 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 	      uint64_t minkey_f,maxkey_f;
 
+	      uint64_t minkey_r,maxkey_r;
+
 	      uint64_t minkey_e = r->minkey; uint64_t maxkey_e = r->maxkey;
 	
 	      int num_tries = 0;
@@ -409,32 +411,33 @@ void query_engine::service_query(struct thread_arg_q* t)
 		uint64_t minkey_fp = UINT64_MAX;
 		uint64_t maxkey_fp = 0;
 
-	        if(file_exists && minkey_e <= maxkey_e)
+	        if(file_exists && (minkey_e <= maxkey_e))
 	        {
-		  minkey_f = UINT64_MAX; maxkey_f = 0;
-		  b = rwp->preaddata(filename.c_str(),r->name,minkey_e,maxkey_e,minkey_f,maxkey_f,buf3);
+		  minkey_r = UINT64_MAX; maxkey_r = 0;
+		  b = rwp->preaddata(filename.c_str(),r->name,minkey_e,maxkey_e,minkey_f,maxkey_f,minkey_r,maxkey_r,buf3);
 
 		  if(b)
 		  {
-		    if(maxkey_f >= maxkey_e) 
-		    {
-			minkey_e = UINT64_MAX; maxkey_e = 0;
-			end_read = true;
-		    } 
-		    else
-		    {
-			if(minkey_e < maxkey_e) minkey_e = maxkey_f+1;
-			else end_read = true;
-		    }
+		     if(minkey_e < maxkey_e) minkey_e = maxkey_f+1;
 		  }
 	        }
-	        else 
+	        else if(file_exists) 
 		{
-		   if(!file_exists) num_tries++;
-		   if(minkey_fp == minkey_f && maxkey_fp==maxkey_f) num_tries++;
-		}	
+		   if(minkey_e > maxkey_e) end_read = true;
+		}
+		buf2->clear();
 	        rwp->get_nvme_buffer(buf2,r->name);
-		if(buf2->size() > 0 || end_read || num_tries > 1) break;
+
+		file_exists = rwp->file_existence(filename);
+		if(!file_exists) end_read = true;
+		else 
+		{
+		     uint64_t min_v=UINT64_MAX;
+		     uint64_t max_v=0;
+		     rwp->get_file_minmax(filename,min_v,max_v);
+		     if(max_v == maxkey_r) end_read = true; 
+		} 
+		if(end_read) break;
 	      }
 
               atomic_buffer *au = nullptr;
@@ -470,15 +473,15 @@ void query_engine::service_query(struct thread_arg_q* t)
      	      }
 
 
-	      if(r->sorted)
+	      /*if(r->sorted)
 	      {
 
 		  uint64_t maxkey = std::max(maxkeys[1],maxkeys[2]);
 		  sort_response(r->name,r->id,buf1,maxkey);
 	          resp_vec = sort_response_full(buf3,buf2,buf1,10000+r->id,maxkeys);
 	      }
-	      else
-	      {
+	      else*/
+	      /*{
 	        resp_vec = new std::vector<struct event> ();
 
 	        uint64_t minkey = UINT64_MAX;
@@ -518,11 +521,11 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      p->response_vector = nullptr;
 	      p->response_vector = resp_vec;
 
-	      O->push(p);	      
+	      O->push(p);	     */ 
 
-	      if(buf1 != nullptr) delete buf1; 
-	      if(buf2 != nullptr) delete buf2;
-	      if(buf3 != nullptr) delete buf3;
+	      delete buf1; 
+	      delete buf2;
+	      delete buf3;
               delete r;
              }
 

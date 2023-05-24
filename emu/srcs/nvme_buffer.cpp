@@ -128,7 +128,6 @@ void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::strin
 
      tag += index;
 
-
      get_buffer(index,tag,3);
 
      //boost::shared_lock<boost::shared_mutex> lk(*file_locks[index]);

@@ -43,7 +43,6 @@ void read_write_process::sort_events(std::string &s)
       uint64_t min_v,max_v;
       ds->sort_data(index,index,myevents[index]->buffer_size.load(),min_v,max_v);
       myevents[index]->buffer_size.store(myevents[index]->buffer->size());
-      nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
       m1.lock();
       auto r1 = write_interval.find(s);
       if(r1 == write_interval.end())
@@ -51,16 +50,18 @@ void read_write_process::sort_events(std::string &s)
           std::pair<uint64_t,uint64_t> p(min_v,max_v);
           std::pair<std::string,std::pair<uint64_t,uint64_t>> q(s,p);
           write_interval.insert(q);
-       }
-       else
-       {
+      }
+      else
+      {
           uint64_t min_vp = (r1->second).first;
           uint64_t max_vp = (r1->second).second;
           (r1->second).first = std::min(min_vp,min_v);
           (r1->second).second = std::max(max_vp,max_v);
-        }
-	m1.unlock();
-        clear_write_events(index,min_v,max_v);
+      }
+      m1.unlock();
+
+      nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
+      clear_write_events(index,min_v,max_v);
 }
 
 void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& max_k)
@@ -335,6 +336,11 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	H5ESclose(event_ids[i]);
         H5Sclose(filespaces[i]);
         H5Sclose(memspaces[i]);
+	std::string filename = "file"+sts[i]+".h5";
+	m1.lock();
+	auto r1 = file_minmax.find(filename);
+	r1->second.second = maxkeys[i];
+	m1.unlock();
 	if(clear_nvme) nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	delete data_arrays[i];
     }
@@ -508,27 +514,6 @@ bool read_write_process::preadfileattr(const char *filename)
     attrs.resize(attr_space[0]);
 
     ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
-    std::string fname(filename);
-
-    m2.lock();
-    auto r = file_minmax.find(fname);
-
-    //std::cout <<" rank = "<<myrank<<" num_records = "<<attrs[0]<<std::endl;
-
-    if(r==file_minmax.end())
-    {
-	std::pair<std::string,std::pair<uint64_t,uint64_t>> p;
-	p.first.assign(fname);
-	p.second.first = attrs[3];
-	p.second.second = attrs[4];
-	file_minmax.insert(p);
-    }
-    else
-    {
-	r->second.first = attrs[3];
-	r->second.second = attrs[4];
-    }
-    m2.unlock();
 
     H5Sclose(file_dataspace);
     ret = H5Aclose(attr_id);
@@ -537,7 +522,7 @@ bool read_write_process::preadfileattr(const char *filename)
     return true;
 
 }
-bool read_write_process::preaddata(const char *filename,std::string &name,uint64_t minkey,uint64_t maxkey,uint64_t &minkey_f,uint64_t &maxkey_f,std::vector<struct event>* data_buffer)
+bool read_write_process::preaddata(const char *filename,std::string &name,uint64_t minkey,uint64_t maxkey,uint64_t &minkey_f,uint64_t &maxkey_f,uint64_t &minkey_r,uint64_t &maxkey_r,std::vector<struct event>* data_buffer)
 {
 
     hid_t       fid;                                              
@@ -595,6 +580,8 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
 
     std::vector<int> blockids;
 
+    minkey_r = UINT64_MAX;
+    maxkey_r = 0;
     minkey_f = UINT64_MAX;
     maxkey_f = 0;
     int pos = 4;
@@ -603,13 +590,15 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     {
 	uint64_t bmin = attrs[pos+i*4+0];
 	uint64_t bmax = attrs[pos+i*4+1];
-        if(minkey_f > bmin) minkey_f = bmin;
-	if(maxkey_f < bmax) maxkey_f = bmax;
+        if(minkey_r > bmin) minkey_r = bmin;
+	if(maxkey_r < bmax) maxkey_r = bmax;
 
 	if(minkey >= bmin && minkey <= bmax ||
 	   maxkey >= bmin && maxkey <= bmax ||
 	   minkey < bmin && bmax < maxkey)
 	{
+	    if(minkey_f > bmin) minkey_f = bmin;
+	    if(maxkey_f < bmax) maxkey_f = bmax;
 	    blockids.push_back(i);
 	}
     }
@@ -705,7 +694,6 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
 	m1.unlock();
 
 	myevents[index]->m.lock();
-	data_array = new std::vector<struct event> ();
 	data_array->assign(myevents[index]->buffer->begin(),myevents[index]->buffer->end());
 	myevents[index]->buffer->clear();
 	myevents[index]->m.unlock();
@@ -860,12 +848,17 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         //H5Pclose(lists[i]);
 	H5Sclose(filespaces[i]);
         H5Sclose(memspaces[i]);
-	delete data_arrays[i];
 	std::string filename = "file"+sts[i]+".h5";
 	m1.lock();
 	file_names.insert(filename);
+	std::pair<std::string,std::pair<uint64_t,uint64_t>> p;
+        p.first.assign(filename);
+	p.second.first = minkeys[i];
+	p.second.second = maxkeys[i];
+        file_minmax.insert(p);
 	m1.unlock();
 	if(clear_nvme) nm->erase_from_nvme(sts[i],data_arrays[i]->size());
+	delete data_arrays[i];
     }
 
     H5Sclose(attr_space[0]);
