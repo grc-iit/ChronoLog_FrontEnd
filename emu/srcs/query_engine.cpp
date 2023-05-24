@@ -380,72 +380,82 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 	      uint64_t min_key1,max_key1;
 
-	      bool b = rwp->get_range_in_write_buffers(r->name,min_key1,max_key1);
+	      bool b = false;
+	      //rwp->get_range_in_write_buffers(r->name,min_key1,max_key1);
 
-	      uint64_t min_key2, max_key2;
+	      /*uint64_t min_key2, max_key2;
 
 	      b = rwp->get_range_in_read_buffers(r->name,min_key2,max_key2);
-	    
+	    */
+
 	      std::vector<struct event> *buf1 = new std::vector<struct event> ();
-	      std::vector<struct event> *buf2 = nullptr;
+	      std::vector<struct event> *buf2 = new std::vector<struct event> ();
 	      std::vector<struct event> *buf3 = new std::vector<struct event> ();
 	      std::vector<struct event> *resp_vec = nullptr;
 
-	      if(!(r->maxkey < min_key1 ||
-		 r->minkey > max_key1))
-	      { 
-                 atomic_buffer *au = nullptr;
+	      std::string filename = "file";
+	      filename += r->name+".h5";
 
-                 au = rwp->get_write_buffer(r->name);
+	      uint64_t minkey_f,maxkey_f;
 
-                 int size1 = 0;
-                 if(au != nullptr)
-                 {
+	      uint64_t minkey_e = r->minkey; uint64_t maxkey_e = r->maxkey;
+	
+	      int num_tries = 0;
 
-                  boost::shared_lock<boost::shared_mutex> lk(au->m);
-                  {
-                        size1 = au->buffer_size.load();
-			if(size1 > 0) 
-			{
-			    buf1->resize(size1);
-			    for(int i=0;i<size1;i++)
-			    {
-				(*buf1)[i] = (*(au->buffer))[i];
-			    }
-			}
-                  }
-                }
+	      while(true)
+	      {
+	        bool file_exists = rwp->file_existence(filename);
+		bool end_read = false;
+		uint64_t minkey_fp = UINT64_MAX;
+		uint64_t maxkey_fp = 0;
 
-		buf2 = nullptr;
-                buf2 = rwp->get_nvme_buffer(r->name);
+	        if(file_exists && minkey_e <= maxkey_e)
+	        {
+		  minkey_f = UINT64_MAX; maxkey_f = 0;
+		  b = rwp->preaddata(filename.c_str(),r->name,minkey_e,maxkey_e,minkey_f,maxkey_f,buf3);
 
-                int size2 = 0;
-                size2 = (buf2==nullptr)? 0 : buf2->size();
+		  if(b)
+		  {
+		    if(maxkey_f >= maxkey_e) 
+		    {
+			minkey_e = UINT64_MAX; maxkey_e = 0;
+			end_read = true;
+		    } 
+		    else
+		    {
+			if(minkey_e < maxkey_e) minkey_e = maxkey_f+1;
+			else end_read = true;
+		    }
+		  }
+	        }
+	        else 
+		{
+		   if(!file_exists) num_tries++;
+		   if(minkey_fp == minkey_f && maxkey_fp==maxkey_f) num_tries++;
+		}	
+	        rwp->get_nvme_buffer(buf2,r->name);
+		if(buf2->size() > 0 || end_read || num_tries > 1) break;
 	      }
 
-	      std::string filename = "file";
-              filename += r->name+".h5";
+              atomic_buffer *au = nullptr;
 
-	      uint64_t min_key3, max_key3;
-	      b = rwp->get_range_in_file(filename,min_key3,max_key3);
+              au = rwp->get_write_buffer(r->name);
 
-	      if(!(r->minkey > max_key3 ||
-	         r->maxkey < min_key3))
-	      {
-	         rwp->preaddata(filename.c_str(),r->name);
-		 atomic_buffer *ru = nullptr;
-	         ru = rwp->get_read_buffer(r->name);
-		 if(ru != nullptr)
-		 {
-		    boost::shared_lock<boost::shared_mutex> lk(ru->m);
+              int size1 = 0;
+              if(au != nullptr)
+              {
+
+                boost::shared_lock<boost::shared_mutex> lk(au->m);
+                {
+                    size1 = au->buffer_size.load();
+	            if(size1 > 0) 
 		    {
-			buf3->resize(ru->buffer->size());
-
-			for(int i=0;i<ru->buffer->size();i++)
-			   (*buf3)[i] = (*(ru->buffer))[i];
+			buf1->resize(size1);
+			for(int i=0;i<size1;i++)
+		          (*buf1)[i] = (*(au->buffer))[i];
 		    }
+                }
 
-		 }
 	      }
 
 	      uint64_t minkeys[3],maxkeys[3];

@@ -214,12 +214,11 @@ public:
 	   nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
 	}
 
-	std::vector<struct event>* get_nvme_buffer(std::string &s)
+	void get_nvme_buffer(std::vector<struct event> *buffer,std::string &s)
 	{
 		int index = 0;
 		int tag_p = 10000;
-		std::vector<struct event> *buffer = nm->fetch_buffer(s,index,tag_p);
-		return buffer;
+		nm->fetch_buffer(buffer,s,index,tag_p);
 	}
 
 	event_metadata & get_metadata(std::string &s)
@@ -234,9 +233,15 @@ public:
 	{
 	   min_v = UINT64_MAX; max_v = 0;
 	   bool err = false;
+           
+	   bool found = false;
+	   m1.lock();
 
 	   auto r = std::find(file_names.begin(),file_names.end(),s);
-	   if(r != file_names.end())
+	   if(r != file_names.end()) found = true;
+	   m1.unlock();
+
+	   if(found)
 	   {
 	      preadfileattr(s.c_str());
 	   }
@@ -252,6 +257,18 @@ public:
 	   m2.unlock();
 
 	   return err;
+	}
+
+	bool file_existence(std::string &s)
+	{
+	  bool err = false;
+	  m1.lock();
+
+	  auto r = std::find(file_names.begin(),file_names.end(),s);
+	  if(r != file_names.end()) err = true;
+	  m1.unlock(); 
+
+	  return err;
 	}
 
         bool get_range_in_read_buffers(std::string &s,uint64_t &min_v,uint64_t &max_v)
@@ -309,9 +326,9 @@ public:
 	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool);
 	void pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool);
 	void pwrite_files(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<std::vector<struct event>*>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool);
-	void preaddata(const char*,std::string &s);
+	bool preaddata(const char*,std::string &s,uint64_t,uint64_t,uint64_t&,uint64_t&,std::vector<struct event>*);
 	void preadappend(const char*,const char*,std::string&);
-	void preadfileattr(const char*);
+	bool preadfileattr(const char*);
 	std::vector<struct event>* create_data_spaces(std::string &,hsize_t&,hsize_t&,uint64_t&,uint64_t&,bool);
 	void io_polling(struct thread_arg_w*);
 	void io_polling_seq(struct thread_arg_w*);

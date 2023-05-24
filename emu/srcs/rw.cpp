@@ -466,7 +466,7 @@ void read_write_process::preadappend(const char *srcfile,const char *destfile,st
 
 }
 
-void read_write_process::preadfileattr(const char *filename)
+bool read_write_process::preadfileattr(const char *filename)
 {
     hid_t       fid;
     hid_t       acc_tpl;
@@ -488,7 +488,7 @@ void read_write_process::preadfileattr(const char *filename)
     if(r1==file_names.end()) end = true;
     m1.unlock();
 
-    if(end) return;
+    if(end) return false;
 
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     //H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
@@ -534,9 +534,10 @@ void read_write_process::preadfileattr(const char *filename)
     ret = H5Aclose(attr_id);
     ret = H5Dclose(dataset1);
     H5Fclose(fid);
+    return true;
 
 }
-void read_write_process::preaddata(const char *filename,std::string &name)
+bool read_write_process::preaddata(const char *filename,std::string &name,uint64_t minkey,uint64_t maxkey,uint64_t &minkey_f,uint64_t &maxkey_f,std::vector<struct event>* data_buffer)
 {
 
     hid_t       fid;                                              
@@ -559,7 +560,7 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     if(f == file_names.end()) end = true;
     m1.unlock();
 
-    if(end) return;
+    if(end) return false;
 
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
     fid = H5Fopen(filename, H5F_ACC_RDONLY, fapl);
@@ -578,106 +579,96 @@ void read_write_process::preaddata(const char *filename,std::string &name)
 
     ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
-    int total_k = attrs[0];
-    int k_size = attrs[1];
-    int data_size = attrs[2];
-    int numblocks = attrs[3];
-
-
-    hsize_t offset = 0;
-
-    int block_id = 0;
-    int pos = 4;
-
-    pos = 4;
-
-    offset = 0;
-    for(int i=0;i<block_id;i++)
-	offset += attrs[pos+i*4+3];
-
-    hsize_t block_size = attrs[pos+block_id*4+3];
-
-   int size_per_proc = block_size/numprocs;
-   int rem = block_size%numprocs;
-
-   for(int i=0;i<myrank;i++)
-   {
-        int size_p;
-	if(i < rem) size_p = size_per_proc+1;
-	else size_p = size_per_proc;
-	offset += size_p;
-   } 
-   
-    
-   hsize_t blocksize = 0;
-   if(myrank < rem) blocksize = size_per_proc+1;
-   else blocksize = size_per_proc;
-     
-    event_metadata em1;
-    int numattrs = (int)VALUESIZE/sizeof(double);
-    em1.set_numattrs(numattrs);
-    for(int i=0;i<numattrs;i++)
-    {
-           std::string a="attr"+std::to_string(i);
-           int vsize = sizeof(double);
-           bool is_signed = false;
-           bool is_big_endian = true;
-           em1.add_attr(a,vsize,is_signed,is_big_endian);
-    }
-        
-    create_read_buffer(name,em1);
-
-    m2.lock();
-    auto r = read_names.find(name);
-    int index = (r->second).first;
-    event_metadata em = (r->second).second;
-    m2.unlock();
-
-    int datasize = VALUESIZE;
-
-    boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
-
-    readevents[index]->buffer->resize(blocksize);
-
     hsize_t adims[1];
     adims[0] = VALUESIZE;
     hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
     hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
     H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
     H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
- 
+    
+    xfer_plist = H5Pcreate(H5P_DATASET_XFER);
+    
+    int total_k = attrs[0];
+    int k_size = attrs[1];
+    int data_size = attrs[2];
+    int numblocks = attrs[3];
+
+    std::vector<int> blockids;
+
+    minkey_f = UINT64_MAX;
+    maxkey_f = 0;
+    int pos = 4;
+
+    for(int i=0;i<numblocks;i++)
+    {
+	uint64_t bmin = attrs[pos+i*4+0];
+	uint64_t bmax = attrs[pos+i*4+1];
+        if(minkey_f > bmin) minkey_f = bmin;
+	if(maxkey_f < bmax) maxkey_f = bmax;
+
+	if(minkey >= bmin && minkey <= bmax ||
+	   maxkey >= bmin && maxkey <= bmax ||
+	   minkey < bmin && bmax < maxkey)
+	{
+	    blockids.push_back(i);
+	}
+    }
+
+    int index;
+    int datasize;
+
+    if(blockids.size()==0) return false;
+
+    for(int i=0;i<blockids.size();i++)
+    {
+       hsize_t offset = 0;
+
+       int block_id = blockids[i];
+
+       offset = 0;
+       for(int i=0;i<block_id;i++)
+	  offset += attrs[pos+i*4+3];
+
+       hsize_t block_size = attrs[pos+block_id*4+3];
+
+       int size_per_proc = block_size/numprocs;
+       int rem = block_size%numprocs;
+
+      for(int i=0;i<myrank;i++)
+      {
+        int size_p;
+	if(i < rem) size_p = size_per_proc+1;
+	else size_p = size_per_proc;
+	offset += size_p;
+      } 
+   
+    
+   hsize_t blocksize = 0;
+   if(myrank < rem) blocksize = size_per_proc+1;
+   else blocksize = size_per_proc;
+    
+    std::vector<struct event> *data_array = new std::vector<struct event> ();
+
+    data_array->resize(blocksize);
+
     file_dataspace = H5Dget_space(dataset1);
     ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&blocksize,NULL);
     mem_dataspace = H5Screate_simple(1,&blocksize, NULL);
-    xfer_plist = H5Pcreate(H5P_DATASET_XFER);
     //ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_INDEPENDENT);
-    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,readevents[index]->buffer->data());
-  
-    
-    uint64_t minkey = (*readevents[index]->buffer)[0].ts;
-    uint64_t maxkey = (*readevents[index]->buffer)[blocksize-1].ts;
+    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,data_array->data());
 
-    
-    m2.lock();
-
-    auto r1 = read_interval.find(name);
-    if(r1 == read_interval.end())
+    for(int i=0;i<data_array->size();i++)
     {
-	std::pair<std::string,std::pair<uint64_t,uint64_t>> p2;
-	p2.first.assign(name);
-	p2.second.first = minkey;
-	p2.second.second = maxkey;
-	read_interval.insert(p2);
-    } 
-    else 
-    {
-	(r1->second).first = minkey; (r1->second).second = maxkey;
+      if((*data_array)[i].ts >= minkey && (*data_array)[i].ts <= maxkey)
+	data_buffer->push_back((*data_array)[i]);
     }
-    m2.unlock();
 
+    delete data_array;
+ 
+    H5Sclose(mem_dataspace); 
+    }
 
     H5Sclose(file_dataspace);
-    H5Sclose(mem_dataspace);
     H5Pclose(xfer_plist);
 
     H5Aclose(attr_id);
@@ -685,7 +676,8 @@ void read_write_process::preaddata(const char *filename,std::string &name)
     H5Dclose(dataset1);
 
     H5Fclose(fid);  
-
+    
+    return true;
 }
 
 std::vector<struct event>* read_write_process::create_data_spaces(std::string &s,hsize_t &poffset,hsize_t &trecords,uint64_t &minkey,uint64_t &maxkey,bool from_nvme)
@@ -697,13 +689,13 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
    std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
    std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
-   std::vector<struct event> *data_array = nullptr;
+   std::vector<struct event> *data_array = new std::vector<struct event> ();
 
    if(from_nvme)
    {
      int index;
      int tag_p = 100;
-     data_array = nm->fetch_buffer(s,index,tag_p);
+     nm->fetch_buffer(data_array,s,index,tag_p);
    }
    else
    {
@@ -868,12 +860,12 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         //H5Pclose(lists[i]);
 	H5Sclose(filespaces[i]);
         H5Sclose(memspaces[i]);
-	if(clear_nvme) nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	delete data_arrays[i];
 	std::string filename = "file"+sts[i]+".h5";
 	m1.lock();
 	file_names.insert(filename);
 	m1.unlock();
+	if(clear_nvme) nm->erase_from_nvme(sts[i],data_arrays[i]->size());
     }
 
     H5Sclose(attr_space[0]);

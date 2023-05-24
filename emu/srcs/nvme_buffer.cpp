@@ -29,20 +29,6 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
       }
 }
 
-boost::shared_mutex *nvme_buffers::get_mutex(std::string &s)
-{
-   std::string fname = prefix+s;
-   auto r = nvme_fnames.find(fname);
-
-   if(r==nvme_fnames.end()) return nullptr;
-   else
-   {
-     int index = r->second.first;
-
-     return file_locks[index];
-   }
-}
-
 void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,int numevents)
 {
     std::string fname = prefix+s;
@@ -130,13 +116,13 @@ void nvme_buffers::get_buffer(int index,int tag,int type)
 }
 
 
-std::vector<struct event> *nvme_buffers::fetch_buffer(std::string &s,int &index, int &tag)
+void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::string &s,int &index, int &tag)
 {
 
      std::string fname = prefix+s;
      auto r = nvme_fnames.find(fname);
 
-     if(r==nvme_fnames.end()) return nullptr;
+     if(r==nvme_fnames.end()) return;
 
      index = r->second.first;
 
@@ -146,8 +132,6 @@ std::vector<struct event> *nvme_buffers::fetch_buffer(std::string &s,int &index,
      get_buffer(index,tag,3);
 
      //boost::shared_lock<boost::shared_mutex> lk(*file_locks[index]);
-
-     std::vector<struct event> *data_array = new std::vector<struct event> ();
 
      MyEventVect *ev = nvme_ebufs[index];
 
@@ -161,6 +145,5 @@ std::vector<struct event> *nvme_buffers::fetch_buffer(std::string &s,int &index,
 
      buffer_state[index]->store(0);
 
-     return data_array;
 }
 
