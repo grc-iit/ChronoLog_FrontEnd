@@ -2,7 +2,7 @@
 #include <boost/container_hash/hash.hpp>
 
 
-void databuffers::create_write_buffer(int maxsize)
+atomic_buffer* databuffers::create_write_buffer(int maxsize)
 {
      int total_size = 65536*2;
      uint64_t maxkey = UINT64_MAX;
@@ -13,6 +13,7 @@ void databuffers::create_write_buffer(int maxsize)
      m1.lock();
      atomicbuffers.push_back(a);
      m1.unlock();
+     return a;
 }
 
 void databuffers::clear_write_buffer(int index)

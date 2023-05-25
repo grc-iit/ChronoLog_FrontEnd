@@ -142,11 +142,11 @@ public:
 	    if(write_names.find(s)==write_names.end())
 	    {
 	      struct atomic_buffer *ev = nullptr;
+	      ev = dm->create_write_buffer(maxsize);
 	      myevents.push_back(ev);
 	      std::pair<int,event_metadata> p1(myevents.size()-1,em);
 	      std::pair<std::string,std::pair<int,event_metadata>> p2(s,p1);
 	      write_names.insert(p2);
-	      dm->create_write_buffer(maxsize);
 	      ds->create_sort_buffer();
 	      nm->create_nvme_buffer(s,em);
 	    }
@@ -209,13 +209,14 @@ public:
 	   int index = (r->second).first;
 	   m1.unlock();
 
-	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
+	   //boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 	
 	   nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
 	}
 
 	void get_nvme_buffer(std::vector<struct event> *buffer1,std::vector<struct event> *buffer2,std::string &s,int tag)
 	{
+		
 		int index = nm->buffer_index(s);
 		nm->get_buffer(index,tag,3);
 		/*atomic_buffer *au = dm->get_atomic_buffer(index);

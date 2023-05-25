@@ -444,7 +444,8 @@ void query_engine::service_query(struct thread_arg_q* t)
 		uint64_t minkey_fp = UINT64_MAX;
 		uint64_t maxkey_fp = 0;
 
-	        /*if(file_exists && (minkey_e <= maxkey_e) && !end_read)
+		end_read = false;
+	        if(file_exists && (minkey_e <= maxkey_e) && !end_read)
 	        {
 		  minkey_r = UINT64_MAX; maxkey_r = 0;
 		  b = rwp->preaddata(filename.c_str(),r->name,minkey_e,maxkey_e,minkey_f,maxkey_f,minkey_r,maxkey_r,buf3);
@@ -457,16 +458,10 @@ void query_engine::service_query(struct thread_arg_q* t)
 	        else if(file_exists) 
 		{
 		   if(minkey_e > maxkey_e) end_read = true;
-		}*/
+		}
 		buf1->clear();
 		buf2->clear();
-		//atomic_buffer *au = rwp->get_write_buffer(r->name);
-		//boost::shared_lock<boost::shared_mutex> lk(au->m);
 		{
-		  /*int size1 = au->buffer_size.load();
-		  buf1->resize(size1);
-		  for(int i=0;i<size1;i++)
-			  (*buf1)[i] = (*(au->buffer))[i];*/
 		  int tag = 10000+r->id;
 	          rwp->get_nvme_buffer(buf1,buf2,r->name,tag);
 

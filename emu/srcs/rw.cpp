@@ -16,7 +16,7 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
    
     atomic_buffer *ab = dm->get_atomic_buffer(index);
 
-    boost::shared_lock<boost::shared_mutex> lk(ab->m); 
+    //boost::shared_lock<boost::shared_mutex> lk(ab->m); 
 
     for(int i=0;i<num_events;i++)
     {
@@ -37,13 +37,15 @@ void read_write_process::sort_events(std::string &s)
       auto r = write_names.find(s);
       int index = (r->second).first;
       m1.unlock();
-      get_events_from_map(s);
+      //get_events_from_map(s);
       int nm_index = nm->buffer_index(s);
       nm->get_buffer(nm_index,nm_index,1);
-      boost::upgrade_lock<boost::shared_mutex> lk1(myevents[index]->m);
+      //boost::upgrade_lock<boost::shared_mutex> lk1(myevents[index]->m);
       ds->get_unsorted_data(myevents[index]->buffer,index);
       uint64_t min_v,max_v;
-      ds->sort_data(index,index,myevents[index]->buffer_size.load(),min_v,max_v);
+      int numevents = myevents[index]->buffer_size.load();
+      myevents[index]->buffer_size.store(0);
+      ds->sort_data(index,index,numevents,min_v,max_v);
       myevents[index]->buffer_size.store(myevents[index]->buffer->size());
       m1.lock();
       auto r1 = write_interval.find(s);
@@ -702,15 +704,7 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
    }
    else
    {
-	m1.lock();
-	auto r = write_names.find(s);
-	int index = (r->second).first;
-	m1.unlock();
-
-	myevents[index]->m.lock();
-	data_array->assign(myevents[index]->buffer->begin(),myevents[index]->buffer->end());
-	myevents[index]->buffer->clear();
-	myevents[index]->m.unlock();
+   
    }
 
    num_events_recorded_l[myrank] = data_array->size();
