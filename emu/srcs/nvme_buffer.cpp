@@ -38,9 +38,9 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
 
     int index = r->second.first;
    
-    int tag = index;
+    //int tag = index;
 
-    get_buffer(index,tag,1);
+    //get_buffer(index,tag,1);
 
     //boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
 
@@ -50,7 +50,7 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
       ev->push_back((*inp)[i]);
 
     nvme_files[index]->flush();
-    buffer_state[index]->store(0);
+    //buffer_state[index]->store(0);
 
 }
 
@@ -63,9 +63,9 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents)
 
       int index = r->second.first;
 
-      int tag = 100+index;
+      //int tag = 100+index;
 
-      get_buffer(index,tag,2);
+      //get_buffer(index,tag,2);
 
       //boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
 
@@ -74,7 +74,7 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents)
       ev->erase(ev->begin(),ev->begin()+numevents);
 
       nvme_files[index]->flush();
-      buffer_state[index]->store(0);
+      //buffer_state[index]->store(0);
 
 }
 
@@ -115,6 +115,25 @@ void nvme_buffers::get_buffer(int index,int tag,int type)
 
 }
 
+int nvme_buffers::buffer_index(std::string &s)
+{
+    std::string fname = prefix+s;
+    auto r = nvme_fnames.find(fname);
+
+    int index;
+
+    if(r == nvme_fnames.end()) index = -1;
+    else index = r->second.first;
+
+    return index;
+}
+
+void nvme_buffers::release_buffer(int index)
+{
+
+    buffer_state[index]->store(0);
+
+}
 
 void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::string &s,int &index, int &tag)
 {
@@ -126,9 +145,9 @@ void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::strin
 
      index = r->second.first;
 
-     tag += index;
+     //tag += index;
 
-     get_buffer(index,tag,3);
+     //get_buffer(index,tag,3);
 
      //boost::shared_lock<boost::shared_mutex> lk(*file_locks[index]);
 
@@ -142,7 +161,7 @@ void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::strin
           //nvme_ebufs[index]->clear();
           //nvme_files[index]->flush();
 
-     buffer_state[index]->store(0);
+     //buffer_state[index]->store(0);
 
 }
 

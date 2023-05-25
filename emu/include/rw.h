@@ -214,11 +214,14 @@ public:
 	   nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
 	}
 
-	void get_nvme_buffer(std::vector<struct event> *buffer,std::string &s)
+	void get_nvme_buffer(std::vector<struct event> *buffer1,std::vector<struct event> *buffer2,std::string &s,int tag)
 	{
-		int index = 0;
-		int tag_p = 10000;
-		nm->fetch_buffer(buffer,s,index,tag_p);
+		int index = nm->buffer_index(s);
+		nm->get_buffer(index,tag,3);
+		/*atomic_buffer *au = dm->get_atomic_buffer(index);
+		boost::shared_lock<boost::shared_mutex> lk(au->m);*/
+		nm->fetch_buffer(buffer2,s,index,tag);
+		nm->release_buffer(index);
 	}
 
 	event_metadata & get_metadata(std::string &s)

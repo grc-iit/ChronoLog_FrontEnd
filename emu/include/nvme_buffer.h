@@ -59,8 +59,9 @@ class nvme_buffers
 
 	void create_nvme_buffer(std::string &s,event_metadata &em);
 	void copy_to_nvme(std::string &s,std::vector<struct event> *inp,int numevents);
-	boost::shared_mutex *get_mutex(std::string &);
 	void get_buffer(int,int,int);
+	int buffer_index(std::string&);
+	void release_buffer(int);
 	void erase_from_nvme(std::string &s, int numevents);
 	void fetch_buffer(std::vector<struct event> *,std::string &s,int &,int &);
 

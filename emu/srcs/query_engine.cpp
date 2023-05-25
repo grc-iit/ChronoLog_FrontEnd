@@ -36,6 +36,38 @@ void query_engine::sort_response(std::string &s,int id,std::vector<struct event>
      }
 }
 
+bool query_engine::end_file_read(bool end_read,int id)
+{
+    int s_req = (end_read==true) ? 1 : 0;
+
+    std::vector<int> r_req(numprocs);
+
+    int tag = 10000+id;
+
+    MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+
+    int nreq = 0;
+
+    for(int i=0;i<numprocs;i++)
+    {
+	MPI_Isend(&s_req,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&r_req[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+    }
+
+    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+    bool end_read_g = true;
+
+    for(int i=0;i<numprocs;i++)
+    {
+	if(r_req[i]==0) end_read_g = false;
+    }
+
+    std::free(reqs);
+    return end_read_g;
+}
 void query_engine::get_range(std::vector<struct event> *buf1,std::vector<struct event> *buf2,std::vector<struct event> *buf3,uint64_t minkeys[3],uint64_t maxkeys[3],int id)
 {
     int tag = 10000+id;
@@ -404,14 +436,15 @@ void query_engine::service_query(struct thread_arg_q* t)
 	
 	      int num_tries = 0;
 
+	      bool end_read = false;
+
 	      while(true)
 	      {
 	        bool file_exists = rwp->file_existence(filename);
-		bool end_read = false;
 		uint64_t minkey_fp = UINT64_MAX;
 		uint64_t maxkey_fp = 0;
 
-	        if(file_exists && (minkey_e <= maxkey_e))
+	        /*if(file_exists && (minkey_e <= maxkey_e) && !end_read)
 	        {
 		  minkey_r = UINT64_MAX; maxkey_r = 0;
 		  b = rwp->preaddata(filename.c_str(),r->name,minkey_e,maxkey_e,minkey_f,maxkey_f,minkey_r,maxkey_r,buf3);
@@ -424,11 +457,21 @@ void query_engine::service_query(struct thread_arg_q* t)
 	        else if(file_exists) 
 		{
 		   if(minkey_e > maxkey_e) end_read = true;
-		}
+		}*/
+		buf1->clear();
 		buf2->clear();
-	        rwp->get_nvme_buffer(buf2,r->name);
+		//atomic_buffer *au = rwp->get_write_buffer(r->name);
+		//boost::shared_lock<boost::shared_mutex> lk(au->m);
+		{
+		  /*int size1 = au->buffer_size.load();
+		  buf1->resize(size1);
+		  for(int i=0;i<size1;i++)
+			  (*buf1)[i] = (*(au->buffer))[i];*/
+		  int tag = 10000+r->id;
+	          rwp->get_nvme_buffer(buf1,buf2,r->name,tag);
 
-		file_exists = rwp->file_existence(filename);
+		}
+		/*file_exists = rwp->file_existence(filename);
 		if(!file_exists) end_read = true;
 		else 
 		{
@@ -436,41 +479,21 @@ void query_engine::service_query(struct thread_arg_q* t)
 		     uint64_t max_v=0;
 		     rwp->get_file_minmax(filename,min_v,max_v);
 		     if(max_v == maxkey_r) end_read = true; 
-		} 
-		if(end_read) break;
-	      }
-
-              atomic_buffer *au = nullptr;
-
-              au = rwp->get_write_buffer(r->name);
-
-              int size1 = 0;
-              if(au != nullptr)
-              {
-
-                boost::shared_lock<boost::shared_mutex> lk(au->m);
-                {
-                    size1 = au->buffer_size.load();
-	            if(size1 > 0) 
-		    {
-			buf1->resize(size1);
-			for(int i=0;i<size1;i++)
-		          (*buf1)[i] = (*(au->buffer))[i];
-		    }
-                }
-
+		} */
+		break;
+		//if(end_file_read(end_read,r->id)) break;
 	      }
 
 	      uint64_t minkeys[3],maxkeys[3];
 	      
-	      get_range(buf1,buf2,buf3,minkeys,maxkeys,r->id);
+	      //get_range(buf1,buf2,buf3,minkeys,maxkeys,r->id);
 
-	      if(myrank==0)
+	      /*if(myrank==0)
               {
          	std::cout <<" id = "<<r->id<<" minkey 3 = "<<minkeys[2]<<" maxkey 3 = "<<maxkeys[2]<<std::endl;
          	std::cout <<" id = "<<r->id<<" minkey 2 = "<<minkeys[1]<<" maxkey 2 = "<<maxkeys[1]<<std::endl;
          	std::cout <<" id = "<<r->id<<" minkey 1 = "<<minkeys[0]<<" maxkey 1 = "<<maxkeys[0]<<std::endl;
-     	      }
+     	      }*/
 
 
 	      /*if(r->sorted)
@@ -481,7 +504,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 	          resp_vec = sort_response_full(buf3,buf2,buf1,10000+r->id,maxkeys);
 	      }
 	      else*/
-	      /*{
+	      {
 	        resp_vec = new std::vector<struct event> ();
 
 	        uint64_t minkey = UINT64_MAX;
@@ -516,12 +539,12 @@ void query_engine::service_query(struct thread_arg_q* t)
 	       }
 	      }
 
-      	      struct query_resp *p = new struct query_resp();
+      	      /*struct query_resp *p = new struct query_resp();
 
 	      p->response_vector = nullptr;
 	      p->response_vector = resp_vec;
 
-	      O->push(p);	     */ 
+	      O->push(p);	    */ 
 
 	      delete buf1; 
 	      delete buf2;
