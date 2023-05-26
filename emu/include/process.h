@@ -142,9 +142,11 @@ public:
 
 	  if(t->snames.size() > 0)
 	  {
-            usleep(20*128*20000);
-	    QE->send_query(t->snames[0]);
-	    QE->send_query(t->snames[1]);
+            //usleep(20*128*20000);
+	    //QE->send_query(t->snames[0]);
+	    //QE->send_query(t->snames[1]);
+	    //usleep(10000*128*10);
+	    //QE->send_query(t->snames[2]);
 	  }
       }
 

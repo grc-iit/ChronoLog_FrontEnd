@@ -1,6 +1,7 @@
 #ifndef __NVME_BUFFER_H_
 #define __NVME_BUFFER_H_
 
+#include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/interprocess/allocators/allocator.hpp>
 #include <boost/interprocess/containers/vector.hpp>
@@ -11,6 +12,7 @@
 
 #include "event.h"
 #include "event_metadata.h"
+#include <mutex>
 
 #define MAXFILESIZE 32768*VALUESIZE
 
@@ -36,6 +38,8 @@ class nvme_buffers
 	std::vector<boost::shared_mutex*> file_locks;
         std::string prefix;
 	std::vector<std::atomic<int>*> buffer_state;
+	std::vector<boost::mutex*> blocks;
+	std::mutex n1;
   public:
 	nvme_buffers(int np,int rank) : numprocs(np), myrank(rank)
 	{
@@ -55,6 +59,7 @@ class nvme_buffers
 		file_mapping::remove(fn.c_str());
 	   }
 	   for(int i=0;i<buffer_state.size();i++) std::free(buffer_state[i]);
+	   for(int i=0;i<blocks.size();i++) delete blocks[i];
 	}
 
 	void create_nvme_buffer(std::string &s,event_metadata &em);

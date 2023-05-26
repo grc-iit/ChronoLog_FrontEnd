@@ -54,6 +54,7 @@ private:
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> write_interval;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> read_interval;
       std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> file_minmax;
+      std::vector<std::pair<uint64_t,uint64_t>> file_interval;
       std::vector<struct atomic_buffer*> myevents;
       std::vector<struct atomic_buffer*> readevents;
       dsort *ds;
@@ -91,6 +92,7 @@ public:
 	   end_of_session.store(0);
 	   num_streams.store(0);
 	   num_io_threads = 1;
+	   file_interval.resize(MAXSTREAMS);
 	   std::function<void(struct thread_arg_w *)> IOFunc(
            std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
 
@@ -144,8 +146,10 @@ public:
 	      struct atomic_buffer *ev = nullptr;
 	      ev = dm->create_write_buffer(maxsize);
 	      myevents.push_back(ev);
-	      std::pair<int,event_metadata> p1(myevents.size()-1,em);
-	      std::pair<std::string,std::pair<int,event_metadata>> p2(s,p1);
+	      std::pair<std::string,std::pair<int,event_metadata>> p2;
+	      p2.first.assign(s);
+	      p2.second.first = myevents.size()-1;
+	      p2.second.second = em;
 	      write_names.insert(p2);
 	      ds->create_sort_buffer();
 	      nm->create_nvme_buffer(s,em);
@@ -216,11 +220,18 @@ public:
 
 	void get_nvme_buffer(std::vector<struct event> *buffer1,std::vector<struct event> *buffer2,std::string &s,int tag)
 	{
-		
+		m1.lock();
+		auto r = write_names.find(s);
+		int aindex = (r->second).first;
+		m1.unlock();
+
 		int index = nm->buffer_index(s);
 		nm->get_buffer(index,tag,3);
-		/*atomic_buffer *au = dm->get_atomic_buffer(index);
-		boost::shared_lock<boost::shared_mutex> lk(au->m);*/
+			
+		int size = myevents[aindex]->buffer_size.load();
+		for(int i=0;i<size;i++)
+		   buffer1->push_back((*(myevents[aindex])->buffer)[i]);
+
 		nm->fetch_buffer(buffer2,s,index,tag);
 		nm->release_buffer(index);
 	}

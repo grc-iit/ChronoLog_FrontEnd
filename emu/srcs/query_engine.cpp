@@ -393,14 +393,23 @@ void query_engine::service_query(struct thread_arg_q* t)
 {
 	int end_service = 0;
 
-         while(true)
-         {
-              while(!Q->Empty())
-             {
-              struct query_req *r=nullptr;
-              r = Q->Get();
+	std::vector<std::string> names;
+	names.push_back("table0");
+	names.push_back("table1");
+	names.push_back("table2");
 
-	      if(r==nullptr || r->name.compare("endsession")==0) 
+
+	usleep(20*128*20000);
+
+	for(int i=0;i<2;i++)
+         //while(true)
+         {
+              //while(!Q->Empty())
+             {
+              //struct query_req *r=nullptr;
+              //r = Q->Get();
+
+	      /*if(r==nullptr || r->name.compare("endsession")==0) 
 	      {
 		      if(r != nullptr) 
 		      {
@@ -408,7 +417,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 			  end_session.store(1);
 		      }
 		      break;
-	      }
+	      }*/
 
 	      uint64_t min_key1,max_key1;
 
@@ -425,22 +434,24 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      std::vector<struct event> *buf3 = new std::vector<struct event> ();
 	      std::vector<struct event> *resp_vec = nullptr;
 
+
 	      std::string filename = "file";
-	      filename += r->name+".h5";
+	      filename += names[i]+".h5";
 
 	      uint64_t minkey_f,maxkey_f;
 
 	      uint64_t minkey_r,maxkey_r;
 
-	      uint64_t minkey_e = r->minkey; uint64_t maxkey_e = r->maxkey;
+	      uint64_t minkey_e = 0;//r->minkey; 
+	      uint64_t maxkey_e = UINT64_MAX;
 	
 	      int num_tries = 0;
 
 	      bool end_read = false;
 
-	      while(true)
+	      //while(true)
 	      {
-	        bool file_exists = rwp->file_existence(filename);
+	        /*bool file_exists = rwp->file_existence(filename);
 		uint64_t minkey_fp = UINT64_MAX;
 		uint64_t maxkey_fp = 0;
 
@@ -448,7 +459,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 	        if(file_exists && (minkey_e <= maxkey_e) && !end_read)
 	        {
 		  minkey_r = UINT64_MAX; maxkey_r = 0;
-		  b = rwp->preaddata(filename.c_str(),r->name,minkey_e,maxkey_e,minkey_f,maxkey_f,minkey_r,maxkey_r,buf3);
+		  b = rwp->preaddata(filename.c_str(),names[i],minkey_e,maxkey_e,minkey_f,maxkey_f,minkey_r,maxkey_r,buf3);
 
 		  if(b)
 		  {
@@ -458,12 +469,12 @@ void query_engine::service_query(struct thread_arg_q* t)
 	        else if(file_exists) 
 		{
 		   if(minkey_e > maxkey_e) end_read = true;
-		}
+		}*/
 		buf1->clear();
 		buf2->clear();
 		{
-		  int tag = 10000+r->id;
-	          rwp->get_nvme_buffer(buf1,buf2,r->name,tag);
+		  int tag = 10000+i;
+	          rwp->get_nvme_buffer(buf1,buf2,names[i],tag);
 
 		}
 		/*file_exists = rwp->file_existence(filename);
@@ -475,20 +486,20 @@ void query_engine::service_query(struct thread_arg_q* t)
 		     rwp->get_file_minmax(filename,min_v,max_v);
 		     if(max_v == maxkey_r) end_read = true; 
 		} */
-		break;
+		//break;
 		//if(end_file_read(end_read,r->id)) break;
 	      }
 
 	      uint64_t minkeys[3],maxkeys[3];
 	      
-	      //get_range(buf1,buf2,buf3,minkeys,maxkeys,r->id);
+	      get_range(buf1,buf2,buf3,minkeys,maxkeys,100);
 
-	      /*if(myrank==0)
+	      if(myrank==0)
               {
-         	std::cout <<" id = "<<r->id<<" minkey 3 = "<<minkeys[2]<<" maxkey 3 = "<<maxkeys[2]<<std::endl;
-         	std::cout <<" id = "<<r->id<<" minkey 2 = "<<minkeys[1]<<" maxkey 2 = "<<maxkeys[1]<<std::endl;
-         	std::cout <<" id = "<<r->id<<" minkey 1 = "<<minkeys[0]<<" maxkey 1 = "<<maxkeys[0]<<std::endl;
-     	      }*/
+         	std::cout <<" id = "<<i<<" minkey 3 = "<<minkeys[2]<<" maxkey 3 = "<<maxkeys[2]<<std::endl;
+         	std::cout <<" id = "<<i<<" minkey 2 = "<<minkeys[1]<<" maxkey 2 = "<<maxkeys[1]<<std::endl;
+         	std::cout <<" id = "<<i<<" minkey 1 = "<<minkeys[0]<<" maxkey 1 = "<<maxkeys[0]<<std::endl;
+     	      }
 
 
 	      /*if(r->sorted)
@@ -499,7 +510,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 	          resp_vec = sort_response_full(buf3,buf2,buf1,10000+r->id,maxkeys);
 	      }
 	      else*/
-	      {
+	      /*{
 	        resp_vec = new std::vector<struct event> ();
 
 	        uint64_t minkey = UINT64_MAX;
@@ -532,7 +543,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 		}
 		buf1->clear();
 	       }
-	      }
+	      }*/
 
       	      /*struct query_resp *p = new struct query_resp();
 
@@ -544,13 +555,13 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      delete buf1; 
 	      delete buf2;
 	      delete buf3;
-              delete r;
+              //delete r;
              }
 
-             if(Q->Empty() && end_session.load()==1)
+             /*if(Q->Empty() && end_session.load()==1)
 	     {
 		break;
-	     }
+	     }*/
            }
 
 	   //workers[t->tid].join();

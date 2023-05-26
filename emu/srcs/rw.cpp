@@ -47,7 +47,7 @@ void read_write_process::sort_events(std::string &s)
       myevents[index]->buffer_size.store(0);
       ds->sort_data(index,index,numevents,min_v,max_v);
       myevents[index]->buffer_size.store(myevents[index]->buffer->size());
-      m1.lock();
+      /*m1.lock();
       auto r1 = write_interval.find(s);
       if(r1 == write_interval.end())
       {
@@ -62,7 +62,7 @@ void read_write_process::sort_events(std::string &s)
           (r1->second).first = std::min(min_vp,min_v);
           (r1->second).second = std::max(max_vp,max_v);
       }
-      m1.unlock();
+      m1.unlock();*/
 
       nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
       clear_write_events(index,min_v,max_v);
@@ -342,9 +342,10 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
         H5Sclose(filespaces[i]);
         H5Sclose(memspaces[i]);
 	std::string filename = "file"+sts[i]+".h5";
+	int ps = -1;
 	m1.lock();
-        auto r1 = file_minmax.find(filename);
-        r1->second.second = maxkeys[i];
+	auto r = std::find(file_names.begin(),file_names.end(),filename);
+	ps = std::distance(file_names.begin(),r);
         m1.unlock();
 
 	if(clear_nvme) 
@@ -352,6 +353,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   nm->get_buffer(nm_index,tag_p,2);
+	   file_interval[ps].second = maxkeys[i];
 	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}
@@ -621,6 +623,7 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
 
     if(blockids.size()==0) return false;
 
+    
     for(int i=0;i<blockids.size();i++)
     {
        hsize_t offset = 0;
@@ -857,20 +860,19 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	H5Sclose(filespaces[i]);
         H5Sclose(memspaces[i]);
 	std::string filename = "file"+sts[i]+".h5";
+	int ps = -1;
 	m1.lock();
         file_names.insert(filename);
-        std::pair<std::string,std::pair<uint64_t,uint64_t>> p;
-        p.first.assign(filename);
-        p.second.first = minkeys[i];
-        p.second.second = maxkeys[i];
-        file_minmax.insert(p);
-        m1.unlock();
+	ps = std::distance(file_names.begin(),std::find(file_names.begin(),file_names.end(),filename));
+	m1.unlock();
 
 	if(clear_nvme) 
 	{
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   nm->get_buffer(nm_index,tag_p,2);
+           file_interval[ps].first =  minkeys[i];
+           file_interval[ps].second = maxkeys[i];	
 	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}

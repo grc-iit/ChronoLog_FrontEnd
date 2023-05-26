@@ -52,7 +52,7 @@ class query_engine
 	   S = new query_parser(numprocs,myrank);
 	   ds = rwp->get_sorter();
 	   end_session.store(0);
-	   numthreads = 2;
+	   numthreads = 1;
 	   t_args.resize(numthreads);
 	   workers.resize(numthreads);
 	   std::function<void(struct thread_arg_q *)> QSFunc(
