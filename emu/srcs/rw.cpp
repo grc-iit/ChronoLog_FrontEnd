@@ -627,7 +627,7 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     if(blockids.size()==0) return false;
 
     
-    /*for(int i=0;i<blockids.size();i++)
+    for(int i=0;i<blockids.size();i++)
     {
        hsize_t offset = 0;
 
@@ -674,7 +674,7 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     delete data_array;
  
     H5Sclose(mem_dataspace); 
-    }*/
+    }
 
     H5Sclose(file_dataspace);
     H5Pclose(xfer_plist);
@@ -990,7 +990,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 		uint64_t minkey_f,maxkey_f;
 		uint64_t minkey_r = UINT64_MAX;
 		uint64_t maxkey_r = 0;
-		preaddata(file_name.c_str(),r->name,minkey,maxkey,minkey_f,maxkey_f,minkey_r,maxkey_r,r->buf1);
+		preaddata(file_name.c_str(),r->name,minkey,maxkey,minkey_f,maxkey_f,minkey_r,maxkey_r,r->buf3);
 		int tag = 100;
 		get_nvme_buffer(r->buf1,r->buf2,r->name,tag);
 		r->completed.store(1);
