@@ -563,6 +563,7 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     if(end) return false;
 
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+    
     fid = H5Fopen(filename, H5F_ACC_RDONLY, fapl);
 
     hid_t ret = H5Pclose(fapl);
@@ -614,9 +615,11 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
 	{
 	    if(minkey_f > bmin) minkey_f = bmin;
 	    if(maxkey_f < bmax) maxkey_f = bmax;
-	    blockids.push_back(i);
+	    //blockids.push_back(i);
 	}
     }
+
+    if(numblocks > 0) blockids.push_back(numblocks-1);
 
     int index;
     int datasize;
@@ -624,7 +627,7 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     if(blockids.size()==0) return false;
 
     
-    for(int i=0;i<blockids.size();i++)
+    /*for(int i=0;i<blockids.size();i++)
     {
        hsize_t offset = 0;
 
@@ -671,7 +674,7 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     delete data_array;
  
     H5Sclose(mem_dataspace); 
-    }
+    }*/
 
     H5Sclose(file_dataspace);
     H5Pclose(xfer_plist);
@@ -973,6 +976,26 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      if(sync_empty_all[0]==numprocs)
      {
+
+	    while(!io_queue_sync->empty())
+	    {
+		struct io_request *r = nullptr;
+
+		io_queue_sync->pop(r);
+
+		std::string file_name = "file";
+		file_name+=r->name+".h5";
+		uint64_t minkey = 0;
+		uint64_t maxkey = UINT64_MAX;
+		uint64_t minkey_f,maxkey_f;
+		uint64_t minkey_r = UINT64_MAX;
+		uint64_t maxkey_r = 0;
+		preaddata(file_name.c_str(),r->name,minkey,maxkey,minkey_f,maxkey_f,minkey_r,maxkey_r,r->buf1);
+		int tag = 100;
+		get_nvme_buffer(r->buf1,r->buf2,r->name,tag);
+		r->completed.store(1);
+	    }
+
      }
 
 

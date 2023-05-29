@@ -397,37 +397,17 @@ void query_engine::service_query(struct thread_arg_q* t)
 	names.push_back("table0");
 	names.push_back("table1");
 	names.push_back("table2");
+	names.push_back("table3");
 
 
-	usleep(20*128*20000);
+	usleep(10*128*20000);
 
-	for(int i=0;i<2;i++)
-         //while(true)
-         {
-              //while(!Q->Empty())
-             {
-              //struct query_req *r=nullptr;
-              //r = Q->Get();
-
-	      /*if(r==nullptr || r->name.compare("endsession")==0) 
-	      {
-		      if(r != nullptr) 
-		      {
-			  delete r;
-			  end_session.store(1);
-		      }
-		      break;
-	      }*/
+	for(int i=0;i<names.size();i++)
+        {
 
 	      uint64_t min_key1,max_key1;
 
 	      bool b = false;
-	      //rwp->get_range_in_write_buffers(r->name,min_key1,max_key1);
-
-	      /*uint64_t min_key2, max_key2;
-
-	      b = rwp->get_range_in_read_buffers(r->name,min_key2,max_key2);
-	    */
 
 	      std::vector<struct event> *buf1 = new std::vector<struct event> ();
 	      std::vector<struct event> *buf2 = new std::vector<struct event> ();
@@ -438,6 +418,8 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      std::string filename = "file";
 	      filename += names[i]+".h5";
 
+	      usleep(128*20000);
+
 	      uint64_t minkey_f,maxkey_f;
 
 	      uint64_t minkey_r,maxkey_r;
@@ -445,50 +427,17 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      uint64_t minkey_e = 0;//r->minkey; 
 	      uint64_t maxkey_e = UINT64_MAX;
 	
-	      int num_tries = 0;
+		  
+	      struct io_request *nq = new struct io_request();
+	      nq->name.assign(names[i]);
+	      nq->completed.store(0);
+	      nq->buf1 = buf1;
+	      nq->buf2 = buf2;
+	      nq->buf3 = buf3;
+	      rwp->sync_queue_push(nq);
+	      while(!nq->completed.load()==1);
 
-	      bool end_read = false;
-
-	      //while(true)
-	      {
-	        /*bool file_exists = rwp->file_existence(filename);
-		uint64_t minkey_fp = UINT64_MAX;
-		uint64_t maxkey_fp = 0;
-
-		end_read = false;
-	        if(file_exists && (minkey_e <= maxkey_e) && !end_read)
-	        {
-		  minkey_r = UINT64_MAX; maxkey_r = 0;
-		  b = rwp->preaddata(filename.c_str(),names[i],minkey_e,maxkey_e,minkey_f,maxkey_f,minkey_r,maxkey_r,buf3);
-
-		  if(b)
-		  {
-		     if(minkey_e < maxkey_e) minkey_e = maxkey_f+1;
-		  }
-	        }
-	        else if(file_exists) 
-		{
-		   if(minkey_e > maxkey_e) end_read = true;
-		}*/
-		buf1->clear();
-		buf2->clear();
-		{
-		  int tag = 10000+i;
-	          rwp->get_nvme_buffer(buf1,buf2,names[i],tag);
-
-		}
-		/*file_exists = rwp->file_existence(filename);
-		if(!file_exists) end_read = true;
-		else 
-		{
-		     uint64_t min_v=UINT64_MAX;
-		     uint64_t max_v=0;
-		     rwp->get_file_minmax(filename,min_v,max_v);
-		     if(max_v == maxkey_r) end_read = true; 
-		} */
-		//break;
-		//if(end_file_read(end_read,r->id)) break;
-	      }
+	      delete nq;
 
 	      uint64_t minkeys[3],maxkeys[3];
 	      
@@ -556,7 +505,6 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      delete buf2;
 	      delete buf3;
               //delete r;
-             }
 
              /*if(Q->Empty() && end_session.load()==1)
 	     {

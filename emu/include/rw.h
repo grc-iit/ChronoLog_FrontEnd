@@ -29,6 +29,11 @@ struct io_request
 {
    std::string name;
    bool from_nvme;
+   bool read_op;
+   std::vector<struct event> *buf1;
+   std::vector<struct event> *buf2;
+   std::vector<struct event> *buf3;
+   std::atomic<int> completed;
    bool for_query;
    hsize_t total_records;
 };
