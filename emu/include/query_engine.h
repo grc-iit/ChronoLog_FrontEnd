@@ -102,7 +102,6 @@ class query_engine
 	void send_query(std::string &s);
 	void sort_response(std::string&,int,std::vector<struct event>*,uint64_t&);
 	void get_range(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,uint64_t minkeys[3],uint64_t maxkeys[3],int);
-	std::vector<struct event> *sort_response_full(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,int,uint64_t maxkeys[3]);
 	void service_query(struct thread_arg_q*);
 	bool end_file_read(bool,int);
 

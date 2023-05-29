@@ -562,8 +562,11 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
 
     if(end) return false;
 
+    xfer_plist = H5Pcreate(H5P_DATASET_XFER);
     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
-    
+    H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
+    H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
+ 
     fid = H5Fopen(filename, H5F_ACC_RDONLY, fapl);
 
     hid_t ret = H5Pclose(fapl);
@@ -586,8 +589,6 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
     H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
     H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
-    
-    xfer_plist = H5Pcreate(H5P_DATASET_XFER);
     
     int total_k = attrs[0];
     int k_size = attrs[1];
@@ -626,55 +627,45 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
 
     if(blockids.size()==0) return false;
 
-    
+    hsize_t total_records = 0;
+
     for(int i=0;i<blockids.size();i++)
     {
-       hsize_t offset = 0;
 
-       int block_id = blockids[i];
+	hsize_t block_size = attrs[pos+blockids[i]*4+3];
+	total_records += block_size;
+    }
 
-       offset = 0;
-       for(int i=0;i<block_id;i++)
-	  offset += attrs[pos+i*4+3];
+    hsize_t records_per_proc = total_records/numprocs;
+    hsize_t rem = total_records%numprocs;
 
-       hsize_t block_size = attrs[pos+block_id*4+3];
 
-       int size_per_proc = block_size/numprocs;
-       int rem = block_size%numprocs;
+    hsize_t offset = 0;
 
-      for(int i=0;i<myrank;i++)
-      {
-        int size_p;
-	if(i < rem) size_p = size_per_proc+1;
-	else size_p = size_per_proc;
+    for(int i=0;i<blockids[0];i++)
+	   offset += attrs[pos+i*4+3];
+
+    for(int i=0;i<myrank;i++)
+    {
+	int size_p;
+	if(i < rem) size_p = records_per_proc+1;
+	else size_p = records_per_proc;
 	offset += size_p;
-      } 
-   
-    
-   hsize_t blocksize = 0;
-   if(myrank < rem) blocksize = size_per_proc+1;
-   else blocksize = size_per_proc;
-    
-    std::vector<struct event> *data_array = new std::vector<struct event> ();
+    }
 
-    data_array->resize(blocksize);
+    hsize_t blocksize = 0;
+    if(myrank < rem) blocksize = records_per_proc+1;
+    else blocksize = records_per_proc;
 
+    data_buffer->resize(blocksize);
+    
     file_dataspace = H5Dget_space(dataset1);
     ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&blocksize,NULL);
     mem_dataspace = H5Screate_simple(1,&blocksize, NULL);
     //ret = H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_INDEPENDENT);
-    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,data_array->data());
+    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,data_buffer->data());
 
-    for(int i=0;i<data_array->size();i++)
-    {
-      if((*data_array)[i].ts >= minkey && (*data_array)[i].ts <= maxkey)
-	data_buffer->push_back((*data_array)[i]);
-    }
-
-    delete data_array;
- 
     H5Sclose(mem_dataspace); 
-    }
 
     H5Sclose(file_dataspace);
     H5Pclose(xfer_plist);

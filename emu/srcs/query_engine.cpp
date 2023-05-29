@@ -125,270 +125,6 @@ void query_engine::get_range(std::vector<struct event> *buf1,std::vector<struct 
      std::free(reqs);
 }
 
-std::vector<struct event>* query_engine::sort_response_full(std::vector<struct event>* buf1,std::vector<struct event>* buf2,std::vector<struct event> *buf3,int tag,uint64_t maxkeys[3])
-{
-	std::vector<struct event> *result_vec = new std::vector<struct event> ();
-
-	MPI_Datatype value_field;
-
-	MPI_Type_contiguous(VALUESIZE,MPI_CHAR,&value_field);
-	MPI_Type_commit(&value_field);
-
-	struct event e;
-  	MPI_Aint tdispl1[2];
-
-        MPI_Get_address(&e,&tdispl1[0]);
-        MPI_Get_address(&e.data,&tdispl1[1]);
-
-        MPI_Aint base = tdispl1[0];
-        MPI_Aint valuef = MPI_Aint_diff(tdispl1[1],base);
-
-        MPI_Datatype key_value;
-        int blocklens[2];
-        MPI_Aint tdispl[2];
-        int types[2];
-  	blocklens[0] = 1;
-        blocklens[1] = 1;
-        tdispl[0] = 0;
-        tdispl[1] = valuef;
-        types[0] = MPI_UINT64_T;
-        types[1] = value_field;
-
-        MPI_Type_create_struct(2,blocklens,tdispl,types,&key_value);
-        MPI_Type_commit(&key_value);
-	std::vector<int> buf_counts_l,buf_counts;
-	buf_counts_l.resize(3); buf_counts.resize(numprocs*3);
-	buf_counts_l[0] = buf1 == nullptr ? 0 : buf1->size();
-	buf_counts_l[1] = 0;
-	if(buf2 != nullptr)
-	{
-	    for(int i=0;i<buf2->size();i++)
-	    if((*buf2)[i].ts > maxkeys[2]) buf_counts_l[1]++;
-	}
-
-	buf_counts_l[2] = 0;
-	if(buf3 != nullptr)
-	{
-	    for(int i=0;i<buf3->size();i++)
-	     if((*buf3)[i].ts > maxkeys[2] && (*buf3)[i].ts > maxkeys[1]) buf_counts_l[2]++;
-	}
-
-	MPI_Request *reqs = (MPI_Request *)std::malloc(numprocs*3*sizeof(MPI_Request));
-
-	int nreq = 0;
-	for(int i=0;i<numprocs;i++)
-	{
-	   MPI_Isend(buf_counts_l.data(),3,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	   nreq++;
-	   MPI_Irecv(&buf_counts[i*3],3,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	   nreq++;
-	}
-
-	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
-	int file_events=0, nvevents =0, memevents = 0;
-
-	for(int i=0;i<numprocs;i++)
-	{
-	   file_events += buf_counts[3*i];
-	   nvevents += buf_counts[3*i+1];
-	   memevents += buf_counts[3*i+2];
-	}
-
-	int total_events = file_events+nvevents+memevents;
-	int events_per_proc = total_events/numprocs;
-	int rem = total_events%numprocs;
-	int offset = (events_per_proc+1)*rem;
-
-	std::vector<int> dest1,dest2,dest3;
-	std::vector<int> send_counts, recv_counts;
-	send_counts.resize(3*numprocs); recv_counts.resize(3*numprocs);
-        std::fill(send_counts.begin(),send_counts.end(),0);
-	std::fill(recv_counts.begin(),recv_counts.end(),0);
-	
-	int start = 0;
-
-	for(int i=0;i<myrank;i++) start += buf_counts[3*i];
-
-	for(int i=0;i<buf_counts_l[0];i++)
-	{
-	   int c = start+i;
-	   int dest_proc=-1;
-	   if(c < offset) dest_proc = c/(events_per_proc+1); 
-	   else dest_proc = rem+(c-offset)/events_per_proc;
-	   dest1.push_back(dest_proc);
-	   send_counts[3*dest_proc]++;
-	}
-		
-	start = file_events;
-	for(int i=0;i<myrank;i++) start += buf_counts[3*i+1];
-
-	if(buf2 != nullptr)
-	for(int i=0;i<buf2->size();i++)
-	{
-	   if((*buf2)[i].ts > maxkeys[2])
-	   {	   
-	     int c = start+i;
-	     int dest_proc = -1;
-	     if(c < offset) dest_proc = c/(events_per_proc+1);
-	     else dest_proc = rem+(c-offset)/events_per_proc;
-	     dest2.push_back(dest_proc);
-	     send_counts[3*dest_proc+1]++;
-	   }
-	   else dest2.push_back(-1);
-	}
-
-	start = file_events+nvevents;
-
-	for(int i=0;i<myrank;i++) start += buf_counts[3*i+2];
-
-	if(buf3 != nullptr)
-	for(int i=0;i<buf3->size();i++)
-	{
-           if((*buf3)[i].ts > maxkeys[2] && (*buf3)[i].ts > maxkeys[1])
-	   {
-	     int c = start+i;
-	     int dest_proc=-1;
-	     if(c < offset) dest_proc = c/(events_per_proc+1);
-	     else dest_proc = rem+(c-offset)/events_per_proc;
-	     dest3.push_back(dest_proc);
-	     send_counts[3*dest_proc+2]++;
-	   }
-	   else dest3.push_back(-1);
-	}
-
-	nreq = 0;
-
-	for(int i=0;i<numprocs;i++)
-	{
-	   MPI_Isend(&send_counts[3*i],3,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	   nreq++;
-	   MPI_Irecv(&recv_counts[3*i],3,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	   nreq++;
-	}
-
-	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
-	std::vector<std::vector<struct event>> send_buffer, recv_buffer;
-
-	send_buffer.resize(numprocs);
-	recv_buffer.resize(numprocs);
-
-	for(int i=0;i<buf_counts_l[0];i++)
-	{	
-	   int dest_proc = dest1[i];
-	   if(dest_proc != -1)
-	     send_buffer[dest_proc].push_back((*buf1)[i]);
-	}
-
-	for(int i=0;i<numprocs;i++)
-	{	
-	    if(recv_counts[3*i] > 0)
-	    recv_buffer[i].resize(recv_counts[3*i]);
-	}
-
-	nreq = 0;
-	for(int i=0;i<numprocs;i++)
-	{
-           if(send_counts[3*i]>0)
-	   {
-	     MPI_Isend(send_buffer[i].data(),send_counts[3*i],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	     nreq++;
-	   }
-	   if(recv_counts[3*i]>0)
-	   {
-	     MPI_Irecv(recv_buffer[i].data(),recv_counts[3*i],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	     nreq++;
-	   }
-	}
-
-	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
-	for(int i=0;i<numprocs;i++)
-	{
-	   send_buffer[i].clear(); 
-	   if(buf1 != nullptr) buf1->clear();
-	   for(int j=0;j<recv_buffer[i].size();j++) result_vec->push_back(recv_buffer[i][j]);
-	   recv_buffer[i].clear();
-	   if(recv_counts[3*i+1] > 0) recv_buffer[i].resize(recv_counts[3*i+1]);
-	}
-
-	if(buf2 != nullptr)
-	for(int i=0;i<buf2->size();i++)
-	{
-	   int dest_proc = dest2[i];
-	   if(dest_proc != -1)
-	   send_buffer[dest_proc].push_back((*buf2)[i]);
-	}
-
-	nreq = 0;
-	for(int i=0;i<numprocs;i++)
-	{
-           if(send_counts[3*i+1]>0)
-	   {
-	     MPI_Isend(send_buffer[i].data(),send_counts[3*i+1],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	     nreq++;
-	   }
-	   if(recv_counts[3*i+1]>0)
-	   {
-	     MPI_Irecv(recv_buffer[i].data(),recv_counts[3*i+1],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	     nreq++;
-	   }
-	}
-
-	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
-	for(int i=0;i<numprocs;i++)
-	{
-	   send_buffer[i].clear(); 
-	   if(buf2 != nullptr) buf2->clear();
-	   for(int j=0;j<recv_buffer[i].size();j++)
-		 result_vec->push_back(recv_buffer[i][j]);
-	   recv_buffer[i].clear();
-	   if(recv_counts[3*i+2]>0) recv_buffer[i].resize(recv_counts[3*i+2]);
-	}
-
-	if(buf3 != nullptr)
-	for(int i=0;i<buf3->size();i++)
-	{
-	   int dest_proc = dest3[i];
-	   if(dest_proc != -1)
-	   send_buffer[dest_proc].push_back((*buf3)[i]);
-	}
-
-	nreq = 0;
-	for(int i=0;i<numprocs;i++)
-	{
-	   if(send_counts[3*i+2]>0)
-	   {
-	     MPI_Isend(send_buffer[i].data(),send_counts[3*i+2],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	     nreq++;
-	   }
-	   if(recv_counts[3*i+2]>0)
-	   {
-	     MPI_Irecv(recv_buffer[i].data(),recv_counts[3*i+2],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	     nreq++;
-	   }
-	}
-
-	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
-	for(int i=0;i<numprocs;i++)
-	{
-	   send_buffer[i].clear();
-	   if(buf3 != nullptr) buf3->clear();
-	   for(int j=0;j<recv_buffer[i].size();j++)
-		result_vec->push_back(recv_buffer[i][j]);
-	   recv_buffer[i].clear();
-	}
-
-	MPI_Type_free(&key_value);
-	MPI_Type_free(&value_field);
-	std::free(reqs);
-
-	return result_vec;
-}
-
 void query_engine::service_query(struct thread_arg_q* t) 
 {
 	int end_service = 0;
@@ -399,6 +135,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 	names.push_back("table2");
 	names.push_back("table3");
 
+	bool sorted = true;
 
 	usleep(10*128*20000);
 
@@ -451,26 +188,24 @@ void query_engine::service_query(struct thread_arg_q* t)
      	      }
 
 
-	      /*if(r->sorted)
+	      if(sorted)
 	      {
 
 		  uint64_t maxkey = std::max(maxkeys[1],maxkeys[2]);
-		  sort_response(r->name,r->id,buf1,maxkey);
-	          resp_vec = sort_response_full(buf3,buf2,buf1,10000+r->id,maxkeys);
+		  sort_response(names[i],i,buf1,maxkey);
 	      }
-	      else*/
-	      /*{
-	        resp_vec = new std::vector<struct event> ();
+	        
+	      resp_vec = new std::vector<struct event> ();
 
-	        uint64_t minkey = UINT64_MAX;
-	        uint64_t maxkey = 0;
-	        if(buf3 != nullptr) 
-	        {
+	      uint64_t minkey = UINT64_MAX;
+	      uint64_t maxkey = 0;
+	      if(buf3 != nullptr) 
+	      {
 		  resp_vec->assign(buf3->begin(),buf3->end()); buf3->clear();
-	        }
+	      }
 
-	        if(buf2 != nullptr)
-	        {
+	      if(buf2 != nullptr)
+	      {
 		  for(int i=0;i<buf2->size();i++)
 	      	  {
 		   if((*buf2)[i].ts > maxkeys[2]) 
@@ -479,10 +214,10 @@ void query_engine::service_query(struct thread_arg_q* t)
 		   }
 		 }
 		 buf2->clear();			
-	       }
+	      }
 
-	       if(buf1 != nullptr)
-	       {
+	      if(buf1 != nullptr)
+	      {
 		for(int i=0;i<buf1->size();i++)
 		{
 		   if((*buf1)[i].ts > maxkeys[2] && (*buf1)[i].ts > maxkeys[1])
@@ -492,26 +227,17 @@ void query_engine::service_query(struct thread_arg_q* t)
 		}
 		buf1->clear();
 	       }
-	      }*/
 
-      	      /*struct query_resp *p = new struct query_resp();
+      	      struct query_resp *p = new struct query_resp();
 
 	      p->response_vector = nullptr;
 	      p->response_vector = resp_vec;
 
-	      O->push(p);	    */ 
+	      O->push(p);	    
 
 	      delete buf1; 
 	      delete buf2;
 	      delete buf3;
-              //delete r;
-
-             /*if(Q->Empty() && end_session.load()==1)
-	     {
-		break;
-	     }*/
            }
-
-	   //workers[t->tid].join();
 }
 

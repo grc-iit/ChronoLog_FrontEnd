@@ -83,21 +83,23 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    int num_splitters = 0;
    for(int i=0;i<numprocs;i++) num_splitters += splitter_counts[i];
 
-   //if(myrank==0)
-   //std::cout <<" num_splitters = "<<num_splitters<<" index = "<<index<<" tag = "<<tag<<std::endl;
+   if(myrank==0 && index >= 4)
+   std::cout <<" num_splitters = "<<num_splitters<<" index = "<<index<<" tag = "<<tag<<std::endl;
 
-   std::vector<uint64_t> splitters;
-   splitters.resize(num_splitters);
+   if(num_splitters > 0)
+   {
+     std::vector<uint64_t> splitters;
+     splitters.resize(num_splitters);
 
-   std::vector<int> displ(numprocs);
-   std::fill(displ.begin(),displ.end(),0);
+     std::vector<int> displ(numprocs);
+     std::fill(displ.begin(),displ.end(),0);
 
-   for(int i=1;i<numprocs;i++)
+     for(int i=1;i<numprocs;i++)
 	   displ[i] = displ[i-1]+splitter_counts[i-1];
 
-   nreq = 0;
-   for(int i=0;i<numprocs;i++)
-   {
+    nreq = 0;
+    for(int i=0;i<numprocs;i++)
+    {
 	if(splitter_counts[myrank]>0)
 	{
 	  MPI_Isend(mysplitters.data(),splitter_counts[myrank],MPI_UINT64_T,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
@@ -297,6 +299,7 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
 	if(recv_ts[i] < min_v) min_v = recv_ts[i];
 	if(recv_ts[i+1] > max_v) max_v = recv_ts[i+1];
     }
+   }
 
    MPI_Type_free(&key_value);
    MPI_Type_free(&value_field);

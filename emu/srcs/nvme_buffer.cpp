@@ -92,10 +92,9 @@ void nvme_buffers::get_buffer(int index,int tag,int type)
    int m_tag = tag;
    if(myrank==0)
    {
-	blocks[index]->lock();
+	//blocks[index]->lock();
 
-	//std::cout <<" index = "<<index<<" type = "<<type<<" tag = "<<tag<<std::endl;
-	/*	
+	//std::cout <<" index = "<<index<<" type = "<<type<<" tag = "<<tag<<std::endl;	
 	int prev_value = 0;
 	int next_value = type;
 
@@ -105,7 +104,7 @@ void nvme_buffers::get_buffer(int index,int tag,int type)
 	   next_value = type;
 
 	}while(!buffer_state[index]->compare_exchange_strong(prev_value,next_value));
-*/
+
 	for(int i=1;i<numprocs;i++)
 	{
 	   MPI_Isend(&s_req,1,MPI_INT,i,m_tag,MPI_COMM_WORLD,&reqs[nreq]);
@@ -142,11 +141,11 @@ int nvme_buffers::buffer_index(std::string &s)
 
 void nvme_buffers::release_buffer(int index)
 {
-     if(myrank==0) 
+     /*if(myrank==0) 
      {
 	  blocks[index]->unlock();
-     }
-    //buffer_state[index]->store(0);
+     }*/
+     buffer_state[index]->store(0);
 
 }
 
