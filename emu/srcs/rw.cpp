@@ -47,23 +47,9 @@ void read_write_process::sort_events(std::string &s)
       myevents[index]->buffer_size.store(0);
       ds->sort_data(index,index,numevents,min_v,max_v);
       myevents[index]->buffer_size.store(myevents[index]->buffer->size());
-      /*m1.lock();
-      auto r1 = write_interval.find(s);
-      if(r1 == write_interval.end())
-      {
-          std::pair<uint64_t,uint64_t> p(min_v,max_v);
-          std::pair<std::string,std::pair<uint64_t,uint64_t>> q(s,p);
-          write_interval.insert(q);
-      }
-      else
-      {
-          uint64_t min_vp = (r1->second).first;
-          uint64_t max_vp = (r1->second).second;
-          (r1->second).first = std::min(min_vp,min_v);
-          (r1->second).second = std::max(max_vp,max_v);
-      }
-      m1.unlock();*/
-
+      uint64_t minv = std::min(min_v,(*write_interval)[index].first.load());
+      (*write_interval)[index].first.store(minv);
+      (*write_interval)[index].second.store(max_v);
       nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
       clear_write_events(index,min_v,max_v);
       nm->release_buffer(nm_index);
@@ -92,93 +78,46 @@ void read_write_process::clear_read_events(std::string &s)
    if(index==-1) return;
 
    boost::upgrade_lock<boost::shared_mutex> lk(readevents[index]->m);
-   m2.lock();
 
    readevents[index]->buffer->clear();
-   auto r1 = read_interval.find(s);
-   if(r1 != read_interval.end())
-   {
-	r1->second.first = UINT64_MAX;
-	r1->second.second = 0;
-   }
-   m2.unlock();
+   (*read_interval)[index].first.store(UINT64_MAX);
+   (*read_interval)[index].second.store(0);
 }
 
  bool read_write_process::get_events_in_range_from_read_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup)
 {
      uint64_t min = range.first; uint64_t max = range.second;
      bool err = false;
-     m2.lock();
-     auto r = read_interval.find(s);
      int index = -1;
+     m2.lock();
+     auto r = read_names.find(s);
+     if(r != read_names.end()) index = r->second.first;
+     m2.unlock();
+
      uint64_t min_s, max_s;
              
-     if(r != read_interval.end())
+     if(index != -1)
      {
-          min_s = (r->second).first;
-          max_s = (r->second).second;
+          min_s = (*read_interval)[index].first.load();
+          max_s = (*read_interval)[index].second.load();
           if(!((max < min_s) && (min > max_s)))
           {
               min_s = std::max(min_s,min);
               max_s = std::min(max_s,max);
 
-              auto r1 = read_names.find(s);
-              index = (r1->second).first;
            }
-       }
-       m2.unlock();
-
-        if(index != -1)
-	{
-            boost::shared_lock<boost::shared_mutex> lk(readevents[index]->m);
-            for(int i=0;i<readevents[index]->buffer->size();i++)
-            {
+            
+	  boost::shared_lock<boost::shared_mutex> lk(readevents[index]->m);
+          for(int i=0;i<readevents[index]->buffer->size();i++)
+          {
                  uint64_t ts = (*readevents[index]->buffer)[i].ts;
                  if(ts >= min_s && ts <= max_s) oup.push_back((*readevents[index]->buffer)[i]);
-            }
-            err = true;
+          }
+          err = true;
         }
 
-             return err;
+        return err;
 }
-
-bool read_write_process::get_events_in_range_from_write_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup)
-{
-             
-    bool err = false;
-    uint64_t min = range.first; uint64_t max = range.second;
-    m1.lock();
-    auto r = write_interval.find(s);
-    uint64_t min_s,max_s;
-    int index = -1;
-    if(r != write_interval.end())
-    {
-          min_s = (r->second).first;
-          max_s = (r->second).second;
-          if(!((min > max_s) && (max < min_s)))
-          {
-             min_s = std::max(min,min_s);
-             max_s = std::min(max,max_s);
-             auto r1 = write_names.find(s);
-             index = (r1->second).first;
-          }
-    }
-    m1.unlock();
-
-    if(index != -1)
-    {
-       boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
-       for(int i=0;i<myevents[index]->buffer_size.load();i++)
-       {
-             uint64_t ts = (*(myevents[index]->buffer))[i].ts;
-             if(ts >= min && ts <= max) oup.push_back((*(myevents[index]->buffer))[i]);
-       }
-       err = true;
-    }
-             
-    return err;
-}
-
 
 void read_write_process::spawn_write_streams(std::vector<std::string> &snames,std::vector<int> &total_events,int nbatches)
 {
@@ -258,7 +197,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
 
     hsize_t attr_size[1];
-    attr_size[0] = 100*4+4;
+    attr_size[0] = MAXBLOCKS*4+4;
     hid_t attr_space[1];
     attr_name[0] = "Datasizes";
     attr_space[0] = H5Screate_simple(1, attr_size, NULL);
@@ -347,13 +286,13 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	auto r = std::find(file_names.begin(),file_names.end(),filename);
 	ps = std::distance(file_names.begin(),r);
         m1.unlock();
+	(*file_interval)[ps].second.store(maxkeys[i]);
 
 	if(clear_nvme) 
 	{
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   nm->get_buffer(nm_index,tag_p,2);
-	   file_interval[ps].second = maxkeys[i];
 	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}
@@ -496,17 +435,23 @@ bool read_write_process::preadfileattr(const char *filename)
     hid_t       mem_dataspace;
 
     hsize_t attr_space[1];
-    attr_space[0] = 100*4+4;
+    attr_space[0] = MAXBLOCKS*4+4;
     const char *attr_name[1];
 
     std::string filestring(filename);
 
     bool end = false;
+    int index = -1;
+
     m1.lock();
 
     auto r1 = std::find(file_names.begin(),file_names.end(),filestring);
 
-    if(r1==file_names.end()) end = true;
+    if(r1==file_names.end()) 
+    {
+	end = true;
+	index = std::distance(file_names.begin(),r1);
+    }
     m1.unlock();
 
     if(end) return false;
@@ -530,6 +475,14 @@ bool read_write_process::preadfileattr(const char *filename)
 
     ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
+    int numblocks = attrs[3];
+
+    if(numblocks > 0)
+    {
+      (*file_interval)[index].first.store(attrs[4+0]);
+      (*file_interval)[index].second.store(attrs[4+(numblocks-1)*4+1]);
+    }
+
     H5Sclose(file_dataspace);
     ret = H5Aclose(attr_id);
     ret = H5Dclose(dataset1);
@@ -548,7 +501,7 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     hid_t       dataset1, dataset2, dataset5, dataset6, dataset7;
 
     hsize_t attr_space[1];
-    attr_space[0] = 100*4+4;
+    attr_space[0] = MAXBLOCKS*4+4;
     const char *attr_name[1];
     size_t   num_points;    
     int      i, j, k;
@@ -761,7 +714,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
   H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
 
   hsize_t attr_size[1];
-  attr_size[0] = 100*4+4;
+  attr_size[0] = MAXBLOCKS*4+4;
   hid_t attr_space[1];
   attr_name[0] = "Datasizes";
   attr_space[0] = H5Screate_simple(1, attr_size, NULL);
@@ -859,14 +812,13 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         file_names.insert(filename);
 	ps = std::distance(file_names.begin(),std::find(file_names.begin(),file_names.end(),filename));
 	m1.unlock();
-
+	(*file_interval)[ps].first.store(minkeys[i]);
+	(*file_interval)[ps].second.store(maxkeys[i]);
 	if(clear_nvme) 
 	{
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   nm->get_buffer(nm_index,tag_p,2);
-           file_interval[ps].first =  minkeys[i];
-           file_interval[ps].second = maxkeys[i];	
 	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}

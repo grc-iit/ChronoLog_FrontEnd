@@ -56,10 +56,9 @@ private:
       std::set<std::string> file_names;
       std::unordered_map<std::string,std::pair<int,event_metadata>> write_names;
       std::unordered_map<std::string,std::pair<int,event_metadata>> read_names;
-      std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> write_interval;
-      std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> read_interval;
-      std::unordered_map<std::string,std::pair<uint64_t,uint64_t>> file_minmax;
-      std::vector<std::pair<uint64_t,uint64_t>> file_interval;
+      std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> *file_interval;
+      std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> *write_interval;
+      std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> *read_interval;
       std::vector<struct atomic_buffer*> myevents;
       std::vector<struct atomic_buffer*> readevents;
       dsort *ds;
@@ -97,7 +96,20 @@ public:
 	   end_of_session.store(0);
 	   num_streams.store(0);
 	   num_io_threads = 1;
-	   file_interval.resize(MAXSTREAMS);
+	   file_interval = new std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> (MAXSTREAMS);
+	   write_interval =  new std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> (MAXSTREAMS);
+	   read_interval = new std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> (MAXSTREAMS);
+
+	   for(int i=0;i<MAXSTREAMS;i++)
+	   {
+		(*file_interval)[i].first.store(UINT64_MAX);
+		(*file_interval)[i].second.store(0);
+		(*write_interval)[i].first.store(UINT64_MAX);
+		(*write_interval)[i].second.store(0);
+		(*read_interval)[i].first.store(UINT64_MAX);
+		(*read_interval)[i].second.store(0);
+
+	   }
 	   std::function<void(struct thread_arg_w *)> IOFunc(
            std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
 
@@ -123,6 +135,9 @@ public:
 	   delete nm;
 	   delete io_queue_async;
 	   delete io_queue_sync;
+	   delete file_interval;
+	   delete write_interval;
+	   delete read_interval;
 	   H5close();
 
 	}
@@ -211,18 +226,6 @@ public:
 
 	void sort_events(std::string &);
 
-	void buffer_in_nvme(std::string &s)
-	{
-	   m1.lock();
-	   auto r = write_names.find(s);
-	   int index = (r->second).first;
-	   m1.unlock();
-
-	   //boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
-	
-	   nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
-	}
-
 	void get_nvme_buffer(std::vector<struct event> *buffer1,std::vector<struct event> *buffer2,std::string &s,int tag)
 	{
 		m1.lock();
@@ -253,68 +256,40 @@ public:
 	void get_file_minmax(std::string &s,uint64_t &min_v,uint64_t &max_v)
 	{
 	   min_v = UINT64_MAX; max_v = 0;
-
+	
+	   int index = -1;
 	   m1.lock();
-	   auto r = file_minmax.find(s);
-	   min_v = r->second.first;
-	   max_v = r->second.second;
-	   m1.unlock();
-	}
-	bool get_range_in_file(std::string &s, uint64_t &min_v,uint64_t &max_v)
-	{
-	   min_v = UINT64_MAX; max_v = 0;
-	   bool err = false;
-           
-	   bool found = false;
-	   m1.lock();
-
 	   auto r = std::find(file_names.begin(),file_names.end(),s);
-	   if(r != file_names.end()) found = true;
+	   if(r != file_names.end()) index = std::distance(file_names.begin(),r);
 	   m1.unlock();
 
-	   if(found)
+	   if(index != -1)
 	   {
-	      preadfileattr(s.c_str());
+	     min_v = (*file_interval)[index].first.load();
+	     max_v = (*file_interval)[index].second.load();
 	   }
 
-	   m1.lock();
-	   auto r1 = file_minmax.find(s);
-	   if(r1 != file_minmax.end())
-	   {
-		min_v = (r1->second).first;
-		max_v = (r1->second).second;
-		err = true;
-	   }
-	   m1.unlock();
-
-	   return err;
-	}
-
-	bool file_existence(std::string &s)
-	{
-	  bool err = false;
-	  m1.lock();
-
-	  auto r = std::find(file_names.begin(),file_names.end(),s);
-	  if(r != file_names.end()) err = true;
-	  m1.unlock(); 
-
-	  return err;
 	}
 
         bool get_range_in_read_buffers(std::string &s,uint64_t &min_v,uint64_t &max_v)
 	{
 	    min_v = UINT64_MAX; max_v = 0;
 	    bool err = false;
+	    int index = -1;
 	    m2.lock();
-	    auto r = read_interval.find(s);
-	    if(r != read_interval.end())
+	    auto r = read_names.find(s);
+	    if(r != read_names.end()) index = r->second.first;
+	    m2.unlock();
+
+	    if(index != -1)
 	    {
-		min_v = (min_v < (r->second).first) ? min_v : (r->second).first;
-		max_v = (max_v > (r->second).second) ? max_v : (r->second).second;
+		uint64_t minv = (*read_interval)[index].first.load();
+		uint64_t maxv = (*read_interval)[index].second.load();
+
+		min_v = (min_v < minv) ? min_v : minv;
+		max_v = (max_v > maxv) ? max_v : maxv;
 		err = true;
 	    }
-	    m2.unlock();
 	    return err;
 	}
 
@@ -322,15 +297,20 @@ public:
 	{
 	    min_v = UINT64_MAX; max_v = 0;
 	    bool err = false;
+	    int index = -1;
 	    m1.lock();
-	    auto r = write_interval.find(s);
-	    if(r != write_interval.end())
+	    auto r = write_names.find(s);
+	    if(r != write_names.end()) index = r->second.first;
+	    m1.unlock();
+
+	    if(index != -1)
 	    {
-		min_v = (min_v < (r->second).first) ? min_v : (r->second).first;
-		max_v = (max_v > (r->second).second) ? max_v : (r->second).second;
+		uint64_t minv = (*write_interval)[index].first.load(); uint64_t maxv = (*write_interval)[index].second.load();
+
+		min_v = (min_v < minv) ? min_v : minv;
+		max_v = (max_v > maxv) ? max_v : maxv;
 		err = true;
 	    }
-	    m1.unlock();
 	    return err;
 	}
 
@@ -348,8 +328,6 @@ public:
 	    return dm->num_dropped_events();
 	}
         bool get_events_in_range_from_read_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup);
-	bool get_events_in_range_from_write_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup);
-	
 	void create_events(int num_events,std::string &s,double);
 	void clear_write_events(int,uint64_t&,uint64_t&);
 	void clear_read_events(std::string &s);

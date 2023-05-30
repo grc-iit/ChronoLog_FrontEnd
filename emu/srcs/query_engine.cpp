@@ -135,12 +135,16 @@ void query_engine::service_query(struct thread_arg_q* t)
 	names.push_back("table2");
 	names.push_back("table3");
 
-	bool sorted = true;
+	bool sorted = false;
+
+	int numrounds = 4;
 
 	usleep(10*128*20000);
 
-	for(int i=0;i<names.size();i++)
-        {
+	for(int n=0;n<numrounds;n++)
+	{
+	  for(int i=0;i<names.size();i++)
+          {
 
 	      uint64_t min_key1,max_key1;
 
@@ -161,7 +165,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 	      uint64_t minkey_r,maxkey_r;
 
-	      uint64_t minkey_e = 0;//r->minkey; 
+	      uint64_t minkey_e = 0; 
 	      uint64_t maxkey_e = UINT64_MAX;
 	
 		  
@@ -228,16 +232,18 @@ void query_engine::service_query(struct thread_arg_q* t)
 		buf1->clear();
 	       }
 
-      	      struct query_resp *p = new struct query_resp();
+      	      /*struct query_resp *p = new struct query_resp();
 
 	      p->response_vector = nullptr;
 	      p->response_vector = resp_vec;
 
-	      O->push(p);	    
+	      O->push(p);	 */   
 
 	      delete buf1; 
 	      delete buf2;
 	      delete buf3;
+	      delete resp_vec;
            }
+	}
 }
 
