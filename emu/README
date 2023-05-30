@@ -1,0 +1,8 @@
+
+First version of streamIO with HDF5. Multi-threaded streaming threads with IO thread. HDFIO performed by IOthread in background. Reads and writes are interleaved. 
+
+Event generator creates events at rate specified by user. Events are buffered, sorted and stored in NVRAMs. NVRAM data are written to file blocks. HDF5 metadata contains b-tree for file blocks. 
+Files and buffers can be probed for most recent events by submitting queries. Queries have higher priority over file block writes. 
+All IO are parallel IO performed by MPIO collectives using HDF5 metadata for lookups.
+
+Consistency of queried data is maintained by HDF5, IO thread priorities, and locks. The NVRAM view returned by probes is a global view of data sorted across multiple NVRAM files. HDF5 view returned by queries is sorted data across multiple disk blocks. Data in memory buffers is not globally sorted. 
