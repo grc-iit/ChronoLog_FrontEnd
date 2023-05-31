@@ -54,9 +54,11 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
 
     fid2 = H5Fopen(filename2.c_str(),H5F_ACC_RDWR,fapl);
 
-    hsize_t attr_space[1];
-    attr_space[0] = MAXBLOCKS*4+4;
+    hsize_t attr_size[1];
+    attr_size[0] = MAXBLOCKS*4+4;
     const char *attrname[1];
+    hid_t attr_space[1];
+    attr_space[0] = H5Screate_simple(1, attr_size, NULL);
 
     attrname[0] = "Datasizes";
 
@@ -65,7 +67,7 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
 
     hid_t attr_id = H5Aopen(dataset1,attrname[0],H5P_DEFAULT);
     std::vector<uint64_t> attrs;
-    attrs.resize(attr_space[0]);
+    attrs.resize(attr_size[0]);
 
     ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
@@ -99,7 +101,9 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
     
 
     std::vector<struct event> *inp = new std::vector<struct event> ();
-    std::vector<struct event> *oup = new std::vector<struct event> ();
+
+    std::vector<uint64_t> attr2;
+    attr2.resize(attr_size[0]);
 
     hsize_t offset_w = 0;
 
@@ -148,7 +152,26 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
         hid_t mem_dataspace2 = H5Screate_simple(1,&block_count, NULL);
 	ret = H5Sselect_hyperslab(file_dataspace2,H5S_SELECT_SET,&offsetf2,NULL,&block_count,NULL);
         hid_t dataset2 = H5Dcreate(fid2,data_string.c_str(),s2,file_dataspace2, H5P_DEFAULT,dataset_pl,H5P_DEFAULT);
-	//ret = H5Dwrite(dataset2,s2, mem_dataspace2,file_dataspace2,xfer_plist,inp->data());
+	ret = H5Dwrite(dataset2,s2, mem_dataspace2,file_dataspace2,xfer_plist,inp->data());
+	attr2[0] = numrecords;
+        attr2[1] = 8;
+        attr2[2] = VALUESIZE;
+        attr2[3] = 1;
+
+	int pos = 4;
+        attr2[pos] = minv;
+        pos++;
+        attr2[pos] = maxv;
+        pos++;
+        attr2[pos] = 1;
+        pos++;
+        attr2[pos] = numrecords;
+
+        hid_t attrid2 = H5Acreate(dataset2, attrname[0], H5T_NATIVE_UINT64, attr_space[0], H5P_DEFAULT, H5P_DEFAULT);
+
+        ret = H5Awrite(attrid2, H5T_NATIVE_UINT64, attr2.data());
+
+        ret = H5Aclose(attrid2);
 
 	H5Pclose(dataset_pl);
 	H5Sclose(file_dataspace2);
@@ -171,7 +194,27 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
 	 hsize_t one = 1;
 	 ret = H5Sselect_hyperslab(file_dataspace2,H5S_SELECT_SET,&offsetf2,NULL,&one,&blocksize);
     	 ret = H5Dwrite(dataset2,s2, mem_dataspace2, file_dataspace2,xfer_plist,inp->data());
+	
+	 std::vector<uint64_t> attr2;
+	 attr2.resize(attr_size[0]);
 
+	 hid_t attrid2 = H5Aopen(dataset2,attrname[0],H5P_DEFAULT);
+
+	 ret = H5Aread(attrid2,H5T_NATIVE_UINT64,attr2.data());
+
+	 int l = attr2[3];
+	 attr2[3]+=1;
+
+	 int pos = 4;
+
+	 attr2[pos+l*4+0] = minv;
+	 attr2[pos+l*4+1] = maxv;
+	 attr2[pos+l*4+2] = attr2[3];
+	 attr2[pos+l*4+3] = numrecords; 
+
+	 ret = H5Awrite(attrid2,H5T_NATIVE_UINT64,attr2.data());
+
+	 H5Aclose(attrid2);
 
 	H5Sclose(file_dataspace2);
 	H5Sclose(mem_dataspace2);
@@ -184,7 +227,7 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
     }
 
     delete inp;
-    delete oup;
+    H5Sclose(attr_space[0]);
     H5Pclose(xfer_plist);
     H5Sclose(file_dataspace);
     H5Aclose(attr_id);
@@ -196,6 +239,19 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
     H5Fclose(fid2);
 
    return s2_string;
+}
+
+void hdf5_sort::merge_tree(std::string &fname,int offset)
+{
+
+
+
+
+
+
+
+
+
 }
 
 std::string hdf5_sort::merge_datasets(std::string &s1,std::string &s2)
@@ -502,6 +558,37 @@ void hdf5_sort::sort_block_secondary_key(std::vector<struct event> *events,int t
    for(int i=0;i<myrank;i++)
 	   offset_f2 += dsizes[i];
 
+   std::vector<int> sendk(2);
+   sendk[0] = INT_MAX;
+   sendk[1] = 0;
+   std::vector<int> recvkeys(2*numprocs);
+
+   if(events->size()>0)
+   {	
+	sendk[0] = *(int*)((*events)[0].data+offset);
+	int lp = events->size();
+	sendk[1] = *(int*)((*events)[lp-1].data+offset);
+   }
+
+   nreq = 0;
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(sendk.data(),2,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recvkeys[2*i],2,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+   min_value = INT_MAX;
+   max_value = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	if(recvkeys[2*i] < min_value) min_value = recvkeys[2*i];
+	if(recvkeys[2*i+1]>max_value) max_value = recvkeys[2*i+1];
+   }
 
    }
    MPI_Type_free(&key_value);

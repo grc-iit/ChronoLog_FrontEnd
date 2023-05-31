@@ -24,6 +24,7 @@ class hdf5_sort
 	  MPI_Comm_free(&merge_comm);
        }
 
+       void merge_tree(std::string&,int);
        void sort_block_secondary_key(std::vector<struct event>*,int,int,int&,int&,int&);
        std::string sort_on_secondary_key(std::string &,std::string &,int,uint64_t,uint64_t);
        std::string merge_datasets(std::string &,std::string &);
