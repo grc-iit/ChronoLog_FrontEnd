@@ -300,6 +300,8 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     }
 
     H5Sclose(attr_space[0]);
+    H5Tclose(s2);
+    H5Tclose(s1);
     H5Pclose(async_fapl);
     H5Pclose(async_dxpl);
 
@@ -529,7 +531,6 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
 
     dataset1 = H5Dopen2(fid, DATASETNAME1, H5P_DEFAULT);
 
-    file_dataspace = H5Dget_space(dataset1);
     hid_t attr_id = H5Aopen(dataset1,attr_name[0],H5P_DEFAULT);
     std::vector<uint64_t> attrs;
     attrs.resize(attr_space[0]);
@@ -619,7 +620,6 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,data_buffer->data());
 
     H5Sclose(mem_dataspace); 
-
     H5Sclose(file_dataspace);
     H5Pclose(xfer_plist);
 
@@ -627,6 +627,8 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
 
     H5Dclose(dataset1);
 
+    H5Tclose(s2);
+    H5Tclose(s1);
     H5Fclose(fid);  
     
     return true;
@@ -826,6 +828,8 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
     }
 
     H5Sclose(attr_space[0]);
+    H5Tclose(s2);
+    H5Tclose(s1);
     H5Pclose(async_fapl);
     H5Pclose(async_dxpl);
 

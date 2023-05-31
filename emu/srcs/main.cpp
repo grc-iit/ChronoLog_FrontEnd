@@ -102,16 +102,16 @@ int main(int argc,char **argv)
 
   int num_writer_threads = 4;
 
-  int nbatches = 500;
+  int nbatches = 16;
 
   t1 = std::chrono::high_resolution_clock::now();
 
-  np->data_streams_s(story_names,total_events,nbatches);
+  //np->data_streams_s(story_names,total_events,nbatches);
 
   np->generate_queries(story_names);
 
   np->end_sessions();
-  
+
   t2 = std::chrono::high_resolution_clock::now();
   t = std::chrono::duration<double> (t2-t1).count();
 

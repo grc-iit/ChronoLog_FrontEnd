@@ -137,9 +137,9 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 	bool sorted = false;
 
-	int numrounds = 4;
+	int numrounds = 0;
 
-	usleep(10*128*20000);
+	//usleep(10*128*20000);
 
 	for(int n=0;n<numrounds;n++)
 	{
@@ -247,3 +247,10 @@ void query_engine::service_query(struct thread_arg_q* t)
 	}
 }
 
+void query_engine::sort_file(std::string &s)
+{
+
+      std::string attrname = "attr"+std::to_string(0);
+      std::string outputfile = hs->sort_on_secondary_key(s,attrname,0,0,UINT64_MAX);
+
+}

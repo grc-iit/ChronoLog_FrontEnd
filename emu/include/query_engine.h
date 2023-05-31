@@ -6,6 +6,7 @@
 #include "distributed_queue.h"
 #include "query_parser.h"
 #include "rw.h"
+#include "external_sort.h"
 
 struct thread_arg_q
 {
@@ -22,6 +23,7 @@ class query_engine
         dsort *ds;	
 	read_write_process *rwp;
 	data_server_client *dsc;
+	hdf5_sort *hs;
  	std::vector<struct thread_arg_q> t_args;
 	std::vector<std::thread> workers;
 	int numthreads;
@@ -38,6 +40,7 @@ class query_engine
 
     	   Q = new distributed_queue(numprocs,myrank);
 	   O = new boost::lockfree::queue<struct query_resp*> (128);
+	   hs = new hdf5_sort(n,r);
 	   tl::engine *t_server = dsc->get_thallium_server();
            tl::engine *t_server_shm = dsc->get_thallium_shm_server();
            tl::engine *t_client = dsc->get_thallium_client();
@@ -70,6 +73,7 @@ class query_engine
 	{
 	    delete Q;
 	    delete S;
+	    delete hs;
 	    while(!O->empty())
 	    {
 		struct query_resp *r = nullptr;
@@ -99,6 +103,7 @@ class query_engine
 		   workers[i].join();
 	}
 
+	void sort_file(std::string &s);
 	void send_query(std::string &s);
 	void sort_response(std::string&,int,std::vector<struct event>*,uint64_t&);
 	void get_range(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,uint64_t minkeys[3],uint64_t maxkeys[3],int);

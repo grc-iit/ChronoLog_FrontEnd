@@ -140,14 +140,8 @@ public:
       void process_queries(struct thread_arg_p *t)
       {
 
-	  if(t->snames.size() > 0)
-	  {
-            //usleep(20*128*20000);
-	    //QE->send_query(t->snames[0]);
-	    //QE->send_query(t->snames[1]);
-	    //usleep(10000*128*10);
-	    //QE->send_query(t->snames[2]);
-	  }
+	   std::string s = "table0";
+	   QE->sort_file(s);
       }
 
       void generate_queries(std::vector<std::string> &snames)
@@ -164,8 +158,8 @@ public:
 
       void end_sessions()
       {
-	dw[0].join();
-	qp[0].join();
+	for(int i=0;i<dw.size();i++) dw[i].join();
+	for(int i=0;i<qp.size();i++) qp[i].join();
 	rwp->end_sessions();
 	QE->end_sessions();
 	/*std::string filen = "file";
