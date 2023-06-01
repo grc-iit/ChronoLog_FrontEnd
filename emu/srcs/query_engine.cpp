@@ -251,6 +251,7 @@ void query_engine::sort_file(std::string &s)
 {
 
       std::string attrname = "attr"+std::to_string(0);
-      std::string outputfile = hs->sort_on_secondary_key(s,attrname,0,0,UINT64_MAX);
+      //std::string outputfile = hs->sort_on_secondary_key(s,attrname,0,0,UINT64_MAX);
 
+      hs->merge_tree(s,0);
 }

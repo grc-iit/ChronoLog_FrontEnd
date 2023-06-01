@@ -243,8 +243,201 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
 
 void hdf5_sort::merge_tree(std::string &fname,int offset)
 {
+   std::string filename2 = "file";
+   filename2 += fname+"secsort";
+   filename2 += ".h5";
+
+    hid_t       fid;
+    hid_t       acc_tpl;
+    hid_t       xfer_plist;
+    hid_t       file_dataspace;
+    hid_t       mem_dataspace;
+    hid_t       dataset1, dataset2, dataset5, dataset6, dataset7;
+
+    xfer_plist = H5Pcreate(H5P_DATASET_XFER);
+    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+    H5Pset_fapl_mpio(fapl,merge_comm, MPI_INFO_NULL);
+    H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
+
+    hid_t xfer_plist2 = H5Pcreate(H5P_DATASET_XFER);
+    H5Pset_dxpl_mpio(xfer_plist2,H5FD_MPIO_INDEPENDENT);
+
+    hsize_t chunkdims[1];
+    chunkdims[0] = 8192;
+    hsize_t maxdims[1];
+    maxdims[0] = (hsize_t)H5S_UNLIMITED;
+
+    hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
+
+    int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
+
+    fid = H5Fopen(filename2.c_str(), H5F_ACC_RDWR, fapl);
+
+    hsize_t attr_size[1];
+    attr_size[0] = MAXBLOCKS*4+4;
+    const char *attrname[1];
+    hid_t attr_space[1];
+    attr_space[0] = H5Screate_simple(1, attr_size, NULL);
+
+    attrname[0] = "Datasizes";
+
+    std::string data_string = "Data1";
+    dataset1 = H5Dopen2(fid,data_string.c_str(), H5P_DEFAULT);
+
+    std::string data_string2 = "Data1_tmp";
+    hid_t attr_id = H5Aopen(dataset1,attrname[0],H5P_DEFAULT);
+    file_dataspace = H5Dget_space(dataset1);
+    std::vector<uint64_t> attrs;
+    attrs.resize(attr_size[0]);
+
+    ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
+
+    hsize_t adims[1];
+    adims[0] = VALUESIZE;
+    hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
+    hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
+    H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
+    H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
+
+    int total_k = attrs[0];
+    int k_size = attrs[1];
+    int data_size = attrs[2];
+    int numblocks = attrs[3];
+
+    int nstages = std::ceil(log2(numblocks));
+    
+    std::vector<int> offsets;
+    std::vector<int> nrecords;
+
+    int pos = 4;
+
+    int numrecords=0;
+    int soffset = 0;
+    int total_records = 0;
+    for(int i=0;i<numblocks;i++)
+    {
+	numrecords = attrs[pos+i*4+3];
+	offsets.push_back(soffset);
+	nrecords.push_back(numrecords);
+	soffset += numrecords;
+	total_records += numrecords;
+    }
+
+    hsize_t totalrecords = total_records;
+
+    hid_t file_dataspace2 = H5Screate_simple(1,&totalrecords,NULL);
+
+    dataset2 = H5Dcreate(fid,data_string2.c_str(),s2,file_dataspace2, H5P_DEFAULT,dataset_pl,H5P_DEFAULT);
+
+    std::vector<struct event> *block1 = new std::vector<struct event> ();
+    std::vector<struct event> *block2 = new std::vector<struct event> ();
+
+    //for(int i=0;i<nstages;i++)
+    {
+       for(int j=0;j<nrecords.size();j+=2)
+       {
+	     
+	  hsize_t offset1 = offsets[j];
+	  int numr = nrecords[j];
+	  int numr_p = numr/numprocs;
+	  int rem = numr%numprocs;
+	  for(int k=0;k<myrank;k++)
+	  {
+		int size_p = 0;
+		if(k < rem) size_p = numr_p+1;
+		else size_p = numr_p;
+		offset1 += size_p;
+	  }
+	  hsize_t blocksize;
+	  if(myrank < rem) blocksize = numr_p+1;
+	  else blocksize = numr_p;
+	  hsize_t maxsize = H5S_UNLIMITED;
+          hid_t mem_dataspace2 = H5Screate_simple(1,&blocksize,&maxsize);
+
+	  block1->resize(blocksize);
+
+          ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset1,NULL,&blocksize,NULL);
+          ret = H5Dread(dataset1,s2, mem_dataspace2, file_dataspace, xfer_plist,block1->data());
+
+	  H5Sclose(mem_dataspace2);
+
+	  if(j+1 < nrecords.size())
+	  {
+	     hsize_t offset2 = offsets[j+1];
+	     numr = nrecords[j+1];
+	     numr_p = numr/numprocs;
+	     rem = numr%numprocs;
+
+	     for(int k=0;k<myrank;k++)
+	     {
+		int size_p = 0;
+		if(k < rem) size_p = numr_p+1;
+		else size_p = numr_p;
+		offset2 += size_p;
+	     }
+
+	     if(myrank < rem) blocksize = numr_p+1;
+	     else blocksize = numr_p;
+	     hid_t mem_dataspace1 = H5Screate_simple(1,&blocksize,&maxsize);
+	     std::vector<struct event> *block2_t = new std::vector<struct event> ();
+	     block2_t->resize(blocksize);
+	     ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset2,NULL,&blocksize,NULL);
+     	     ret = H5Dread(dataset1,s2,mem_dataspace1,file_dataspace,xfer_plist2,block2_t->data());	     
+
+     	     for(int k=0;k<block2_t->size();k++)
+		block2->push_back((*block2_t)[k]);	     
+
+	     delete block2_t;
+	     H5Sclose(mem_dataspace1);
+	  }
+
+	  insert_block(block1,block2,offset);
+
+	  block2->clear();
+       }
+
+    }
 
 
+    delete block1;
+    delete block2;
+
+    H5Tclose(s2);
+    H5Tclose(s1);
+
+    H5Pclose(dataset_pl);
+    H5Pclose(xfer_plist);
+    H5Pclose(xfer_plist2);
+    H5Pclose(fapl);
+    H5Sclose(file_dataspace);
+    H5Sclose(file_dataspace2);
+    H5Sclose(attr_space[0]);
+    H5Aclose(attr_id);
+    H5Dclose(dataset2);
+    H5Dclose(dataset1);
+    H5Fclose(fid);
+
+
+}
+
+
+void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct event> *block2,int offset)
+{
+     int minv1=UINT64_MAX,maxv1=0;
+     int minv2=UINT64_MAX,maxv2=0;
+
+     if(block1->size() > 0)
+     {
+	minv1 = *(int*)((*block1)[0].data+offset);
+	int len1 = block1->size();
+	maxv1 = *(int*)((*block1)[len1-1].data+offset);
+     }
+
+     if(block2->size() > 0)
+     {
+	minv2 = (*block2)[0].data+offset);
+
+     }
 
 
 
