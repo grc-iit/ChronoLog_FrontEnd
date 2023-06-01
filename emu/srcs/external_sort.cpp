@@ -332,6 +332,9 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
     std::vector<struct event> *block1 = new std::vector<struct event> ();
     std::vector<struct event> *block2 = new std::vector<struct event> ();
 
+    int tag = 20000;
+
+    bool last_block = false;
     //for(int i=0;i<nstages;i++)
     {
        for(int j=0;j<nrecords.size();j+=2)
@@ -391,7 +394,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	     H5Sclose(mem_dataspace1);
 	  }
 
-	  insert_block(block1,block2,offset);
+	  insert_block(block1,block2,offset,tag,last_block);
 
 	  block2->clear();
        }
@@ -421,10 +424,38 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 }
 
 
-void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct event> *block2,int offset)
+void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct event> *block2,int offset,int tag,bool last_block)
 {
      int minv1=UINT64_MAX,maxv1=0;
      int minv2=UINT64_MAX,maxv2=0;
+
+     MPI_Datatype value_field;
+     MPI_Type_contiguous(VALUESIZE,MPI_CHAR,&value_field);
+     MPI_Type_commit(&value_field);
+
+     struct event e;
+     MPI_Aint tdispl1[2];
+
+     MPI_Get_address(&e,&tdispl1[0]);
+     MPI_Get_address(&e.data,&tdispl1[1]);
+
+     MPI_Aint base = tdispl1[0];
+     MPI_Aint valuef = MPI_Aint_diff(tdispl1[1],base);
+
+     MPI_Datatype key_value;
+     int blocklens[2];
+     MPI_Aint tdispl[2];
+     int types[2];
+     blocklens[0] = 1;
+     blocklens[1] = 1;
+     tdispl[0] = 0;
+     tdispl[1] = valuef;
+     types[0] = MPI_UINT64_T;
+     types[1] = value_field;
+
+     MPI_Type_create_struct(2,blocklens,tdispl,types,&key_value);
+     MPI_Type_commit(&key_value);
+
 
      if(block1->size() > 0)
      {
@@ -435,16 +466,203 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
 
      if(block2->size() > 0)
      {
-	minv2 = (*block2)[0].data+offset);
+	minv2 = *(int *)((*block2)[0].data+offset);
+	int len2 = block2->size();
+	maxv2 = *(int *)((*block2)[len2-1].data+offset);
+     }
+
+     
+     int nreq = 0;
+     MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+
+     std::vector<int> send_ranges(2);
+     std::vector<int> recv_ranges(2*numprocs);
+
+     send_ranges[0] = 0; send_ranges[1] = 0;
+     std::fill(recv_ranges.begin(),recv_ranges.end(),0);
+
+
+     send_ranges[0] = minv1; send_ranges[1] = maxv1;
+
+     for(int i=0;i<numprocs;i++)
+     {
+	MPI_Isend(send_ranges.data(),2,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recv_ranges[2*i],2,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	nreq++;
+     }
+
+     MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+     std::vector<int> send_count,recv_count;
+     send_count.resize(numprocs);
+     recv_count.resize(numprocs);
+
+     std::fill(send_count.begin(),send_count.end(),0);
+     std::fill(recv_count.begin(),recv_count.end(),0);
+
+     std::vector<int> dest;
+
+     for(int i=0;i<block2->size();i++)
+     {
+	int key = *(int*)((*block2)[i].data+offset);
+
+	int dest_proc = -1;
+	for(int j=0;j<numprocs;j++)
+	{
+	   if(j==0) 
+	   {
+	      if(key <= recv_ranges[2*j]) 
+	      {
+	         send_count[j]++; dest_proc = j; break;
+	      }
+	   }
+	   else if(key >= recv_ranges[2*j] && key <= recv_ranges[2*j+1])
+	   {
+		send_count[j]++; dest_proc = j; break;
+	   }
+	}
+	dest.push_back(dest_proc);
+     }
+
+     nreq = 0;
+
+     for(int i=0;i<numprocs;i++)
+     {
+	MPI_Isend(&send_count[i],1,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recv_count[i],1,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	nreq++;
+     }
+
+     MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+     std::vector<std::vector<struct event>> send_buffers;
+     std::vector<std::vector<struct event>> recv_buffers;
+
+     send_buffers.resize(numprocs);
+     recv_buffers.resize(numprocs);
+
+     std::vector<struct event> *block2_g = new std::vector<struct event> ();
+
+     for(int i=0;i<block2->size();i++)
+     {
+       if(dest[i] != -1)
+       {	    
+	  send_buffers[dest[i]].push_back((*block2)[i]);
+       }
+       else block2_g->push_back((*block2)[i]);
+     }
+
+     block2->clear();
+
+     for(int i=0;i<numprocs;i++)
+     {	
+	if(recv_count[i]>0) recv_buffers[i].resize(recv_count[i]);
+     }
+
+     nreq = 0;
+     for(int i=0;i<numprocs;i++)
+     {
+	if(send_count[i]>0)
+	{
+	  MPI_Isend(send_buffers[i].data(),send_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
+	  nreq++;
+	}
+	if(recv_count[i]>0)
+	{
+	  MPI_Irecv(recv_buffers[i].data(),recv_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
+	  nreq++;
+	}
+     }
+
+     MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+     std::vector<struct event> *block2_range = new std::vector<struct event> ();
+
+     for(int i=0;i<numprocs;i++)
+     {
+	for(int j=0;j<recv_buffers[i].size();j++)
+	{
+	    block2_range->push_back(recv_buffers[i][j]);
+	}
+     }
+
+     block2->assign(block2_range->begin(),block2_range->end());
+     block2_range->clear();
+
+     for(int i=0;i<block2_g->size();i++)
+	     block2->push_back((*block2_g)[i]);
+     block2_g->clear();
+
+     std::vector<struct event> *sorted_vec = new std::vector<struct event> ();
+
+     int i=0,j=0;
+     while(i < block2->size())
+     {
+	if(j == block1->size()) break;
+	int key1 = *(int*)((*block1)[j].data+offset);
+        int key2 = *(int*)((*block2)[i].data+offset);
+
+	if(key2 <= key1)
+	{
+	  while(i < block2->size())
+	  {
+	    int key = *(int*)((*block2)[i].data+offset);
+	    if(key <= key1) sorted_vec->push_back((*block2)[i]);
+	    i++;
+	  }
+	}
+	else
+	{
+	   if(key1 <= key2)
+	   {
+		while(j < block1->size())
+		{	
+		   int key = *(int *)((*blocks)[j].data+offset);
+		   if(key <= key2) sorted_vec->push_back((*block1)[j]);
+		   j++;
+		}	
+	   }
+
+	}
 
      }
 
+     while(j < block1->size())
+     {
+	sorted_vec->push_back((*block1)[j]);
+	j++;
+     }
 
+     if(last_block)
+     {
+	while(i < block2->size())
+	{
+	   sorted_vec->push_back((*block2)[j]);
+	   j++;
+	}
+	block2->clear();
+     }
+     else
+     {
+	std::vector<struct event> *block2_t = new std::vector<struct event> ();
+	
+	for(;j<block2->size();j++)
+		block2_t->push_back((*block2)[j]);
+	block2->assign(block2_t->begin(),block2_t->end());
 
+	delete block2_t;
+     }
 
+     block1->assign(sorted_vec->begin(),sorted_vec->end());
 
-
-
+     delete sorted_vec;
+     delete block2_range;
+     delete block2_g;
+     MPI_Type_free(&key_value);
+     MPI_Type_free(&value_field);
+     std::free(reqs);
 }
 
 std::string hdf5_sort::merge_datasets(std::string &s1,std::string &s2)
