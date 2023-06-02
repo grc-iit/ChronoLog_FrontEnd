@@ -335,74 +335,159 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 
     int tag = 20000;
 
+    std::vector<int> nrecords_next;
+
     bool last_block = false;
+
+    hid_t file_dataspace_r = file_dataspace;
+    hid_t file_dataspace_w = file_dataspace2;
+    hid_t dataset_r = dataset1;
+    hid_t dataset_w = dataset2;
+
     //for(int i=0;i<nstages;i++)
     {
+        hsize_t offset_wt = 0;
+
        for(int j=0;j<nrecords.size();j+=2)
        {
-	     
-	  hsize_t offset1 = offsets[j];
-	  int numr = nrecords[j];
-	  int numr_p = numr/numprocs;
-	  int rem = numr%numprocs;
-	  for(int k=0;k<myrank;k++)
-	  {
+	  
+	  int nrecords_t1 = nrecords[j];
+	  int nrecords_t2 = (j+1 < nrecords.size()) ? nrecords[j+1] : 0;
+	  last_block = false;
+	  hsize_t offset_t1 = offsets[j];
+	  hsize_t offset_t2 = (j+1 < nrecords.size()) ? offsets[j+1] : 0;
+
+	  int numr_w = 0;
+	  int w_offset = 0;
+
+          while(nrecords_t1 > 0)
+	  {	  
+	    w_offset = 0;
+	    hsize_t offset1 = offset_t1;
+	    int numr = nrecords_t1 <= 8192 ? nrecords_t1 : 8192;
+	    int numr_p = numr/numprocs;
+	    int rem = numr%numprocs;
+	    numr_w = numr;
+
+	    for(int k=0;k<myrank;k++)
+	    {
 		int size_p = 0;
 		if(k < rem) size_p = numr_p+1;
 		else size_p = numr_p;
 		offset1 += size_p;
-	  }
-	  hsize_t blocksize;
-	  if(myrank < rem) blocksize = numr_p+1;
-	  else blocksize = numr_p;
-	  hsize_t maxsize = H5S_UNLIMITED;
-          hid_t mem_dataspace2 = H5Screate_simple(1,&blocksize,&maxsize);
+		w_offset += size_p;
+	    }
+	    
+	    hsize_t blocksize;
+	    if(myrank < rem) blocksize = numr_p+1;
+	    else blocksize = numr_p;
+	    hsize_t maxsize = H5S_UNLIMITED;
 
-	  block1->clear();
-	  block1->resize(blocksize);
+            hid_t mem_dataspace2 = H5Screate_simple(1,&blocksize,&maxsize);
 
-          ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset1,NULL,&blocksize,NULL);
-          ret = H5Dread(dataset1,s2, mem_dataspace2, file_dataspace, xfer_plist,block1->data());
+	    block1->clear();
+	    block1->resize(blocksize);
 
-	  H5Sclose(mem_dataspace2);
+            ret = H5Sselect_hyperslab(file_dataspace_r, H5S_SELECT_SET,&offset1,NULL,&blocksize,NULL);
+            ret = H5Dread(dataset_r,s2, mem_dataspace2, file_dataspace_r, xfer_plist,block1->data());
 
-	  if(j+1 < nrecords.size())
-	  {
-	     hsize_t offset2 = offsets[j+1];
-	     numr = nrecords[j+1];
-	     numr_p = numr/numprocs;
-	     rem = numr%numprocs;
+	    H5Sclose(mem_dataspace2);
 
-	     for(int k=0;k<myrank;k++)
-	     {
+	    nrecords_t1 -= numr;
+	    offset_t1 += numr;
+
+	    if(nrecords_t1 == 0) last_block=true;
+
+	    if(nrecords_t2 > 0)
+	    {
+	      hsize_t offset2 = offset_t2;
+	      numr = (nrecords_t2 <= 8192) ? nrecords_t2 : 8192; 
+	      numr_p = numr/numprocs;
+	      rem = numr%numprocs;
+
+	      for(int k=0;k<myrank;k++)
+	      {
 		int size_p = 0;
 		if(k < rem) size_p = numr_p+1;
 		else size_p = numr_p;
 		offset2 += size_p;
-	     }
+	      }
 
-	     if(myrank < rem) blocksize = numr_p+1;
-	     else blocksize = numr_p;
-	     hid_t mem_dataspace1 = H5Screate_simple(1,&blocksize,&maxsize);
-	     std::vector<struct event> *block2_t = new std::vector<struct event> ();
-	     block2_t->resize(blocksize);
-	     ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset2,NULL,&blocksize,NULL);
-     	     ret = H5Dread(dataset1,s2,mem_dataspace1,file_dataspace,xfer_plist2,block2_t->data());	     
+	      if(myrank < rem) blocksize = numr_p+1;
+	      else blocksize = numr_p;
+	      hid_t mem_dataspace1 = H5Screate_simple(1,&blocksize,&maxsize);
+	      std::vector<struct event> *block2_t = new std::vector<struct event> ();
+	      block2_t->resize(blocksize);
+	      ret = H5Sselect_hyperslab(file_dataspace_r,H5S_SELECT_SET,&offset2,NULL,&blocksize,NULL);
+     	      ret = H5Dread(dataset_r,s2,mem_dataspace1,file_dataspace_r,xfer_plist2,block2_t->data());	     
 
-     	     for(int k=0;k<block2_t->size();k++)
+	      nrecords_t2 -= numr;
+	      offset_t2 += numr;
+
+     	      for(int k=0;k<block2_t->size();k++)
 		block2->push_back((*block2_t)[k]);	     
 
-	     delete block2_t;
-	     H5Sclose(mem_dataspace1);
+	      delete block2_t;
+	      H5Sclose(mem_dataspace1);
+
+	      int nrecordsw = insert_block(block1,block2,offset,tag,w_offset);
+	      numr_w = nrecordsw;
+
+	      nrecords_next.push_back(nrecords[j]+nrecords[j+1]);
+	   }
+
+	   hsize_t numw = numr_w;
+	   w_offset += offset_wt;
+	   hsize_t woffset = (hsize_t)w_offset;
+	   hsize_t numwb = block1->size();
+	   hid_t mem_dataspace_w = H5Screate_simple(1,&numwb,&maxsize);
+	   ret = H5Sselect_hyperslab(file_dataspace_w,H5S_SELECT_SET,&woffset,NULL,&numwb,NULL); 
+	   ret = H5Dwrite(dataset_w,s2,mem_dataspace_w,file_dataspace_w,xfer_plist,block1->data());
+	   H5Sclose(mem_dataspace_w);
+
+	   offset_wt += numr_w;
+           if(last_block)
+	   {
+	       int offset2w = 0;
+	       int total_2w = 0;
+	       count_offset(block2,total_2w,offset2w,tag);
+
+       	       offset2w += offset_wt;	       
+
+	       hsize_t offsetl = (hsize_t)offset2w;
+	       hsize_t total2w = (hsize_t)total_2w;
+
+	       hsize_t block2size = block2->size();
+	       hid_t mem_dataspace_2w = H5Screate_simple(1,&block2size,&maxsize);
+	       ret = H5Sselect_hyperslab(file_dataspace_w,H5S_SELECT_SET,&offsetl,NULL,&block2size,NULL);
+	       ret = H5Dwrite(dataset_w,s2,mem_dataspace_2w,file_dataspace_w,xfer_plist,block2->data());
+	       H5Sclose(mem_dataspace_2w);
+
+	       block2->clear();
+	       offset_wt += total_2w;
+	   }
+
 	  }
-	  
-	  insert_block(block1,block2,offset,tag,last_block);
 
-	  block2->clear();
        }
-
+       if(nrecords.size()%2==1) nrecords_next.push_back(nrecords[nrecords.size()-1]);
+       nrecords.clear();
+       nrecords.assign(nrecords_next.begin(),nrecords_next.end());
+       nrecords_next.clear();
+       soffset = 0;
+       offsets.clear();
+       for(int k=0;k<nrecords.size();k++)
+       {
+	   offsets.push_back(soffset);	
+	   soffset += nrecords[k];
+       }
+       hid_t file_dataspace_t = file_dataspace_r;
+       file_dataspace_r = file_dataspace_w;
+       file_dataspace_w = file_dataspace_t;
+       hid_t dataset_t = dataset_r;
+       dataset_r = dataset_w;
+       dataset_w = dataset_t;
     }
-
 
     delete block1;
     delete block2;
@@ -426,7 +511,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 }
 
 
-void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct event> *block2,int offset,int tag,bool last_block)
+int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct event> *block2,int offset,int tag,int &offset_w)
 {
      int minv1=UINT64_MAX,maxv1=0;
      int minv2=UINT64_MAX,maxv2=0;
@@ -644,6 +729,31 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
      block1->assign(sorted_vec->begin(),sorted_vec->end());
 
      block2->assign(block2_g->begin(),block2_g->end());
+     int ssize = block1->size();
+
+     std::vector<int> rsize(numprocs);
+     std::fill(rsize.begin(),rsize.end(),0);
+
+     nreq = 0;
+
+     for(int i=0;i<numprocs;i++)
+     {
+	MPI_Isend(&ssize,1,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&rsize[i],1,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	nreq++;
+     }
+
+     MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+     int total_size = 0;
+
+     for(int i=0;i<rsize.size();i++) total_size += rsize[i];
+
+     offset_w = 0;
+
+     for(int i=0;i<myrank;i++)
+	     offset_w += rsize[i];
 
      delete sorted_vec;
      delete block2_range;
@@ -651,6 +761,39 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
      MPI_Type_free(&key_value);
      MPI_Type_free(&value_field);
      std::free(reqs);
+     return total_size;
+}
+
+void hdf5_sort::count_offset(std::vector<struct event> *block2,int &total_records,int &offset,int tag)
+{
+
+	int local_size = block2->size();
+
+	MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+
+	int nreq = 0;
+	std::vector<int> rsizes(numprocs);
+	std::fill(rsizes.begin(),rsizes.end(),0);
+
+	for(int i=0;i<numprocs;i++)
+	{
+	   MPI_Isend(&local_size,1,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	   nreq++;
+	   MPI_Irecv(&rsizes[i],1,MPI_INT,i,tag,merge_comm,&reqs[nreq]);
+	   nreq++;
+	}
+
+	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+	total_records = 0;
+	for(int i=0;i<numprocs;i++)
+	   total_records += rsizes[i];
+
+	offset = 0;
+	for(int i=0;i<myrank;i++)
+	   offset += rsizes[i];
+
+	std::free(reqs);
 }
 
 std::string hdf5_sort::merge_datasets(std::string &s1,std::string &s2)

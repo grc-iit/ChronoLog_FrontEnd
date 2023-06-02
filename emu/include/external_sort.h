@@ -25,7 +25,8 @@ class hdf5_sort
        }
 
        void merge_tree(std::string&,int);
-       void insert_block(std::vector<struct event>*,std::vector<struct event>*,int,int,bool);
+       void count_offset(std::vector<struct event>*,int&,int&,int);
+       int insert_block(std::vector<struct event>*,std::vector<struct event>*,int,int,int&);
        void sort_block_secondary_key(std::vector<struct event>*,int,int,int&,int&,int&);
        std::string sort_on_secondary_key(std::string &,std::string &,int,uint64_t,uint64_t);
        std::string merge_datasets(std::string &,std::string &);
