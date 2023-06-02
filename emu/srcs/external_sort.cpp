@@ -130,6 +130,7 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
     hsize_t blocksize = records_per_proc;
     if(myrank < rem) blocksize++;
 
+    inp->clear();
     inp->resize(blocksize);
 
     file_dataspace = H5Dget_space(dataset1);
@@ -357,6 +358,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	  hsize_t maxsize = H5S_UNLIMITED;
           hid_t mem_dataspace2 = H5Screate_simple(1,&blocksize,&maxsize);
 
+	  block1->clear();
 	  block1->resize(blocksize);
 
           ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset1,NULL,&blocksize,NULL);
@@ -393,7 +395,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	     delete block2_t;
 	     H5Sclose(mem_dataspace1);
 	  }
-
+	  
 	  insert_block(block1,block2,offset,tag,last_block);
 
 	  block2->clear();
@@ -471,7 +473,6 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
 	maxv2 = *(int *)((*block2)[len2-1].data+offset);
      }
 
-     
      int nreq = 0;
      MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 
@@ -506,21 +507,13 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
      for(int i=0;i<block2->size();i++)
      {
 	int key = *(int*)((*block2)[i].data+offset);
-
 	int dest_proc = -1;
 	for(int j=0;j<numprocs;j++)
 	{
-	   if(j==0) 
-	   {
-	      if(key <= recv_ranges[2*j]) 
-	      {
-	         send_count[j]++; dest_proc = j; break;
-	      }
-	   }
-	   else if(key >= recv_ranges[2*j] && key <= recv_ranges[2*j+1])
-	   {
+	    if(key <= recv_ranges[2*j] || (key >= recv_ranges[2*j] && key <= recv_ranges[2*j+1]))
+	    {
 		send_count[j]++; dest_proc = j; break;
-	   }
+	    }	    
 	}
 	dest.push_back(dest_proc);
      }
@@ -556,8 +549,10 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
 
      block2->clear();
 
+     int total_recv = 0;
      for(int i=0;i<numprocs;i++)
      {	
+	total_recv += recv_count[i];
 	if(recv_count[i]>0) recv_buffers[i].resize(recv_count[i]);
      }
 
@@ -591,11 +586,8 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
      block2->assign(block2_range->begin(),block2_range->end());
      block2_range->clear();
 
-     for(int i=0;i<block2_g->size();i++)
-	     block2->push_back((*block2_g)[i]);
-     block2_g->clear();
-
      std::vector<struct event> *sorted_vec = new std::vector<struct event> ();
+
 
      int i=0,j=0;
      while(i < block2->size())
@@ -609,8 +601,12 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
 	  while(i < block2->size())
 	  {
 	    int key = *(int*)((*block2)[i].data+offset);
-	    if(key <= key1) sorted_vec->push_back((*block2)[i]);
-	    i++;
+	    if(key <= key1) 
+	    {
+	      sorted_vec->push_back((*block2)[i]);
+	      i++;
+	    }
+	    else break;
 	  }
 	}
 	else
@@ -619,9 +615,13 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
 	   {
 		while(j < block1->size())
 		{	
-		   int key = *(int *)((*blocks)[j].data+offset);
-		   if(key <= key2) sorted_vec->push_back((*block1)[j]);
-		   j++;
+		   int key = *(int *)((*block1)[j].data+offset);
+		   if(key <= key2) 
+		   {
+		     sorted_vec->push_back((*block1)[j]);
+		     j++;
+		   }
+		   else break;
 		}	
 	   }
 
@@ -635,27 +635,15 @@ void hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struc
 	j++;
      }
 
-     if(last_block)
+     while(i < block2->size())
      {
-	while(i < block2->size())
-	{
-	   sorted_vec->push_back((*block2)[j]);
-	   j++;
-	}
-	block2->clear();
-     }
-     else
-     {
-	std::vector<struct event> *block2_t = new std::vector<struct event> ();
-	
-	for(;j<block2->size();j++)
-		block2_t->push_back((*block2)[j]);
-	block2->assign(block2_t->begin(),block2_t->end());
-
-	delete block2_t;
+	sorted_vec->push_back((*block2)[i]);
+	i++;
      }
 
      block1->assign(sorted_vec->begin(),sorted_vec->end());
+
+     block2->assign(block2_g->begin(),block2_g->end());
 
      delete sorted_vec;
      delete block2_range;
