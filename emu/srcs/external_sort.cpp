@@ -344,7 +344,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
     hid_t dataset_r = dataset1;
     hid_t dataset_w = dataset2;
 
-    //for(int i=0;i<nstages;i++)
+    while(true)
     {
         hsize_t offset_wt = 0;
 
@@ -430,11 +430,10 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	      delete block2_t;
 	      H5Sclose(mem_dataspace1);
 
-	      int nrecordsw = insert_block(block1,block2,offset,tag,w_offset);
-	      numr_w = nrecordsw;
-
-	      nrecords_next.push_back(nrecords[j]+nrecords[j+1]);
 	   }
+	   
+	   int nrecordsw = insert_block(block1,block2,offset,tag,w_offset);
+	   numr_w = nrecordsw;
 
 	   hsize_t numw = numr_w;
 	   w_offset += offset_wt;
@@ -465,6 +464,8 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 
 	       block2->clear();
 	       offset_wt += total_2w;
+	       if(j+1 < nrecords.size())
+	       nrecords_next.push_back(nrecords[j]+nrecords[j+1]);
 	   }
 
 	  }
@@ -481,12 +482,20 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	   offsets.push_back(soffset);	
 	   soffset += nrecords[k];
        }
+       if(myrank==0)
+       {
+	  for(int k=0;k<nrecords.size();k++)
+		  std::cout <<" k = "<<k<<" nrecords = "<<nrecords[k]<<" offset = "<<offsets[k]<<std::endl;
+
+
+       }
        hid_t file_dataspace_t = file_dataspace_r;
        file_dataspace_r = file_dataspace_w;
        file_dataspace_w = file_dataspace_t;
        hid_t dataset_t = dataset_r;
        dataset_r = dataset_w;
        dataset_w = dataset_t;
+       if(nrecords.size()==1) break;
     }
 
     delete block1;
