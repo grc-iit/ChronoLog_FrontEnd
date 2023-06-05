@@ -56,8 +56,9 @@ void databuffers::add_event(event &e,int index)
 	      int numuints = std::ceil(VALUESIZE/sizeof(uint64_t));
 	      for(int j=0;j<numuints;j++)
 	      {
-		uint64_t seed;      
-		boost::hash_combine(seed,key+j);
+		std::size_t seed=0;     
+	        uint64_t key1 = key+j;	
+		boost::hash_combine(seed,key1);
 		uint64_t mask = 127;
 		bool end = false;
 		for(int k=0;k<sizeof(uint64_t);k++)
