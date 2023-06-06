@@ -4,7 +4,6 @@
 #include "rw.h"
 
 
-
 class hdf5_sort
 {
    private: 
@@ -24,14 +23,21 @@ class hdf5_sort
 	  MPI_Comm_free(&merge_comm);
        }
 
+       template<typename T>
        void merge_tree(std::string&,int);
-       void count_offset(std::vector<struct event>*,std::vector<struct event>*,int&,int&,int,int&);
-       int insert_block(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event> *,int,int,int&,int&,int&);
-       void sort_block_secondary_key(std::vector<struct event>*,int,int,int&,int&,int&);
-       std::string sort_on_secondary_key(std::string &,std::string &,int,uint64_t,uint64_t);
+       template<typename T,int M>
+       void count_offset(std::vector<struct event>*,std::vector<struct event>*,int&,int,int&,int,T&);
+       template<typename T,int M>
+       int insert_block(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event> *,int,int,int&,T&,T&);
+       template<typename T,int M>
+       void sort_block_secondary_key(std::vector<struct event>*,int,int,T&,T&,int&);
+       template<typename T>
+       std::string sort_on_secondary_key(std::string &,std::string &,int,uint64_t,uint64_t,std::string &);
        std::string merge_datasets(std::string &,std::string &);
        std::string merge_stream_with_dataset(std::string &,std::vector<struct event>*);
        std::string merge_multiple_dataset(std::vector<std::string>&);
 };
+
+#include "../srcs/external_sort.cpp"
 
 #endif
