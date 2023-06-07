@@ -14,6 +14,7 @@ void query_engine::send_query(std::string &s)
        if(myrank==0)
        {
           Q->PutAll(r);
+	  std::cout <<" query id = "<<r.id<<std::endl;
         }
 
 }
@@ -141,11 +142,21 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 	//usleep(10*128*20000);
 
-	for(int n=0;n<numrounds;n++)
+	while(true)
+	//for(int n=0;n<numrounds;n++)
 	{
-	  for(int i=0;i<names.size();i++)
+	   struct query_req *r = nullptr;
+	   r=Q->Get();
+	   if(r != nullptr)
+	  //for(int i=0;i<names.size();i++)
           {
 
+	      std::string sname(r->name);
+	      if(sname.compare("endsession")==0) 
+	      {
+		     delete r;
+		     break;
+	      }
 	      uint64_t min_key1,max_key1;
 
 	      bool b = false;
@@ -157,9 +168,10 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 
 	      std::string filename = "file";
-	      filename += names[i]+".h5";
+	      //filename += names[i]+".h5";
+                filename += sname+".h5";
 
-	      usleep(128*20000);
+	      //usleep(128*20000);
 
 	      uint64_t minkey_f,maxkey_f;
 
@@ -170,7 +182,8 @@ void query_engine::service_query(struct thread_arg_q* t)
 	
 		  
 	      struct io_request *nq = new struct io_request();
-	      nq->name.assign(names[i]);
+	      //nq->name.assign(names[i]);
+	      nq->name.assign(sname);
 	      nq->completed.store(0);
 	      nq->buf1 = buf1;
 	      nq->buf2 = buf2;
@@ -186,18 +199,18 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 	      if(myrank==0)
               {
-         	std::cout <<" id = "<<i<<" minkey 3 = "<<minkeys[2]<<" maxkey 3 = "<<maxkeys[2]<<std::endl;
-         	std::cout <<" id = "<<i<<" minkey 2 = "<<minkeys[1]<<" maxkey 2 = "<<maxkeys[1]<<std::endl;
-         	std::cout <<" id = "<<i<<" minkey 1 = "<<minkeys[0]<<" maxkey 1 = "<<maxkeys[0]<<std::endl;
+         	std::cout <<" id = "<<r->id<<" minkey 3 = "<<minkeys[2]<<" maxkey 3 = "<<maxkeys[2]<<std::endl;
+         	std::cout <<" id = "<<r->id<<" minkey 2 = "<<minkeys[1]<<" maxkey 2 = "<<maxkeys[1]<<std::endl;
+         	std::cout <<" id = "<<r->id<<" minkey 1 = "<<minkeys[0]<<" maxkey 1 = "<<maxkeys[0]<<std::endl;
      	      }
 
 
-	      if(sorted)
+	      /*if(sorted)
 	      {
 
 		  uint64_t maxkey = std::max(maxkeys[1],maxkeys[2]);
 		  sort_response(names[i],i,buf1,maxkey);
-	      }
+	      }*/
 	        
 	      resp_vec = new std::vector<struct event> ();
 
@@ -231,7 +244,6 @@ void query_engine::service_query(struct thread_arg_q* t)
 		}
 		buf1->clear();
 	       }
-
       	      /*struct query_resp *p = new struct query_resp();
 
 	      p->response_vector = nullptr;
@@ -243,8 +255,10 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      delete buf2;
 	      delete buf3;
 	      delete resp_vec;
+	      delete r;
            }
 	}
+
 }
 
 void query_engine::sort_file(std::string &s)
