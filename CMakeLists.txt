@@ -4,7 +4,7 @@ project(Emulator VERSION 1.0.0 DESCRIPTION "emulation engine")
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVALUESIZE=5000 -DMAXSTREAMS=50 -DMAXBLOCKS=1000 -O3 -lm -lc -ldl -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVALUESIZE=100 -DMAXSTREAMS=50 -DMAXBLOCKS=1000 -O3 -lm -lc -ldl -pthread")
 set(RPC_LIB_FLAGS "")
 include_directories(${CMAKE_PREFIX_PATH}/include)
 add_definitions(-w)
