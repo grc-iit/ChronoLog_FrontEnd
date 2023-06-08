@@ -47,10 +47,11 @@ class data_server_client
       std::vector<std::string> shmaddrs;      
       std::string myipaddr;
       std::string myhostname;
+      int base_port;
 
    public:
 
-      data_server_client(int n,int p) : nservers(n), serverid(p)
+      data_server_client(int n,int p,int b) : nservers(n), serverid(p), base_port(b)
       {
 
 	char processor_name[1024];
@@ -94,7 +95,7 @@ class data_server_client
 
 	int pos = std::distance(ipaddrs.begin(),std::find(ipaddrs.begin(),ipaddrs.end(),myipaddr));
 
-        int port_addr = 5555+serverid-pos;
+        int port_addr = base_port+serverid-pos;
         std::string server_addr = "na+sm://";
 	
 	thallium_shm_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,4);
@@ -130,7 +131,7 @@ class data_server_client
 
 	for(int i=0;i<nservers;i++)
         {
-                int portno = 5555;
+                int portno = base_port;
                 std::string serveraddr_1 = "ofi+sockets://";
                 serveraddr_1 += ipaddrs[i];
                 serveraddr_1 += ":";

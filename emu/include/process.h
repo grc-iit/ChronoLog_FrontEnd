@@ -47,7 +47,7 @@ public:
 
 	if(myrank!=0) num_cores_rw = numcores;
 
-	dsc = new data_server_client(numprocs,myrank); 
+	dsc = new data_server_client(numprocs,myrank,5555); 
 
 	rwp = new read_write_process(r,np,CM,num_cores_rw,dsc);
 	QE = new query_engine(numprocs,myrank,dsc,rwp);
@@ -137,11 +137,10 @@ public:
 
       }
 
+      void spawn_post_processing();
       void process_queries(struct thread_arg_p *t)
       {
 
-	   /*std::string s = "table0";
-	   QE->sort_file(s);*/
 	   usleep(10*128*20000);
 	   QE->send_query(t->snames[0]);
 	   usleep(20000*128);

@@ -42,21 +42,25 @@ void add_story(Chronicle **c,B &&s)
 
 }
 
-bool acquisition_count_zero(Chronicle **c)
+template<typename B>
+bool acquisition_count_zero(Chronicle **c, B&&n)
 {
-  if((*c)->get_acquisition_count()==0) return true;
+  if((*c)->get_acquisition_count(std::forward<B>(n))==0) return true;
   return false;
 }
 
-void increment_acquisition_chronicle(Chronicle **c)
+template<typename B>
+void increment_acquisition_chronicle(Chronicle **c,B &&n)
 {
-   (*c)->increment_acquisition_count();
+   (*c)->increment_acquisition_count(std::forward<B>(n));
 }
 
-void decrement_acquisition_chronicle(Chronicle **c)
+template<typename B>
+void decrement_acquisition_chronicle(Chronicle **c,B &&n)
 {
-   (*c)->decrement_acquisition_count();
+   (*c)->decrement_acquisition_count(std::forward<B>(n));
 }
+
 template<typename B>
 void increment_acquisition_story(Chronicle **c,B &&b)
 {
@@ -190,13 +194,14 @@ class metadata_server
 
 	bool LocalAcquireChronicle(std::string &client_name,std::string &chronicle_name)
 	{
-	     bool b = metadata_table->update_field(chronicle_name,increment_acquisition_chronicle); 
+	     int a = 1;
+	     bool b = metadata_table->update_field(chronicle_name,increment_acquisition_chronicle,a); 
 	     return b;
 	}
 
 	bool LocalReleaseChronicle(std::string &client_name,std::string &chronicle_name)
 	{
-	    bool b = metadata_table->update_field(chronicle_name,decrement_acquisition_chronicle);
+	    bool b = false; //metadata_table->update_field(chronicle_name,decrement_acquisition_chronicle);
 	    return b;
 	}
 	bool LocalDestroyChronicle(std::string &client_name,std::string &chronicle_name)
@@ -205,7 +210,7 @@ class metadata_server
 	   bool b = metadata_table->get(chronicle_name,&c);
 	   if(b)
 	   {
-		b = metadata_table->erase_if(chronicle_name,acquisition_count_zero);
+		b = false; //metadata_table->erase_if(chronicle_name,acquisition_count_zero);
 		if(b) 
 		{
 		   delete c;

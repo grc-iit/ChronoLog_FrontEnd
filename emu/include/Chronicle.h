@@ -18,11 +18,11 @@ class Story
 	~Story()
 	{
 	}	
-	void increment_acquisition_count()
+	void increment_acquisition_count(int a)
 	{
 	   acquisition_count++;
 	}
-	void decrement_acquisition_count()
+	void decrement_acquisition_count(int &a)
 	{
 	   acquisition_count--;
 	}
@@ -67,15 +67,15 @@ class Chronicle
 	{
 	   return stories;
 	}
-	void increment_acquisition_count()
+	void increment_acquisition_count(int &a)
 	{
 		acquisition_count++;
 	}
-	void decrement_acquisition_count()
+	void decrement_acquisition_count(int &a)
 	{
 		acquisition_count--;
 	}
-	int get_acquisition_count()
+	int get_acquisition_count(int &a)
 	{
 		return acquisition_count;
 	}
@@ -108,7 +108,8 @@ class Chronicle
 			if(stories[i].getname().compare(story_name)==0)
 			{
 			    found = true;
-			    stories[i].increment_acquisition_count();
+			    int a = 1;
+			    stories[i].increment_acquisition_count(a);
 			    break;
 			}
 		}
@@ -122,7 +123,8 @@ class Chronicle
 			if(stories[i].getname().compare(story_name)==0)
 			{
 			   found = true;
-			   stories[i].decrement_acquisition_count();
+			   int a = 1;
+			   stories[i].decrement_acquisition_count(a);
 			   break;
 			}
 		}

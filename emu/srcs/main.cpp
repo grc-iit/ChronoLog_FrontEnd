@@ -106,7 +106,11 @@ int main(int argc,char **argv)
 
   t1 = std::chrono::high_resolution_clock::now();
 
-  //np->data_streams_s(story_names,total_events,nbatches);
+  np->spawn_post_processing();
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  np->data_streams_s(story_names,total_events,nbatches);
 
   np->generate_queries(story_names);
 
