@@ -110,9 +110,9 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  np->data_streams_s(story_names,total_events,nbatches);
+  //np->data_streams_s(story_names,total_events,nbatches);
 
-  np->generate_queries(story_names);
+  //np->generate_queries(story_names);
 
   np->end_sessions();
 
@@ -121,7 +121,7 @@ int main(int argc,char **argv)
 
   MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-  if(rank==0) std::cout <<" Total time = "<<total_time<<std::endl;
+  //if(rank==0) std::cout <<" Total time = "<<total_time<<std::endl;
 
   delete np;
   MPI_Finalize();

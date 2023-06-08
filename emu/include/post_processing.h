@@ -14,7 +14,7 @@ class file_post_processing
    	    int myrank;
  	    int numprocs;	    
   	    hdf5_sort *hs; 
-	    
+	    hdf5_invlist *iv;	    
 
    public :
 	    file_post_processing(int n,int p) : numprocs(n),myrank(p)
@@ -22,6 +22,7 @@ class file_post_processing
 
                 H5open();
 		hs = new hdf5_sort(numprocs,myrank);
+		iv = new hdf5_invlist(numprocs,myrank);
 	    }
 
 	    void sort_on_secondary_key()
@@ -36,9 +37,20 @@ class file_post_processing
                 hs->merge_tree<int>(s,0);
 	    }
 
+	    void create_invlist(std::string &s,int maxsize,int kt)
+	    {
+		if(kt==0)
+		iv->create_invlist<int>(s,maxsize);
+		else if(kt==1)
+		iv->create_invlist<float>(s,maxsize);
+		else if(kt==2)
+		iv->create_invlist<double>(s,maxsize);
+	    }
+
 	    ~file_post_processing()
 	    {
 		delete hs;
+		delete iv;
 		H5close();
 	    }
 

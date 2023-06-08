@@ -22,8 +22,24 @@ int main(int argc,char **argv)
    MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 
    file_post_processing *fp = new file_post_processing(numprocs,rank);
-  
-   fp->sort_on_secondary_key(); 
+
+   auto t1 = std::chrono::high_resolution_clock::now();
+
+   //fp->sort_on_secondary_key(); 
+
+   std::string str = "table1";
+   int maxtablesize = 8192;
+   fp->create_invlist(str,maxtablesize,0);
+
+   auto t2 = std::chrono::high_resolution_clock::now();
+
+   double total_time = std::chrono::duration<double> (t2-t1).count();
+
+   double max_time = 0;
+
+   MPI_Allreduce(&total_time,&max_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
+   if(rank==0) std::cout <<" total_time = "<<max_time<<std::endl;
 
    delete fp;
 
