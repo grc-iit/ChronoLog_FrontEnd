@@ -144,10 +144,87 @@ void hdf5_invlist::fill_invlist_from_file(std::string &s,int offset)
 
     }
 
+    std::vector<std::vector<T>> keys;
+    std::vector<std::vector<int>> values;
 
+    int key_pre=0;
+    int totalkeys=0;
+
+    get_entries_from_tables<T,hashfcn,equalfcn>(s,keys,values,key_pre,totalkeys);
+
+    struct intkey{int key;int index;};
+    struct floatkey{float key;int index;};
+    struct doublekey{double key;int index;};
+
+    hid_t kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct intkey));
+    H5Tinsert(kv1,"key",HOFFSET(struct intkey,key),H5T_INT);
+    H5Tinsert(kv1,"index",HOFFSET(struct intkey,index),H5T_INT);
+
+    hid_t kv2 = H5Tcreate(H5T_COMPOUND,sizeof(struct floatkey));
+    H5Tinsert(kv2,"key",HOFFSET(struct floatkey,key),H5T_FLOAT);
+    H5Tinsert(kv2,"index",HOFFSET(struct floatkey,index),H5T_INT);
+
+    hid_t kv3 = H5Tcreate(H5T_COMPOUND,sizeof(struct doublekey));
+    H5Tinsert(kv3,"key",HOFFSET(struct doublekey,key),H5T_DOUBLE);
+    H5Tinsert(kv3,"index",HOFFSET(struct doublekey,index),H5_INT);
+
+    std::vector<struct intkey> *buf1 = nullptr;
+    std::vector<struct floatkey> *buf2 = nullptr;
+    std::vector<struct doublekey> *buf3 = nullptr;
+
+    if(h->keytype==0)
+	buf1 = new std::vector<struct intkey> ();
+    else if(h->keytype==1)
+	 buf2 = new std::vector<struct floatkey> ();
+    else if(h->keytype==2)
+	 buf3 = new std::vector<struct doublekey> ();
+
+    for(int i=0;i<keys.size();i++)
+    {
+	for(int j=0;j<keys[i].size();j++)
+	{	
+		struct intkey nk;
+		nk.key = keys[i][j];
+		nk.index = values[i][j];
+		if(buf1 != nullptr) buf1->push_back(nk);
+		else if(buf2 != nullptr) buf2->push_back(nk);
+		else if(buf3 != nullptr) buf3->push_back(nk);
+	 }
+    }
+
+    hsize_t blockcount = 0;
+    if(buf1 != nullptr) blockcount = buf1->size();
+    else if(buf2 != nullptr) blockcount = buf2->size();
+    else if(buf3 != nullptr) blockcount = buf3->size();
+
+    std::string kv_string = "key_index";
+    hsize_t totalkeys_t = (hsize_t)totalkeys;
+    hid_t file_dataspace2 = H5Screate_simple(1,&totalkeys_t,maxdims);
+    hid_t mem_dataspace2 = H5Screate_simple(1,&blockcount, NULL);
+    ret = H5Sselect_hyperslab(file_dataspace2,H5S_SELECT_SET,&offsetf2,NULL,&blockcount,NULL);
+    if(h->keytype==0)
+    {
+       hid_t dataset2 = H5Dcreate(fid,kv_string.c_str(),kv1,file_dataspace2, H5P_DEFAULT,dataset_pl,H5P_DEFAULT);
+       ret = H5Dwrite(dataset2,kv1, mem_dataspace2,file_dataspace2,xfer_plist,buf1->data());
+    }
+    else if(h->keytype==1)
+    {
+       hid_t dataset2 = H5Dcreate(fid,kv_string.c_str(),kv2,file_dataspace2, H5P_DEFAULT,dataset_pl,H5P_DEFAULT);
+       ret = H5Dwrite(dataset2,kv2, mem_dataspace2,file_dataspace2,xfer_plist,buf2->data());
+
+
+    }
+    else if(h->keytype==2)
+    {
+       hid_t dataset2 = H5Dcreate(fid,kv_string.c_str(),kv3,file_dataspace2, H5P_DEFAULT,dataset_pl,H5P_DEFAULT);
+       ret = H5Dwrite(dataset2,kv3, mem_dataspace2,file_dataspace2,xfer_plist,buf3->data());
+    }
 
 
     delete buffer;
+    H5Tclose(kv1);
+    H5Tclose(kv2);
+    H5Tclose(kv3);
     H5Tclose(s2);
     H5Tclose(s1);
    H5Sclose(attr_space[0]);
@@ -158,7 +235,7 @@ void hdf5_invlist::fill_invlist_from_file(std::string &s,int offset)
 }
 
 template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
-void add_entries_to_tables(std::string &s,std::vector<struct event> *buffer,int f_offset,int offset)
+void hdf5_invlist::add_entries_to_tables(std::string &s,std::vector<struct event> *buffer,int f_offset,int offset)
 {
   std::vector<int> send_count,recv_count;
 
@@ -242,4 +319,65 @@ void add_entries_to_tables(std::string &s,std::vector<struct event> *buffer,int 
 
 
   std::free(reqs);
+}
+
+template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
+void hdf5_invlist::get_entries_from_tables(std::string &s,std::vector<std::vector<T>>& keys,std::vector<std::vector<int>> &offsets,int &key_b,int &numkeys)
+{
+
+	auto r = invlists.find(s);
+
+	struct head_node *h = r->second;
+
+	struct invnode<int,int> *table1 = nullptr;
+        struct invnode<float,int> *table2 = nullptr;
+        struct invnode<double,int> *table3 = nullptr;	
+
+	if(h->keytype==0)
+	{
+	   table1 = h->inttable;
+	   table1->bm->get_map_keyvalue(keys,offsets);
+	}
+	else if(h->keytype==1) 
+	{
+	   table2 = h->floattable;
+	   table2->bm->get_map_keyvalue(keys,offsets);
+	}
+	else if(h->keytype==2) 
+	{
+	   table3 = h->doubletable;
+	   table3->bm->get_map_keyvalue(keys,offsets);
+	}
+
+	MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+	int nreq = 0;
+
+	int numentries = 0;
+	for(int i=0;i<keys.size();i++)
+		numentries += keys[i].size();
+	numentries = 2*numentries;
+
+	std::vector<int> recv_counts(numprocs);
+	int send_count = numentries;
+
+	for(int i=0;i<numprocs;i++)
+	{
+	   MPI_Isend(&send_count,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	   MPI_Irecv(&recv_counts[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	}
+
+	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+	numkeys = 0;
+	for(int i=0;i<recv_counts.size();i++)
+	   numkeys += recv_counts[i];
+
+	key_b = 0;
+	for(int i=0;i<myrank;i++)
+	  key_b += recv_counts[i];
+
+
+	std::free(reqs);
 }

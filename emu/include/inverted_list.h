@@ -65,11 +65,13 @@ class hdf5_invlist
 	   void create_invlist(std::string &,int);
 	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
 	   void fill_invlist_from_file(std::string&);
+	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
 	   template<typename T,class hashfcn=std::hash<T>>
 	   int partition_no(T &k);		  
 	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
 	   void add_entries_to_tables(std::string&,std::vector<struct event>*,int,int); 
-	   
+	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
+	   void get_entries_from_tables(std::string &,std::vector<T>&,std::vector<int>&);
 };
 
 #include "../srcs/inverted_list.cpp"

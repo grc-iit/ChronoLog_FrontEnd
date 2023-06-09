@@ -341,7 +341,26 @@ class BlockMap
 	   //std::cout <<" num_entries = "<<num_entries<<" allocated = "<<allocated.load()<<std::endl;
 	   return true;
 	}
-		
+	
+	bool get_map_keyvalue(std::vector<std::vector<KeyT>> &keys,std::vector<std::vector<Value>> &values)
+	{
+	   keys.resize(maxSize);
+   	   values.resize(maxSize);
+
+	   int num_entries=0;
+	   for(int i=0;i<maxSize;i++)
+	   {
+		node_type *n = table[i].head->next;
+
+		while(n != nullptr)
+		{
+		   keys[i].push_back(n->key);
+		   values[i].push_back(n->value)'
+		   n = n->next;
+		   num_entries++;
+		}
+	   }
+	}	
 };
 
 #endif
