@@ -3,21 +3,20 @@
 
 #include "rw.h"
 
-template<typename T>
-struct list_node
+template<class KeyT,class Value, class HashFcn=std::hash<KeyT>,class EqualFcn=std::equal_to<KeyT>>
+struct invnode
 {
-   T key;
-   uint64_t offset;
-   struct list_node<T> *next;
+   BlockMap<KeyT,ValueT,HashFcn,EqualFcn> *bm;
+   memory_pool<KeyT,ValueT,HashFcn,EqualFcn> *ml; 
 };
 
 struct head_node
 {
-   int maxsize;
-   std::string filename;
-   std::vector<struct list_node<int> *> *intslots;
-   std::vector<struct list_node<float>*> *floatslots;
-   std::vector<struct list_node<double>*> *doubleslots;
+  int keytype;
+  int maxsize;
+  struct invnode<int,int> *inttable;
+  struct invnode<float,int> *floattable;
+  struct invnode<double,int> *doubletable;
 };
 
 class hdf5_invlist
@@ -27,11 +26,11 @@ class hdf5_invlist
 	   int numprocs;
 	   int myrank;
 	   std::unordered_map<std::string,struct head_node*> invlists;
-
+	   int tag;
    public:
 	   hdf5_invlist(int n,int p) : numprocs(n), myrank(p)
 	   {
-
+	     tag = 20000;
 
 	   }
 	   ~hdf5_invlist()
@@ -51,14 +50,26 @@ class hdf5_invlist
 
 	   }
 
+	   inline int nearest_power_two(int n)
+	   {
+		int c = 1;
+
+		while(c < n)
+		{
+		   c = 2*c;
+		}
+		return c;
+	   }
+
 	   template<typename T>
 	   void create_invlist(std::string &,int);
 	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
 	   void fill_invlist_from_file(std::string&);
+	   template<typename T,class hashfcn=std::hash<T>>
+	   int partition_no(T &k);		  
 	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
-	   void add_entry_to_list(std::string &,T &key,int);
-	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
-	   std::vector<int> fetch_offsets_from_list(std::string&,T&key);
+	   void add_entries_to_tables(std::string&,std::vector<struct event>*,int,int); 
+	   
 };
 
 #include "../srcs/inverted_list.cpp"
