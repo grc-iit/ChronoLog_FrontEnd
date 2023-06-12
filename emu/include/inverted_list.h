@@ -3,7 +3,7 @@
 
 #include "rw.h"
 
-template<class KeyT,class Value, class HashFcn=std::hash<KeyT>,class EqualFcn=std::equal_to<KeyT>>
+template<class KeyT,class ValueT, class HashFcn=std::hash<KeyT>,class EqualFcn=std::equal_to<KeyT>>
 struct invnode
 {
    BlockMap<KeyT,ValueT,HashFcn,EqualFcn> *bm;
@@ -42,9 +42,10 @@ class hdf5_invlist
 		   auto r = t->first;
 		   auto rv = t->second;
 		   
-		   if(rv->intslots != nullptr) delete rv->intslots;
-		   if(rv->floatslots != nullptr) delete rv->floatslots;
-		   if(rv->doubleslots != nullptr) delete rv->doubleslots;
+		   if(rv->inttable != nullptr) delete rv->inttable;
+		   if(rv->floattable != nullptr) delete rv->floattable;
+		   if(rv->doubletable != nullptr) delete rv->doubletable;
+		   delete rv;
 		}
 
 
@@ -64,14 +65,13 @@ class hdf5_invlist
 	   template<typename T>
 	   void create_invlist(std::string &,int);
 	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
-	   void fill_invlist_from_file(std::string&);
-	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
+	   void fill_invlist_from_file(std::string&,int);
 	   template<typename T,class hashfcn=std::hash<T>>
 	   int partition_no(T &k);		  
 	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
 	   void add_entries_to_tables(std::string&,std::vector<struct event>*,int,int); 
 	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
-	   void get_entries_from_tables(std::string &,std::vector<T>&,std::vector<int>&);
+	   void get_entries_from_tables(std::string &,std::vector<std::vector<T>>&,std::vector<std::vector<int>>&,int&,int&);
 };
 
 #include "../srcs/inverted_list.cpp"

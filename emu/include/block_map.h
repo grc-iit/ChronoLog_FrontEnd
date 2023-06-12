@@ -342,7 +342,7 @@ class BlockMap
 	   return true;
 	}
 	
-	bool get_map_keyvalue(std::vector<std::vector<KeyT>> &keys,std::vector<std::vector<Value>> &values)
+	bool get_map_keyvalue(std::vector<std::vector<KeyT>> &keys,std::vector<std::vector<ValueT>> &values)
 	{
 	   keys.resize(maxSize);
    	   values.resize(maxSize);
@@ -355,7 +355,7 @@ class BlockMap
 		while(n != nullptr)
 		{
 		   keys[i].push_back(n->key);
-		   values[i].push_back(n->value)'
+		   values[i].push_back(n->value);
 		   n = n->next;
 		   num_entries++;
 		}

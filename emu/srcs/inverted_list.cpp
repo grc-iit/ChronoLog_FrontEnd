@@ -60,8 +60,12 @@ void hdf5_invlist::fill_invlist_from_file(std::string &s,int offset)
 
    hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
-   H5Pset_fapl_mpio(fapl,merge_comm, MPI_INFO_NULL);
+   H5Pset_fapl_mpio(fapl,MPI_COMM_WORLD, MPI_INFO_NULL);
    H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
+
+   auto r = invlists.find(s);
+
+   struct head_node *h  = r->second;
 
    hsize_t chunkdims[1];
    chunkdims[0] = 8192;
@@ -72,7 +76,7 @@ void hdf5_invlist::fill_invlist_from_file(std::string &s,int offset)
 
    int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
 
-   hid_t fid = H5Fopen(filename2.c_str(),H5F_ACC_RDWR,fapl);     
+   hid_t fid = H5Fopen(filename.c_str(),H5F_ACC_RDWR,fapl);     
 
    hsize_t attr_size[1];
    attr_size[0] = MAXBLOCKS*4+4;
@@ -83,7 +87,7 @@ void hdf5_invlist::fill_invlist_from_file(std::string &s,int offset)
    attrname[0] = "Datasizes";
 
    std::string data_string = "Data1";
-   dataset1 = H5Dopen2(fid,data_string.c_str(), H5P_DEFAULT);
+   hid_t dataset1 = H5Dopen2(fid,data_string.c_str(), H5P_DEFAULT);
 
    hid_t attr_id = H5Aopen(dataset1,attrname[0],H5P_DEFAULT);
    std::vector<uint64_t> attrs;
@@ -101,10 +105,6 @@ void hdf5_invlist::fill_invlist_from_file(std::string &s,int offset)
     int numblocks = attrs[3];
 
     hid_t file_dataspace = H5Dget_space(dataset1);
-    ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset_f,NULL,&blocksize,NULL);
-    mem_dataspace = H5Screate_simple(1,&blocksize, NULL);
-    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,inp->data());
-
 
     std::vector<struct event> *buffer = new std::vector<struct event> ();
 
@@ -157,16 +157,16 @@ void hdf5_invlist::fill_invlist_from_file(std::string &s,int offset)
     struct doublekey{double key;int index;};
 
     hid_t kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct intkey));
-    H5Tinsert(kv1,"key",HOFFSET(struct intkey,key),H5T_INT);
-    H5Tinsert(kv1,"index",HOFFSET(struct intkey,index),H5T_INT);
+    H5Tinsert(kv1,"key",HOFFSET(struct intkey,key),H5T_INTEGER);
+    H5Tinsert(kv1,"index",HOFFSET(struct intkey,index),H5T_INTEGER);
 
     hid_t kv2 = H5Tcreate(H5T_COMPOUND,sizeof(struct floatkey));
-    H5Tinsert(kv2,"key",HOFFSET(struct floatkey,key),H5T_FLOAT);
-    H5Tinsert(kv2,"index",HOFFSET(struct floatkey,index),H5T_INT);
+    H5Tinsert(kv2,"key",HOFFSET(struct floatkey,key),H5T_NATIVE_FLOAT);
+    H5Tinsert(kv2,"index",HOFFSET(struct floatkey,index),H5T_INTEGER);
 
     hid_t kv3 = H5Tcreate(H5T_COMPOUND,sizeof(struct doublekey));
-    H5Tinsert(kv3,"key",HOFFSET(struct doublekey,key),H5T_DOUBLE);
-    H5Tinsert(kv3,"index",HOFFSET(struct doublekey,index),H5_INT);
+    H5Tinsert(kv3,"key",HOFFSET(struct doublekey,key),H5T_NATIVE_DOUBLE);
+    H5Tinsert(kv3,"index",HOFFSET(struct doublekey,index),H5T_INTEGER);
 
     std::vector<struct intkey> *buf1 = nullptr;
     std::vector<struct floatkey> *buf2 = nullptr;
@@ -201,7 +201,7 @@ void hdf5_invlist::fill_invlist_from_file(std::string &s,int offset)
     hsize_t totalkeys_t = (hsize_t)totalkeys;
     hid_t file_dataspace2 = H5Screate_simple(1,&totalkeys_t,maxdims);
     hid_t mem_dataspace2 = H5Screate_simple(1,&blockcount, NULL);
-    ret = H5Sselect_hyperslab(file_dataspace2,H5S_SELECT_SET,&offsetf2,NULL,&blockcount,NULL);
+    ret = H5Sselect_hyperslab(file_dataspace2,H5S_SELECT_SET,&offset_r,NULL,&blockcount,NULL);
     if(h->keytype==0)
     {
        hid_t dataset2 = H5Dcreate(fid,kv_string.c_str(),kv1,file_dataspace2, H5P_DEFAULT,dataset_pl,H5P_DEFAULT);

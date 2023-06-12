@@ -27,7 +27,7 @@ int main(int argc,char **argv)
 
    //fp->sort_on_secondary_key(); 
 
-   std::string str = "table1";
+   std::string str = "table0";
    int maxtablesize = 8192;
    fp->create_invlist(str,maxtablesize,0);
 
