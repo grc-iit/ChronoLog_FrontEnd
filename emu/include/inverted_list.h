@@ -72,6 +72,7 @@ class hdf5_invlist
 
 	   void create_invlist(std::string &,int);
 	   void fill_invlist_from_file(std::string&,int);
+	   void flush_table_file(std::string &,int);
 	   int partition_no(KeyT &k);		  
 	   void add_entries_to_tables(std::string&,std::vector<struct event>*,int,int); 
 	   void get_entries_from_tables(std::string &,std::vector<std::vector<KeyT>> *,std::vector<std::vector<ValueT>>*,int&,int&);

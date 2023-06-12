@@ -103,7 +103,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
 
     int pos = 4;
     hsize_t offset_r = 0;
-    for(int i=0;i<1;i++)
+    for(int i=0;i<numblocks;i++)
     {
 	int nrecords = attrs[pos+i*4+3];
 	
@@ -183,14 +183,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
 	 }
     }
 
-    if(myrank==0)
-    {
-	/*for(int i=0;i<buf1->size();i++)
-		std::cout <<" i = "<<i<<" key = "<<(*buf1)[i].key<<" index = "<<(*buf1)[i].index<<std::endl;*/
-
-    }
-    //if(myrank>=6) buf1->clear();
-
     delete keys;
     delete offsets;
 
@@ -208,7 +200,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
     ret = H5Sselect_hyperslab(file_dataspace2,H5S_SELECT_SET,&offset_w,NULL,&blockcount,NULL);
     
 
-    //if(h->keytype==0)
     {
        ret = H5Dwrite(dataset2,kv1, mem_dataspace2,file_dataspace2,xfer_plist,buf1->data());
        H5Sclose(file_dataspace2);
@@ -243,6 +234,23 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
    H5Dclose(dataset1);
    H5Aclose(attr_id);
    H5Fclose(fid);
+
+}
+
+template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
+void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s,int offset)
+{
+
+
+
+
+
+
+
+
+
+
+
 
 }
 
@@ -368,11 +376,5 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entries_from_tables(std::st
 	  key_b += recv_counts[i];
 
 
-	if(myrank==0)
-	{
-	   /*for(int i=0;i<recv_counts.size();i++)
-		   std::cout <<" i = "<<i<<" numentries = "<<recv_counts[i]<<std::endl;*/
-	}
-	std::cout <<" rank = "<<myrank<<" key_pre = "<<key_b<<" numkeys = "<<numkeys<<" numentries = "<<send_count<<std::endl; 
 	std::free(reqs);
 }
