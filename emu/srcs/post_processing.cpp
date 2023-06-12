@@ -12,10 +12,10 @@ int main(int argc,char **argv)
 
    MPI_Init_thread(&argc,&argv,MPI_THREAD_MULTIPLE,&prov);
 
-   MPI_Comm_get_parent(&parent);
+   //MPI_Comm_get_parent(&parent);
 
    int psize = 0;
-   MPI_Comm_remote_size(parent,&psize);
+   //MPI_Comm_remote_size(parent,&psize);
 
 
    MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
@@ -29,7 +29,8 @@ int main(int argc,char **argv)
 
    std::string str = "table0";
    int maxtablesize = 8192;
-   fp->create_invlist(str,maxtablesize,0);
+   int offset = 0;
+   fp->create_invlist(str,maxtablesize,0,offset);
 
    auto t2 = std::chrono::high_resolution_clock::now();
 

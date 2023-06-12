@@ -3,6 +3,12 @@
 
 #include "rw.h"
 
+struct intkey
+{
+  int key;
+  int index;
+};
+
 template<class KeyT,class ValueT, class HashFcn=std::hash<KeyT>,class EqualFcn=std::equal_to<KeyT>>
 struct invnode
 {
@@ -10,22 +16,22 @@ struct invnode
    memory_pool<KeyT,ValueT,HashFcn,EqualFcn> *ml; 
 };
 
+template<class KeyT,class ValueT,class hashfcn=std::hash<KeyT>,class equalfcn=std::equal_to<KeyT>>
 struct head_node
 {
   int keytype;
   int maxsize;
-  struct invnode<int,int> *inttable;
-  struct invnode<float,int> *floattable;
-  struct invnode<double,int> *doubletable;
+  struct invnode<KeyT,ValueT,hashfcn,equalfcn> *table;
 };
 
+template<class KeyT,class ValueT,class hashfcn=std::hash<KeyT>,class equalfcn=std::equal_to<KeyT>>
 class hdf5_invlist
 {
 
    private:
 	   int numprocs;
 	   int myrank;
-	   std::unordered_map<std::string,struct head_node*> invlists;
+	   std::unordered_map<std::string,struct head_node<KeyT,ValueT,hashfcn,equalfcn>*> invlists;
 	   int tag;
    public:
 	   hdf5_invlist(int n,int p) : numprocs(n), myrank(p)
@@ -35,16 +41,18 @@ class hdf5_invlist
 	   }
 	   ~hdf5_invlist()
 	   {
-		std::unordered_map<std::string,struct head_node*>::iterator t;
 
-		for(t = invlists.begin(); t != invlists.end(); ++t)
+		for(auto t = invlists.begin(); t != invlists.end(); ++t)
 		{
 		   auto r = t->first;
 		   auto rv = t->second;
 		   
-		   if(rv->inttable != nullptr) delete rv->inttable;
-		   if(rv->floattable != nullptr) delete rv->floattable;
-		   if(rv->doubletable != nullptr) delete rv->doubletable;
+		   if(rv->table != nullptr) 
+		   {
+			 delete rv->table->bm;
+			 delete rv->table->ml;
+			 delete rv->table;
+		   }
 		   delete rv;
 		}
 
@@ -62,16 +70,11 @@ class hdf5_invlist
 		return c;
 	   }
 
-	   template<typename T>
 	   void create_invlist(std::string &,int);
-	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
 	   void fill_invlist_from_file(std::string&,int);
-	   template<typename T,class hashfcn=std::hash<T>>
-	   int partition_no(T &k);		  
-	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
+	   int partition_no(KeyT &k);		  
 	   void add_entries_to_tables(std::string&,std::vector<struct event>*,int,int); 
-	   template<typename T,class hashfcn=std::hash<T>,class equalfcn=std::equal_to<T>>
-	   void get_entries_from_tables(std::string &,std::vector<std::vector<T>>&,std::vector<std::vector<int>>&,int&,int&);
+	   void get_entries_from_tables(std::string &,std::vector<std::vector<KeyT>> *,std::vector<std::vector<ValueT>>*,int&,int&);
 };
 
 #include "../srcs/inverted_list.cpp"
