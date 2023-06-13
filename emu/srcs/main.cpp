@@ -82,7 +82,7 @@ int main(int argc,char **argv)
   em.set_numattrs(numattrs);
   for(int i=0;i<numattrs;i++)
   {
-    std::string a = "attr"+std::to_string(i+1);
+    std::string a = "attr"+std::to_string(i);
     int vsize = sizeof(double);
     bool is_signed = false;
     bool is_big_endian = true; 
@@ -91,7 +91,7 @@ int main(int argc,char **argv)
 
   for(int i=0;i<numstories;i++)
   {
-	std::string name = "table"+std::to_string(i);
+	std::string name = "table"+std::to_string(i+1);
 	story_names.push_back(name);
 	total_events.push_back(2048);
 	np->prepare_service(name,em,2048);
