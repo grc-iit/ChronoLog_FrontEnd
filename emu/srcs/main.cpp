@@ -82,7 +82,7 @@ int main(int argc,char **argv)
   em.set_numattrs(numattrs);
   for(int i=0;i<numattrs;i++)
   {
-    std::string a = "attr"+std::to_string(i);
+    std::string a = "attr"+std::to_string(i+1);
     int vsize = sizeof(double);
     bool is_signed = false;
     bool is_big_endian = true; 
@@ -102,7 +102,7 @@ int main(int argc,char **argv)
 
   int num_writer_threads = 4;
 
-  int nbatches = 16;
+  int nbatches = 32;
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -110,9 +110,9 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  //np->data_streams_s(story_names,total_events,nbatches);
+  np->data_streams_s(story_names,total_events,nbatches);
 
-  //np->generate_queries(story_names);
+  np->generate_queries(story_names);
 
   np->end_sessions();
 

@@ -123,7 +123,6 @@ class BlockMap
 	    uint64_t pos = KeyToIndex(k);
 
 	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
-	    //table[pos].mutex_t.lock();
 
 	    node_type *n = (*table)[pos].head->next;
 	    bool found = false;
@@ -137,8 +136,6 @@ class BlockMap
 		n = n->next;
 	    }
 
-	    //table[pos].mutex_t.unlock();
-
 	    return (found ? pos : NOT_IN_TABLE);
 	}
 
@@ -147,8 +144,6 @@ class BlockMap
 	   uint64_t pos = KeyToIndex(k);
 
 	   boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
-	   //table[pos].mutex_t.lock();
-
 	   node_type *n = (*table)[pos].head->next;
 
 	   bool found = false;
@@ -163,7 +158,6 @@ class BlockMap
 		n = n->next;
 	   }
 
-	   //table[pos].mutex_t.unlock();
 	   return found;
 	}
 
@@ -174,7 +168,6 @@ class BlockMap
 	    uint64_t pos = KeyToIndex(k);
 
 	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
-	    //table[pos].mutex_t.lock();
 
 	    node_type *n = (*table)[pos].head->next;
 
@@ -190,8 +183,6 @@ class BlockMap
 		n = n->next;
 	    }
 
-	   //table[pos].mutex_t.unlock();
-
 	   return found;
 	}
 	
@@ -202,7 +193,6 @@ class BlockMap
 	    uint64_t pos = KeyToIndex(k);
 
 	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
-	    //table[pos].mutex_t.lock();
 
 	    node_type *n = (*table)[pos].head->next;
 
@@ -217,8 +207,6 @@ class BlockMap
 		n = n->next; 
 	    }
 
-	    //table[pos].mutex_t.unlock();
-
 	    return found;
 	}
 
@@ -228,7 +216,6 @@ class BlockMap
 	  bool found = false;
 	  uint64_t pos = KeyToIndex(k);
 	  boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
-	  //table[pos].mutex_t.lock();
 
 	  node_type *p = (*table)[pos].head;
 	  node_type *n = (*table)[pos].head->next;
@@ -255,7 +242,6 @@ class BlockMap
 	     (*table)[pos].num_nodes--;
 	     removed.fetch_add(1);
 	  }
-	  //table[pos].mutex_t.unlock();
 	  return found;
 	}
 	bool erase(KeyT &k)
@@ -263,7 +249,6 @@ class BlockMap
 	   uint64_t pos = KeyToIndex(k);
 
 	   boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
-	   //table[pos].mutex_t.lock();
 
 	   node_type *p = (*table)[pos].head;
 	   node_type *n = (*table)[pos].head->next;
@@ -289,7 +274,6 @@ class BlockMap
 		removed.fetch_add(1);
 	  }
 	 
-	   //table[pos].mutex_t.unlock();
 	   return found;
 	}
 
