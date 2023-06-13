@@ -146,40 +146,18 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
 
     get_entries_from_tables(s,keys,offsets,key_pre,totalkeys);
 
-    hid_t kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct intkey));
-    H5Tinsert(kv1,"key",HOFFSET(struct intkey,key),H5T_NATIVE_INT);
-    H5Tinsert(kv1,"index",HOFFSET(struct intkey,index),H5T_NATIVE_INT);
+    std::vector<struct KeyIndex<KeyT>> *buf = nullptr;
 
-    /*
-    hid_t kv2 = H5Tcreate(H5T_COMPOUND,sizeof(struct floatkey));
-    H5Tinsert(kv2,"key",HOFFSET(struct floatkey,key),H5T_NATIVE_FLOAT);
-    H5Tinsert(kv2,"index",HOFFSET(struct floatkey,index),H5T_INTEGER);
-
-    hid_t kv3 = H5Tcreate(H5T_COMPOUND,sizeof(struct doublekey));
-    H5Tinsert(kv3,"key",HOFFSET(struct doublekey,key),H5T_NATIVE_DOUBLE);
-    H5Tinsert(kv3,"index",HOFFSET(struct doublekey,index),H5T_INTEGER);
-*/
-    std::vector<struct intkey> *buf1 = nullptr;
-    //std::vector<struct floatkey> *buf2 = nullptr;
-    //std::vector<struct doublekey> *buf3 = nullptr;
-
-    if(h->keytype==0)
-	buf1 = new std::vector<struct intkey> ();
-   /* else if(h->keytype==1)
-	 buf2 = new std::vector<struct floatkey> ();
-    else if(h->keytype==2)
-	 buf3 = new std::vector<struct doublekey> ();
-*/
+    buf = new std::vector<struct KeyIndex<KeyT>> ();
+    
     for(int i=0;i<keys->size();i++)
     {
 	for(int j=0;j<(*keys)[i].size();j++)
 	{	
-		struct intkey nk;
+		struct KeyIndex<KeyT> nk;
 		nk.key = (*keys)[i][j];
 		nk.index = (*offsets)[i][j];
-		if(buf1 != nullptr) buf1->push_back(nk);
-		//else if(buf2 != nullptr) buf2->push_back(nk);
-		//else if(buf3 != nullptr) buf3->push_back(nk);
+		buf->push_back(nk);
 	 }
     }
 
@@ -187,9 +165,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
     delete offsets;
 
     hsize_t blockcount = 0;
-    if(buf1 != nullptr) blockcount = buf1->size();
-    //else if(buf2 != nullptr) blockcount = buf2->size();
-    //else if(buf3 != nullptr) blockcount = buf3->size();
+    if(buf != nullptr) blockcount = buf->size();
 
     hsize_t offset_w = (hsize_t)key_pre;
     std::string kv_string = "key_index";
@@ -198,35 +174,13 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
     hid_t dataset2 = H5Dcreate(fid,kv_string.c_str(),kv1,file_dataspace2, H5P_DEFAULT,dataset_pl,H5P_DEFAULT);
     hid_t mem_dataspace2 = H5Screate_simple(1,&blockcount, NULL);
     ret = H5Sselect_hyperslab(file_dataspace2,H5S_SELECT_SET,&offset_w,NULL,&blockcount,NULL);
-    
-
-    {
-       ret = H5Dwrite(dataset2,kv1, mem_dataspace2,file_dataspace2,xfer_plist,buf1->data());
-       H5Sclose(file_dataspace2);
-       H5Sclose(mem_dataspace2);
-    }
-    /*else if(h->keytype==1)
-    {
-       hid_t dataset2 = H5Dcreate(fid,kv_string.c_str(),kv2,file_dataspace2, H5P_DEFAULT,dataset_pl,H5P_DEFAULT);
-       ret = H5Dwrite(dataset2,kv2, mem_dataspace2,file_dataspace2,xfer_plist,buf2->data());
-
-
-    }
-    else if(h->keytype==2)
-    {
-       hid_t dataset2 = H5Dcreate(fid,kv_string.c_str(),kv3,file_dataspace2, H5P_DEFAULT,dataset_pl,H5P_DEFAULT);
-       ret = H5Dwrite(dataset2,kv3, mem_dataspace2,file_dataspace2,xfer_plist,buf3->data());
-    }*/
-
+    ret = H5Dwrite(dataset2,kv1, mem_dataspace2,file_dataspace2,xfer_plist,buf->data());
+    H5Sclose(file_dataspace2);
+    H5Sclose(mem_dataspace2);
 
     H5Dclose(dataset2);
-    if(buf1 != nullptr) delete buf1;
-    //if(buf2 != nullptr) delete buf2;
-    //if(buf3 != nullptr) delete buf3;
+    if(buf != nullptr) delete buf;
     delete buffer;
-    H5Tclose(kv1);
-    //H5Tclose(kv2);
-    //H5Tclose(kv3);
     H5Tclose(s2);
     H5Tclose(s1);
     H5Sclose(file_dataspace);

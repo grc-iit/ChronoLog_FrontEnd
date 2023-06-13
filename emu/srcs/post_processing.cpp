@@ -27,6 +27,12 @@ int main(int argc,char **argv)
 
    //fp->sort_on_secondary_key(); 
 
+   char processor_name[1024];
+   int len = 0;
+   MPI_Get_processor_name(processor_name, &len);
+
+   std::string procname(processor_name);
+
    std::string str = "table0";
    int maxtablesize = 8192;
    int offset = 0;

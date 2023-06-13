@@ -3,12 +3,6 @@
 
 #include "rw.h"
 
-struct intkey
-{
-  int key;
-  int index;
-};
-
 template<class KeyT,class ValueT, class HashFcn=std::hash<KeyT>,class EqualFcn=std::equal_to<KeyT>>
 struct invnode
 {
@@ -24,6 +18,13 @@ struct head_node
   struct invnode<KeyT,ValueT,hashfcn,equalfcn> *table;
 };
 
+template <class KeyT>
+struct KeyIndex
+{
+  KeyT key;
+  int index;
+};
+
 template<class KeyT,class ValueT,class hashfcn=std::hash<KeyT>,class equalfcn=std::equal_to<KeyT>>
 class hdf5_invlist
 {
@@ -33,11 +34,14 @@ class hdf5_invlist
 	   int myrank;
 	   std::unordered_map<std::string,struct head_node<KeyT,ValueT,hashfcn,equalfcn>*> invlists;
 	   int tag;
+	   hid_t kv1;
    public:
 	   hdf5_invlist(int n,int p) : numprocs(n), myrank(p)
 	   {
 	     tag = 20000;
-
+	     kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct KeyIndex<int>));
+    	     H5Tinsert(kv1,"key",HOFFSET(struct KeyIndex<int>,key),H5T_NATIVE_INT);
+    	     H5Tinsert(kv1,"index",HOFFSET(struct KeyIndex<int>,index),H5T_NATIVE_INT);
 	   }
 	   ~hdf5_invlist()
 	   {
@@ -55,7 +59,7 @@ class hdf5_invlist
 		   }
 		   delete rv;
 		}
-
+		H5Tclose(kv1);
 
 	   }
 
