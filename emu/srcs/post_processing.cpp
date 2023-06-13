@@ -25,7 +25,7 @@ int main(int argc,char **argv)
 
    auto t1 = std::chrono::high_resolution_clock::now();
 
-   //fp->sort_on_secondary_key(); 
+   fp->sort_on_secondary_key(); 
 
    char processor_name[1024];
    int len = 0;

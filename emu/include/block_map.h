@@ -13,6 +13,8 @@
 #include <type_traits>
 #include <string>
 #include "memory_allocation.h"
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/lock_types.hpp>
 
 #define NOT_IN_TABLE UINT64_MAX
 #define EXISTS 1
@@ -26,7 +28,7 @@ template <
 struct f_node
 {
     uint64_t num_nodes;
-    std::mutex mutex_t;
+    boost::mutex mutex_t;
     struct node<KeyT,ValueT,HashFcn,EqualFcn> *head;
 };
 
@@ -42,7 +44,7 @@ class BlockMap
 	typedef struct node<KeyT,ValueT,HashFcn,EqualFcn> node_type;
 	typedef struct f_node<KeyT,ValueT,HashFcn,EqualFcn> fnode_type;
    private :
-	fnode_type *table;
+	std::vector<fnode_type> *table;
 	uint64_t maxSize;
 	std::atomic<uint64_t> allocated;
 	std::atomic<uint64_t> removed;
@@ -59,14 +61,14 @@ class BlockMap
 	BlockMap(uint64_t n,memory_pool<KeyT,ValueT,HashFcn,EqualFcn> *m,KeyT maxKey) : maxSize(n), pl(m), emptyKey(maxKey)
 	{
   	   assert (maxSize > 0);
-	   table = (fnode_type *)std::malloc(maxSize*sizeof(fnode_type));
+	   table = new std::vector<fnode_type> (maxSize); 
 	   assert (table != nullptr);
 	   for(size_t i=0;i<maxSize;i++)
 	   {
-	      table[i].num_nodes = 0;
-	      table[i].head = pl->memory_pool_pop();
-	      new (&(table[i].head->key)) KeyT(emptyKey);
-	      table[i].head->next = nullptr; 
+	      (*table)[i].num_nodes = 0;
+	      (*table)[i].head = pl->memory_pool_pop();
+	      new (&((*table)[i].head->key)) KeyT(emptyKey);
+	      (*table)[i].head->next = nullptr; 
 	   }
 	   allocated.store(0);
 	   removed.store(0);
@@ -75,17 +77,17 @@ class BlockMap
 
   	~BlockMap()
 	{
-	    std::free(table);
+	   delete table;
 	}
 
 	uint32_t insert(KeyT &k,ValueT &v)
 	{
 	    uint64_t pos = KeyToIndex(k);
 
-	    table[pos].mutex_t.lock();
+	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
 
-	    node_type *p = table[pos].head;
-	    node_type *n = table[pos].head->next;
+	    node_type *p = (*table)[pos].head;
+	    node_type *n = (*table)[pos].head->next;
 
 	    bool found = false;
 	    while(n != nullptr)
@@ -108,12 +110,11 @@ class BlockMap
 		new (&(new_node->value)) ValueT(v);
 		new_node->next = n;
 		p->next = new_node;
-		table[pos].num_nodes++;
+		(*table)[pos].num_nodes++;
 		found = true;
 		ret = INSERTED;
 	    }
 
-	   table[pos].mutex_t.unlock();
 	   return ret;
 	}
 
@@ -121,9 +122,10 @@ class BlockMap
 	{
 	    uint64_t pos = KeyToIndex(k);
 
-	    table[pos].mutex_t.lock();
+	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	    //table[pos].mutex_t.lock();
 
-	    node_type *n = table[pos].head->next;
+	    node_type *n = (*table)[pos].head->next;
 	    bool found = false;
 	    while(n != nullptr)
 	    {
@@ -135,7 +137,7 @@ class BlockMap
 		n = n->next;
 	    }
 
-	    table[pos].mutex_t.unlock();
+	    //table[pos].mutex_t.unlock();
 
 	    return (found ? pos : NOT_IN_TABLE);
 	}
@@ -144,9 +146,10 @@ class BlockMap
 	{
 	   uint64_t pos = KeyToIndex(k);
 
-	   table[pos].mutex_t.lock();
+	   boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	   //table[pos].mutex_t.lock();
 
-	   node_type *n = table[pos].head->next;
+	   node_type *n = (*table)[pos].head->next;
 
 	   bool found = false;
 	   while(n != nullptr)
@@ -160,7 +163,7 @@ class BlockMap
 		n = n->next;
 	   }
 
-	   table[pos].mutex_t.unlock();
+	   //table[pos].mutex_t.unlock();
 	   return found;
 	}
 
@@ -170,9 +173,10 @@ class BlockMap
 
 	    uint64_t pos = KeyToIndex(k);
 
-	    table[pos].mutex_t.lock();
+	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	    //table[pos].mutex_t.lock();
 
-	    node_type *n = table[pos].head->next;
+	    node_type *n = (*table)[pos].head->next;
 
 	    while(n != nullptr)
 	    {
@@ -186,7 +190,7 @@ class BlockMap
 		n = n->next;
 	    }
 
-	   table[pos].mutex_t.unlock();
+	   //table[pos].mutex_t.unlock();
 
 	   return found;
 	}
@@ -197,9 +201,10 @@ class BlockMap
 	    bool found = false;
 	    uint64_t pos = KeyToIndex(k);
 
-	    table[pos].mutex_t.lock();
+	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	    //table[pos].mutex_t.lock();
 
-	    node_type *n = table[pos].head->next;
+	    node_type *n = (*table)[pos].head->next;
 
 	    while(n != nullptr)
 	    {
@@ -212,7 +217,7 @@ class BlockMap
 		n = n->next; 
 	    }
 
-	    table[pos].mutex_t.unlock();
+	    //table[pos].mutex_t.unlock();
 
 	    return found;
 	}
@@ -222,10 +227,11 @@ class BlockMap
 	{
 	  bool found = false;
 	  uint64_t pos = KeyToIndex(k);
-	  table[pos].mutex_t.lock();
+	  boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	  //table[pos].mutex_t.lock();
 
-	  node_type *p = table[pos].head;
-	  node_type *n = table[pos].head->next;
+	  node_type *p = (*table)[pos].head;
+	  node_type *n = (*table)[pos].head->next;
           bool b = false;
 
 	  while(n != nullptr)
@@ -246,20 +252,21 @@ class BlockMap
 	     found = true;
 	     p->next = n->next;
 	     pl->memory_pool_push(n);
-	     table[pos].num_nodes--;
+	     (*table)[pos].num_nodes--;
 	     removed.fetch_add(1);
 	  }
-	  table[pos].mutex_t.unlock();
+	  //table[pos].mutex_t.unlock();
 	  return found;
 	}
 	bool erase(KeyT &k)
 	{
 	   uint64_t pos = KeyToIndex(k);
 
-	   table[pos].mutex_t.lock();
+	   boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	   //table[pos].mutex_t.lock();
 
-	   node_type *p = table[pos].head;
-	   node_type *n = table[pos].head->next;
+	   node_type *p = (*table)[pos].head;
+	   node_type *n = (*table)[pos].head->next;
 
 	   bool found = false;
 
@@ -278,11 +285,11 @@ class BlockMap
 		found = true;
 		p->next = n->next;
 		pl->memory_pool_push(n);
-		table[pos].num_nodes--;
+		(*table)[pos].num_nodes--;
 		removed.fetch_add(1);
 	  }
 	 
-	   table[pos].mutex_t.unlock();
+	   //table[pos].mutex_t.unlock();
 	   return found;
 	}
 
@@ -301,7 +308,7 @@ class BlockMap
 	   uint64_t num_entries = 0;
 	   for(size_t i=0;i<maxSize;i++)
 	   {
-		num_entries += table[i].num_nodes;
+		num_entries += (*table)[i].num_nodes;
 	   }
 	   return num_entries;
 	}
@@ -310,16 +317,16 @@ class BlockMap
 	{
 	  for(int i=0;i<maxSize;i++)
 	  {
-	     node_type *n = table[i].head->next;
+	     node_type *n = (*table)[i].head->next;
 	     while(n != nullptr)
 	     {
 		node_type *nn = n->next;
 		n->next = nullptr;
 		pl->memory_pool_push(n);
 		n = nn;
-		table[i].num_nodes--;
+		(*table)[i].num_nodes--;
 	     }
-	     table[i].head->next = nullptr; 
+	     (*table)[i].head->next = nullptr; 
 	  }
 	  return true;
 	}
@@ -329,7 +336,7 @@ class BlockMap
 	   int num_entries = 0;
 	   for(int i=0;i<maxSize;i++)
 	   {
-	     node_type *n = table[i].head->next;
+	     node_type *n = (*table)[i].head->next;
 
 	     while(n != nullptr)
 	     {
@@ -349,7 +356,7 @@ class BlockMap
 	   int num_entries=0;
 	   for(int i=0;i<maxSize;i++)
 	   {
-		node_type *n = table[i].head->next;
+		node_type *n = (*table)[i].head->next;
 
 		while(n != nullptr)
 		{

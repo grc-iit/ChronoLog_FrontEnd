@@ -106,7 +106,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
     for(int i=0;i<numblocks;i++)
     {
 	int nrecords = attrs[pos+i*4+3];
-	
+
 	int records_per_proc = nrecords/numprocs;
 	int rem = nrecords%numprocs;
 
@@ -134,9 +134,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
 	add_entries_to_tables(s,buffer,pre,offset);
 
 	offset_r += nrecords;
-
     }
-
     
     int key_pre=0;
     int totalkeys=0;
@@ -238,6 +236,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::stri
      offsets += recsize;
   }
 
+  
   for(int i=0;i<numprocs;i++)
   {
      MPI_Isend(&send_count[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
@@ -268,11 +267,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::stri
   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
   auto r = invlists.find(s);
-
   struct head_node<KeyT,ValueT,hashfcn,equalfcn> *h = r->second; 
-
   struct invnode<KeyT,ValueT,hashfcn,equalfcn> *table = h->table;
-
 
   for(int i=0;i<numprocs;i++)
   {
@@ -283,7 +279,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::stri
            table->bm->insert(key,offset);
 	}
   }
-
 
   std::free(reqs);
 }
@@ -299,6 +294,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entries_from_tables(std::st
 	struct invnode<KeyT,ValueT,hashfcn,equalfcn> *table = h->table;
 
 	table->bm->get_map_keyvalue(keys,offsets);
+
+	table->bm->clear_map();
 
 	MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 	int nreq = 0;
