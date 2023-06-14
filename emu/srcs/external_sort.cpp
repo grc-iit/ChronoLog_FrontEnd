@@ -662,6 +662,8 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
     std::vector<int> offsets;
     std::vector<int> nrecords;
 
+    numblocks = 16;
+
     int pos = 4;
 
     int numrecords=0;
@@ -712,13 +714,13 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
        int numblocks_c = 0;
        for(int j=0;j<nrecords.size();j+=2)
        {
-	  
+	   
 	  int nrecords_t1 = nrecords[j];
 	  int nrecords_t2 = (j+1 < nrecords.size()) ? nrecords[j+1] : 0;
 	  last_block = false;
 	  hsize_t offset_t1 = offsets[j];
 	  hsize_t offset_t2 = (j+1 < nrecords.size()) ? offsets[j+1] : 0;
-
+	  if(myrank==0 && nstages==3) std::cout <<" nrecords_t1 = "<<nrecords_t1<<" nrecords_t2 = "<<nrecords_t2<<" offset1 = "<<offset_t1<<" offset2 = "<<offset_t2<<std::endl;
 	  int numr_w = 0;
 	  int w_offset = 0;
 
@@ -737,6 +739,8 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	    int numr_p = numr/numprocs;
 	    int rem = numr%numprocs;
 	    numr_w = numr;
+
+	    if(nstages==3 && myrank==0) std::cout <<" block1 numr = "<<numr<<" offset = "<<offset1<<std::endl;
 
 	    for(int k=0;k<myrank;k++)
 	    {
@@ -774,6 +778,8 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	    {
 	      hsize_t offset2 = offset_t2;
 	      numr = (nrecords_t2 <= 8192) ? nrecords_t2 : 8192; 
+	      if(nstages==3 && myrank==0) std::cout <<" block2 numr = "<<numr<<" offset2 = "<<offset2<<std::endl;
+
 	      numr_p = numr/numprocs;
 	      rem = numr%numprocs;
 
@@ -803,18 +809,20 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	      H5Sclose(mem_dataspace1);
 
 	   }
-	   T minkey_a = UINT64_MAX, maxkey_a = 0;
+	   T minkey_a = INT_MAX, maxkey_a = 0;
 
 	   sorted_block->clear();
-
 
            int nrecordsw = 0;
 	  
 	   if(std::is_same<T,int>::value)
-	   nrecordsw = insert_block<int,MPI_INT>(block1,block2,sorted_block,offset,tag,w_offset,minkey_a,maxkey_a);
+	   nrecordsw = insert_block<int,MPI_INT>(block1,block2,sorted_block,offset,tag,w_offset,minkey_a,maxkey_a,nstages);
 
+	   if(myrank==0) std::cout <<" stage = "<<nstages<<" j = "<<j<<" minkey = "<<minkey_a<<" maxkey = "<<maxkey_a<<std::endl;
 	   nrecords_b += nrecordsw;
 
+	   block1->clear();
+	   block2->clear();
 	   numr_w = nrecordsw;
 
 	   hsize_t numw = numr_w;
@@ -826,6 +834,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	   ret = H5Dwrite(dataset_w,s2,mem_dataspace_w,file_dataspace_w,xfer_plist,sorted_block->data());
 	   H5Sclose(mem_dataspace_w);
 
+	   //if(!last_block && myrank==0) std::cout <<" stage = "<<nstages<<" j = "<<j<<" minkey = "<<minkey_a<<" maxkey = "<<maxkey_a<<std::endl;
 	   sorted_block->clear();
 
 	   attrs_new[pos+numblocks_c*4+0] = minkey_a;
@@ -840,8 +849,8 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	       int offset2w = 0;
 	       int total_2w = 0;
 	       T maxkey_b = 0;
-	       if(std::is_same<T,int>::value)
-	       count_offset<int,MPI_INT>(block1,block2,total_2w,offset,offset2w,tag,maxkey_b);
+	       /*if(std::is_same<T,int>::value)
+	       count_offset<int,MPI_INT>(block1,block2,total_2w,offset,offset2w,tag,maxkey_b);*/
 
        	       offset2w += offset_wt;	       
 
@@ -854,10 +863,10 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 
 	       hid_t mem_dataspace_2w = H5Screate_simple(1,&block2size,&maxsize);
 	       ret = H5Sselect_hyperslab(file_dataspace_w,H5S_SELECT_SET,&offsetl,NULL,&block2size,NULL);
-	       if(block1->size() > 0)
+	       /*if(block1->size() > 0)
 		  ret = H5Dwrite(dataset_w,s2,mem_dataspace_2w,file_dataspace_w,xfer_plist,block1->data());
 	       else
-	       ret = H5Dwrite(dataset_w,s2,mem_dataspace_2w,file_dataspace_w,xfer_plist,block2->data());
+	       ret = H5Dwrite(dataset_w,s2,mem_dataspace_2w,file_dataspace_w,xfer_plist,block2->data());*/
 	       H5Sclose(mem_dataspace_2w);
 		
 	       block1->clear();
@@ -882,7 +891,8 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
        offsets.clear();
        for(int k=0;k<nrecords.size();k++)
        {
-	   offsets.push_back(soffset);	
+	   offsets.push_back(soffset);
+	   if(myrank==0) std::cout <<" stage = "<<nstages<<" k = "<<k<<" nrecords = "<<nrecords[k]<<" offset = "<<soffset<<std::endl;
 	   soffset += nrecords[k];
        }
        if(nrecords.size()==1) break;
@@ -927,7 +937,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 }
 
 template<typename T,int M>
-int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct event> *block2,std::vector<struct event> *sorted_vec,int offset,int tag,int &offset_w,T &minkey_a,T &maxkey_a)
+int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct event> *block2,std::vector<struct event> *sorted_vec,int offset,int tag,int &offset_w,T &minkey_a,T &maxkey_a,int stage)
 {
      T minv1=INT_MAX,maxv1=0;
      T minv2=INT_MAX,maxv2=0;
@@ -974,6 +984,18 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 	maxv2 = *(T *)((*block2)[len2-1].data+offset);
      }
 
+     for(int i=0;i<block1->size();i++)
+     {
+	T key = *(T*)((*block1)[i].data+offset);
+	if(key==1080581388) std::cout <<" stage = "<<stage<<" key = "<<key<<std::endl;
+     }
+
+     for(int i=0;i<block2->size();i++)
+     {
+	T key = *(T*)((*block2)[i].data+offset);
+	if(key==1080581388) std::cout <<" stage = "<<stage<<" block2 key = "<<key<<std::endl;
+     }
+
      int nreq = 0;
      MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 
@@ -1008,6 +1030,8 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 	   if(recv_ranges[4*i+2] < minv2_g) minv2_g = recv_ranges[4*i+2];
 	   if(recv_ranges[4*i+3] > maxv2_g) maxv2_g = recv_ranges[4*i+3];
      }
+
+     if(stage==3 && myrank==0) std::cout <<" minv1_g = "<<minv1_g<<" maxv1_g = "<<maxv1_g<<" minv2_g = "<<minv2_g<<" maxv2_g = "<<maxv2_g<<std::endl;
 
      std::vector<int> send_count,recv_count;
      send_count.resize(numprocs);
@@ -1044,17 +1068,18 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 
      MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
-     std::vector<std::vector<struct event>*> send_buffers;
-     std::vector<std::vector<struct event>*> recv_buffers;
+     std::vector<std::vector<struct event>> send_buffers;
+     std::vector<std::vector<struct event>> recv_buffers;
 
      send_buffers.resize(numprocs);
      recv_buffers.resize(numprocs);
 
+     /*
      for(int i=0;i<numprocs;i++)
      {
 	send_buffers[i] = new std::vector<struct event> ();
 	recv_buffers[i] = new std::vector<struct event> ();
-     }
+     }*/
 
      std::vector<struct event> *block2_g = new std::vector<struct event> ();
 
@@ -1062,7 +1087,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      {
        if(dest[i] != -1)
        {	    
-	  send_buffers[dest[i]]->push_back((*block2)[i]);
+	  send_buffers[dest[i]].push_back((*block2)[i]);
        }
        else block2_g->push_back((*block2)[i]);
      }
@@ -1073,7 +1098,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      for(int i=0;i<numprocs;i++)
      {	
 	total_recv += recv_count[i];
-	if(recv_count[i]>0) recv_buffers[i]->resize(recv_count[i]);
+	if(recv_count[i]>0) recv_buffers[i].resize(recv_count[i]);
      }
 
      nreq = 0;
@@ -1081,12 +1106,12 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      {
 	if(send_count[i]>0)
 	{
-	  MPI_Isend(send_buffers[i]->data(),send_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
+	  MPI_Isend(send_buffers[i].data(),send_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
 	  nreq++;
 	}
 	if(recv_count[i]>0)
 	{
-	  MPI_Irecv(recv_buffers[i]->data(),recv_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
+	  MPI_Irecv(recv_buffers[i].data(),recv_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
 	  nreq++;
 	}
      }
@@ -1097,24 +1122,27 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 
      for(int i=0;i<numprocs;i++)
      {
-	for(int j=0;j<recv_buffers[i]->size();j++)
+	for(int j=0;j<recv_buffers[i].size();j++)
 	{
-	    block2_range->push_back((*recv_buffers[i])[j]);
+	    block2_range->push_back(recv_buffers[i][j]);
 	}
      }
 
+     /*
      for(int i=0;i<numprocs;i++)
      {
 	delete send_buffers[i];
 	delete recv_buffers[i];
-     }
+     }*/
 
      block2->assign(block2_range->begin(),block2_range->end());
      block2_range->clear();
 
      T min_g = std::min(minv1_g,minv2_g);
      T max_g = std::min(maxv1_g,maxv2_g);
-    
+
+     //if(myrank==0) std::cout <<" min_g = "<<min_g<<" max_g = "<<max_g<<std::endl;
+
      std::vector<struct event> *block1_f = new std::vector<struct event> ();
 
      for(int i=0;i<block1->size();i++)
@@ -1238,7 +1266,9 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
            if(recv_ranges[2*i] < minkey_a) minkey_a = recv_ranges[2*i];
    	   if(recv_ranges[2*i+1] > maxkey_a) maxkey_a = recv_ranges[2*i+1];	   
      }
-     
+
+     //if(myrank==0) std::cout <<" minkey_a = "<<minkey_a<<" maxkey_a = "<<maxkey_a<<std::endl;
+
      delete block2_range;
      delete block2_g;
      delete block1_f;
