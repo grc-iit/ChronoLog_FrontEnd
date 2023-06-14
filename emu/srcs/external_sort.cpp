@@ -821,7 +821,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	   if(myrank==0) std::cout <<" stage = "<<nstages<<" j = "<<j<<" minkey = "<<minkey_a<<" maxkey = "<<maxkey_a<<" pos = "<<offset_wt<<std::endl;
 	   nrecords_b += nrecordsw;
 
-	   block1->clear();
+	   //block1->clear();
 	   //block2->clear();
 	   numr_w = nrecordsw;
 
@@ -1273,6 +1273,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 		block1_f->push_back(recv_buffers[i][j]);
 	   }
 	}
+	block1->assign(block1_f->begin(),block1_f->end());
      }
 
      lo_size = block2_g->size();
@@ -1333,6 +1334,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 		block2_g->push_back(recv_buffers[i][j]);
 	   }
 	}
+	block2->assign(block2_g->begin(),block2_g->end());
      }
 
      int ssize = sorted_vec->size();

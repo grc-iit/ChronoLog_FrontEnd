@@ -36,7 +36,7 @@ int main(int argc,char **argv)
    std::string str = "table0";
    int maxtablesize = 8192;
    int offset = 0;
-   fp->create_invlist(str,maxtablesize,0,offset);
+   //fp->create_invlist(str,maxtablesize,0,offset);
 
    auto t2 = std::chrono::high_resolution_clock::now();
 
