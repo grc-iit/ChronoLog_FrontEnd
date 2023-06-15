@@ -662,8 +662,6 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
     std::vector<int> offsets;
     std::vector<int> nrecords;
 
-    numblocks = 16;
-
     int pos = 4;
 
     int numrecords=0;
@@ -720,7 +718,6 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	  last_block = false;
 	  hsize_t offset_t1 = offsets[j];
 	  hsize_t offset_t2 = (j+1 < nrecords.size()) ? offsets[j+1] : 0;
-	  if(myrank==0 && nstages==3) std::cout <<" nrecords_t1 = "<<nrecords_t1<<" nrecords_t2 = "<<nrecords_t2<<" offset1 = "<<offset_t1<<" offset2 = "<<offset_t2<<std::endl;
 	  int numr_w = 0;
 	  int w_offset = 0;
 
@@ -739,8 +736,6 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	    int numr_p = numr/numprocs;
 	    int rem = numr%numprocs;
 	    numr_w = numr;
-
-	    if(nstages==3 && myrank==0) std::cout <<" block1 numr = "<<numr<<" offset = "<<offset1<<std::endl;
 
 	    for(int k=0;k<myrank;k++)
 	    {
@@ -778,8 +773,6 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	    {
 	      hsize_t offset2 = offset_t2;
 	      numr = (nrecords_t2 <= 8192) ? nrecords_t2 : 8192; 
-	      if(nstages==3 && myrank==0) std::cout <<" block2 numr = "<<numr<<" offset2 = "<<offset2<<std::endl;
-
 	      numr_p = numr/numprocs;
 	      rem = numr%numprocs;
 
@@ -818,7 +811,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	   if(std::is_same<T,int>::value)
 	   nrecordsw = insert_block<int,MPI_INT>(block1,block2,sorted_block,offset,tag,w_offset,minkey_a,maxkey_a,nstages);
 
-	   if(myrank==0) std::cout <<" stage = "<<nstages<<" j = "<<j<<" minkey = "<<minkey_a<<" maxkey = "<<maxkey_a<<" pos = "<<offset_wt<<std::endl;
+	   //if(myrank==0) std::cout <<" stage = "<<nstages<<" j = "<<j<<" minkey = "<<minkey_a<<" maxkey = "<<maxkey_a<<" pos = "<<offset_wt<<std::endl;
 	   nrecords_b += nrecordsw;
 
 	   //block1->clear();
@@ -834,7 +827,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	   ret = H5Dwrite(dataset_w,s2,mem_dataspace_w,file_dataspace_w,xfer_plist,sorted_block->data());
 	   H5Sclose(mem_dataspace_w);
 
-	   //if(!last_block && myrank==0) std::cout <<" stage = "<<nstages<<" j = "<<j<<" minkey = "<<minkey_a<<" maxkey = "<<maxkey_a<<std::endl;
+	   if(!last_block && myrank==0) std::cout <<" stage = "<<nstages<<" j = "<<j<<" minkey = "<<minkey_a<<" maxkey = "<<maxkey_a<<std::endl;
 	   sorted_block->clear();
 
 	   attrs_new[pos+numblocks_c*4+0] = minkey_a;
@@ -892,7 +885,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
        for(int k=0;k<nrecords.size();k++)
        {
 	   offsets.push_back(soffset);
-	   if(myrank==0) std::cout <<" stage = "<<nstages<<" k = "<<k<<" nrecords = "<<nrecords[k]<<" offset = "<<soffset<<std::endl;
+	   //if(myrank==0) std::cout <<" stage = "<<nstages<<" k = "<<k<<" nrecords = "<<nrecords[k]<<" offset = "<<soffset<<std::endl;
 	   soffset += nrecords[k];
        }
        //if(nstages == 1) break;
@@ -1020,7 +1013,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 	   if(recv_ranges[4*i+3] > maxv2_g) maxv2_g = recv_ranges[4*i+3];
      }
 
-     if(myrank==0) std::cout <<" minv1_g = "<<minv1_g<<" maxv1_g = "<<maxv1_g<<" minv2_g = "<<minv2_g<<" maxv2_g = "<<maxv2_g<<std::endl;
+     //if(myrank==0) std::cout <<" minv1_g = "<<minv1_g<<" maxv1_g = "<<maxv1_g<<" minv2_g = "<<minv2_g<<" maxv2_g = "<<maxv2_g<<std::endl;
 
      std::vector<int> send_count,recv_count;
      send_count.resize(numprocs);
@@ -1042,7 +1035,6 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 		send_count[j]++; dest_proc = j; break;
 	    }	    
 	}
-	if(key==1076827680) std::cout <<" key = "<<key<<" pid = "<<dest_proc<<std::endl;
 	dest.push_back(dest_proc);
      }
 
@@ -1172,8 +1164,6 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 		   {
 		     if(key <= max_g) 
 		     {
-			if(key==1076827680 && myrank==0) std::cout <<" key1 = "<<key1<<" key2 = "<<key2<<" key = "<<key<<" added"<<" pos = "<<sorted_vec->size()<<std::endl;
-			//if(key==1080581388) std::cout <<" stage = "<<stage<<" key = "<<key<<" min_g = "<<min_g<<" max_g = "<<max_g<<std::endl;
 			sorted_vec->push_back((*block1)[j]);
 		        j++;
 		     }
