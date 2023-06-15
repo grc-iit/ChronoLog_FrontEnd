@@ -811,11 +811,8 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	   if(std::is_same<T,int>::value)
 	   nrecordsw = insert_block<int,MPI_INT>(block1,block2,sorted_block,offset,tag,w_offset,minkey_a,maxkey_a,nstages);
 
-	   //if(myrank==0) std::cout <<" stage = "<<nstages<<" j = "<<j<<" minkey = "<<minkey_a<<" maxkey = "<<maxkey_a<<" pos = "<<offset_wt<<std::endl;
 	   nrecords_b += nrecordsw;
 
-	   //block1->clear();
-	   //block2->clear();
 	   numr_w = nrecordsw;
 
 	   hsize_t numw = numr_w;
@@ -827,7 +824,6 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	   ret = H5Dwrite(dataset_w,s2,mem_dataspace_w,file_dataspace_w,xfer_plist,sorted_block->data());
 	   H5Sclose(mem_dataspace_w);
 
-	   if(!last_block && myrank==0) std::cout <<" stage = "<<nstages<<" j = "<<j<<" minkey = "<<minkey_a<<" maxkey = "<<maxkey_a<<std::endl;
 	   sorted_block->clear();
 
 	   attrs_new[pos+numblocks_c*4+0] = minkey_a;
@@ -842,24 +838,25 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	       int offset2w = 0;
 	       int total_2w = 0;
 	       T maxkey_b = 0;
-	       /*if(std::is_same<T,int>::value)
-	       count_offset<int,MPI_INT>(block1,block2,total_2w,offset,offset2w,tag,maxkey_b);*/
+	       bool block_id = false;
+	       if(std::is_same<T,int>::value)
+	       count_offset<int,MPI_INT>(block1,block2,total_2w,offset,offset2w,tag,maxkey_b,block_id);
 
-       	       //offset2w += offset_wt;	       
+       	       offset2w += offset_wt;	       
 
 	       hsize_t offsetl = (hsize_t)offset2w;
 	       hsize_t total2w = (hsize_t)total_2w;
-
+		
 	       hsize_t block2size = 0;
 	       if(block1->size() > 0) block2size = block1->size();
 	       else block2size = block2->size();
 
 	       hid_t mem_dataspace_2w = H5Screate_simple(1,&block2size,&maxsize);
 	       ret = H5Sselect_hyperslab(file_dataspace_w,H5S_SELECT_SET,&offsetl,NULL,&block2size,NULL);
-	       /*if(block1->size() > 0)
+	       if(block_id)
 		  ret = H5Dwrite(dataset_w,s2,mem_dataspace_2w,file_dataspace_w,xfer_plist,block1->data());
-	       else
-	       ret = H5Dwrite(dataset_w,s2,mem_dataspace_2w,file_dataspace_w,xfer_plist,block2->data());*/
+	       else 
+	       ret = H5Dwrite(dataset_w,s2,mem_dataspace_2w,file_dataspace_w,xfer_plist,block2->data());
 	       H5Sclose(mem_dataspace_2w);
 		
 	       block1->clear();
@@ -876,7 +873,6 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 	  }
 
        }
-       if(nrecords.size()%2==1) nrecords_next.push_back(nrecords[nrecords.size()-1]);
        nrecords.clear();
        nrecords.assign(nrecords_next.begin(),nrecords_next.end());
        nrecords_next.clear();
@@ -885,11 +881,9 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
        for(int k=0;k<nrecords.size();k++)
        {
 	   offsets.push_back(soffset);
-	   //if(myrank==0) std::cout <<" stage = "<<nstages<<" k = "<<k<<" nrecords = "<<nrecords[k]<<" offset = "<<soffset<<std::endl;
 	   soffset += nrecords[k];
        }
-       //if(nstages == 1) break;
-       if(nrecords.size()==1) break;
+       if(nrecords.size()<=1) break;
        hid_t file_dataspace_t = file_dataspace_r;
        file_dataspace_r = file_dataspace_w;
        file_dataspace_w = file_dataspace_t;
@@ -960,6 +954,8 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      types[0] = MPI_UINT64_T;
      types[1] = value_field;
 
+     bool block2_empty = false;
+
      MPI_Type_create_struct(2,blocklens,tdispl,types,&key_value);
      MPI_Type_commit(&key_value);
 
@@ -1013,7 +1009,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 	   if(recv_ranges[4*i+3] > maxv2_g) maxv2_g = recv_ranges[4*i+3];
      }
 
-     //if(myrank==0) std::cout <<" minv1_g = "<<minv1_g<<" maxv1_g = "<<maxv1_g<<" minv2_g = "<<minv2_g<<" maxv2_g = "<<maxv2_g<<std::endl;
+     if(minv2_g==INT_MAX && maxv2_g==0) block2_empty = true;
 
      std::vector<int> send_count,recv_count;
      send_count.resize(numprocs);
@@ -1118,8 +1114,14 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      block2->assign(block2_range->begin(),block2_range->end());
      block2_range->clear();
 
-     T min_g = std::min(minv1_g,minv2_g);
-     T max_g = std::min(maxv1_g,maxv2_g);
+     T min_g = minv1_g;
+     T max_g = maxv1_g;
+
+     if(!block2_empty) 
+     {
+	min_g = std::min(min_g,minv2_g);
+	max_g = std::min(max_g,maxv2_g);
+     }
 
      std::vector<struct event> *block1_f = new std::vector<struct event> ();
 
@@ -1176,7 +1178,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 	}
 
      }
-    
+  
      while(j < block1->size())
      {
 	T key = *(T*)((*block1)[j].data+offset);
@@ -1396,7 +1398,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 }
 
 template<typename T,int M>
-void hdf5_sort::count_offset(std::vector<struct event> *block1,std::vector<struct event> *block2,int &total_records,int offset_a,int &offset,int tag,T &maxkey)
+void hdf5_sort::count_offset(std::vector<struct event> *block1,std::vector<struct event> *block2,int &total_records,int offset_a,int &offset,int tag,T &maxkey,bool &block_id)
 {
 
 	int local_size = 0;
@@ -1431,6 +1433,36 @@ void hdf5_sort::count_offset(std::vector<struct event> *block1,std::vector<struc
 	maxkey = 0;
 	T send_key = 0;
 	std::vector<T> recv_keys(numprocs);
+
+	int send_block_id = 0;
+
+	if(block1->size()>0) send_block_id = 1;
+	else if(block2->size()>0) send_block_id = 2;
+
+	std::vector<int> recv_block_id(numprocs);
+	std::fill(recv_block_id.begin(),recv_block_id.end(),0);
+
+	nreq = 0;
+	for(int i=0;i<numprocs;i++)
+	{
+	   MPI_Isend(&send_block_id,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	   MPI_Irecv(&recv_block_id[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	}
+
+	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+	int rblock=0;
+
+	for(int i=0;i<numprocs;i++)
+	{
+	   if(rblock < recv_block_id[i]) rblock = recv_block_id[i];
+	}
+
+	if(rblock==1) block_id = true;
+	else block_id = false;
+
 
 	if(block1->size()>0)
 	{

@@ -26,7 +26,7 @@ class hdf5_sort
        template<typename T>
        void merge_tree(std::string&,int);
        template<typename T,int M>
-       void count_offset(std::vector<struct event>*,std::vector<struct event>*,int&,int,int&,int,T&);
+       void count_offset(std::vector<struct event>*,std::vector<struct event>*,int&,int,int&,int,T&,bool&);
        template<typename T,int M>
        int insert_block(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event> *,int,int,int&,T&,T&,int);
        template<typename T,int M>
