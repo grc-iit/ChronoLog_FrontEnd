@@ -28,7 +28,7 @@ class hdf5_sort
        template<typename T,int M>
        void count_offset(std::vector<struct event>*,std::vector<struct event>*,int&,int,int&,int,T&,bool&);
        template<typename T,int M>
-       int insert_block(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event> *,int,int,int&,T&,T&,int);
+       int insert_block(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event> *,int,int,int&,T&,T&);
        template<typename T,int M>
        void sort_block_secondary_key(std::vector<struct event>*,int,int,T&,T&,int&);
        template<typename T>

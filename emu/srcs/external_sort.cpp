@@ -52,6 +52,8 @@ std::string hdf5_sort::sort_on_secondary_key(std::string &s1_string,std::string 
 
     fid = H5Fopen(filename1.c_str(), H5F_ACC_RDONLY, fapl);
 
+    if(fid==H5I_INVALID_HID) return s2_string;
+
     hid_t fid2 = H5Fcreate(filename2.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT,fapl);
 
     H5Fclose(fid2);
@@ -620,6 +622,8 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 
     fid = H5Fopen(filename2.c_str(), H5F_ACC_RDWR, fapl);
 
+    if(fid==H5I_INVALID_HID) return;
+
     hsize_t attr_size[1];
     attr_size[0] = MAXBLOCKS*4+4;
     const char *attrname[1];
@@ -650,7 +654,6 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
     H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
 
     std::fill(attrs_new.begin(),attrs_new.end(),0);
-   // attrs_new.assign(attrs.begin(),attrs.end());
 
     int total_k = attrs[0];
     int k_size = attrs[1];
@@ -809,7 +812,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
            int nrecordsw = 0;
 	  
 	   if(std::is_same<T,int>::value)
-	   nrecordsw = insert_block<int,MPI_INT>(block1,block2,sorted_block,offset,tag,w_offset,minkey_a,maxkey_a,nstages);
+	   nrecordsw = insert_block<int,MPI_INT>(block1,block2,sorted_block,offset,tag,w_offset,minkey_a,maxkey_a);
 
 	   nrecords_b += nrecordsw;
 
@@ -925,7 +928,7 @@ void hdf5_sort::merge_tree(std::string &fname,int offset)
 }
 
 template<typename T,int M>
-int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct event> *block2,std::vector<struct event> *sorted_vec,int offset,int tag,int &offset_w,T &minkey_a,T &maxkey_a,int stage)
+int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct event> *block2,std::vector<struct event> *sorted_vec,int offset,int tag,int &offset_w,T &minkey_a,T &maxkey_a)
 {
      T minv1=INT_MAX,maxv1=0;
      T minv2=INT_MAX,maxv2=0;

@@ -41,3 +41,4 @@ include_directories(${HDF5_VOL_ASYNC}/include)
 #set(LIB_FLAGS ${LIB_FLAGS} -lev -L/home/kbateman/install/lib/ -L/home/kbateman/install/lib64/ -lhiredis -lredox)
 
 add_subdirectory(emu)
+add_subdirectory(KeyValueStore)
