@@ -22,8 +22,15 @@ template <class KeyT>
 struct KeyIndex
 {
   KeyT key;
-  int index;
+  uint64_t index;
 };
+
+template<class KeyT>
+bool compareIndex(struct KeyIndex<KeyT> &k1, struct KeyIndex<KeyT> &k2)
+{
+    if(k1.index < k2.index) return true;
+    else return false;
+}
 
 template<class KeyT,class ValueT,class hashfcn=std::hash<KeyT>,class equalfcn=std::equal_to<KeyT>>
 class hdf5_invlist
@@ -78,7 +85,7 @@ class hdf5_invlist
 	   void fill_invlist_from_file(std::string&,int);
 	   void flush_table_file(std::string &,int);
 	   int partition_no(KeyT &k);		  
-	   void add_entries_to_tables(std::string&,std::vector<struct event>*,int,int); 
+	   void add_entries_to_tables(std::string&,std::vector<struct event>*,uint64_t,int); 
 	   void get_entries_from_tables(std::string &,std::vector<std::vector<KeyT>> *,std::vector<std::vector<ValueT>>*,int&,int&);
 };
 

@@ -1,5 +1,6 @@
 #include "inverted_list.h"
 
+
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
 int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::partition_no(KeyT &k)
 {
@@ -192,22 +193,223 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
 void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s,int offset)
 {
+ std::string filename = "file";
+ filename += s+".h5";
+
+ hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
+ hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+ H5Pset_fapl_mpio(fapl,MPI_COMM_WORLD, MPI_INFO_NULL);
+ H5Pset_dxpl_mpio(xfer_plist, H5FD_MPIO_COLLECTIVE);
+
+ hid_t xfer_plist2 = H5Pcreate(H5P_DATASET_XFER);
+ H5Pset_dxpl_mpio(xfer_plist2,H5FD_MPIO_INDEPENDENT);
+
+ auto r = invlists.find(s);
+
+ struct head_node<KeyT,ValueT,hashfcn,equalfcn> *h  = r->second;
+
+ hsize_t chunkdims[1];
+ chunkdims[0] = 8192;
+ hsize_t maxdims[1];
+ maxdims[0] = (hsize_t)H5S_UNLIMITED;
+
+ hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
+
+ int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
+
+ hid_t fid = H5Fopen(filename.c_str(),H5F_ACC_RDWR,fapl);
+
+ hsize_t adims[1];
+ adims[0] = VALUESIZE;
+ hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
+ hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
+ H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
+ H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
+
+ hsize_t attr_size[1];
+ attr_size[0] = MAXBLOCKS*4+4;
+ const char *attrname[1];
+ hid_t attr_space[1];
+ attr_space[0] = H5Screate_simple(1, attr_size, NULL);
+
+ attrname[0] = "Datasizes";
+
+ std::string data_string = "Data1";
+ hid_t dataset1 = H5Dopen2(fid,data_string.c_str(), H5P_DEFAULT);
+
+ hid_t attr_id = H5Aopen(dataset1,attrname[0],H5P_DEFAULT);
+ std::vector<uint64_t> attrs;
+ attrs.resize(attr_size[0]);
+
+ ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
+
+
+ std::vector<std::vector<KeyT>> *keys = new std::vector<std::vector<KeyT>> ();
+ std::vector<std::vector<ValueT>> *timestamps = new std::vector<std::vector<ValueT>> ();
+
+ int key_pre = 0;
+ int total_keys = 0;
+
+ get_entries_from_tables(s,keys,timestamps,key_pre,total_keys); 
+
+ std::vector<struct KeyIndex<int>>  KeyTimestamps;
+
+ for(int i=0;i<keys->size();i++)
+ {
+    for(int j=0;j<(*keys)[i].size();j++)
+    {
+	struct KeyIndex<int> k;
+	k.key = (*keys)[i][j];
+	k.index = (*timestamps)[i][j];
+	KeyTimestamps.push_back(k);	
+   }
+ } 
+
+ delete keys;
+ delete timestamps;
+
+ std::sort(KeyTimestamps.begin(),KeyTimestamps.end(),compareIndex<int>);
+
+ int numblocks = attrs[3];
+
+ int block_id = 0;
+ int pos = 4;
+
+ std::vector<int> block_ids;
+ int i=0;
+
+ int min_block = INT_MAX;
+ int max_block = INT_MIN;
+
+ while(i < KeyTimestamps.size())
+ {
+   if(block_id >= numblocks) break;
+   uint64_t ts = KeyTimestamps[i].index; 
+   uint64_t minkey = attrs[pos+block_id*4+0];
+   uint64_t maxkey = attrs[pos+block_id*4+1];
+   if(ts >= minkey && ts <= maxkey) 
+   {
+	block_ids.push_back(block_id); i++;
+	if(min_block > block_id) min_block = block_id;
+	if(max_block < block_id) max_block = block_id;
+   }
+   else if(ts < minkey) 
+   {
+	   block_ids.push_back(-1);
+	   i++;
+   }
+   else if(ts > maxkey) block_id++;
+ }
+
+ while(i < KeyTimestamps.size())
+ {
+    block_ids.push_back(-1);
+    i++;
+ }
+
+ hid_t file_dataspace = H5Dget_space(dataset1);
+
+ std::vector<struct event> *buffer = new std::vector<struct event> ();
+
+
+ block_id = -1;
+
+ i = 0;
+
+ while(i < block_ids.size())
+ {
+    block_id = block_ids[i];
+
+    while(block_id == -1)
+    {
+	i++;
+	if(i == block_ids.size()) break;
+    }
+    if(i==block_ids.size()) break;
+
+    block_id = block_ids[i];
+
+    int nrecords = attrs[pos+block_id*4+3];
+
+    hsize_t pre = 0;
+    for(int k=0;k<block_id;k++)
+    {
+           pre += attrs[pos+k*4+3];
+    }
+    
+    hsize_t blocksize = nrecords;
+        
+    buffer->clear();
+    buffer->resize(blocksize);
+
+    ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&pre,NULL,&blocksize,NULL);
+    hid_t mem_dataspace = H5Screate_simple(1,&blocksize, NULL);
+    ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist2,buffer->data());
+    H5Sclose(mem_dataspace);
+
+    int k = 0;
+
+    while(block_ids[i]==block_id)
+    {
+	if(k == buffer->size()||i==KeyTimestamps.size()) break;
+
+	if(KeyTimestamps[i].index==(*buffer)[k].ts)
+	{
+	   KeyTimestamps[i].index = pre+k;
+	   k++;i++;
+	}
+	else if(KeyTimestamps[i].index < (*buffer)[k].ts)
+	{
+		i++;
+	}
+	else if(KeyTimestamps[i].index > (*buffer)[k].ts)
+	{
+		k++;
+	}
+
+    }
+
+
+ } 
+
+ int j=0;
+
+ for(i=0;i<KeyTimestamps.size();)
+ {
+	for(j=i;j<KeyTimestamps.size();)
+	{
+	    if(block_ids[j]==-1) j++;
+	}
+
+	int gap = j-i;
+
+	for(int k=j;k<KeyTimestamps.size();k++)
+	{
+	   if(block_ids[k]==-1) break;
+	   KeyTimestamps[k-gap] = KeyTimestamps[k];
+	}
+	i = k-gap;
+
+ }
 
 
 
+ delete buffer;
 
-
-
-
-
-
+ H5Dclose(dataset1);
+ H5Sclose(file_dataspace);
+ H5Aclose(attr_id);
+ H5Tclose(s2);
+ H5Tclose(s1);
+ H5Pclose(dataset_pl);
+ H5Fclose(fid);
 
 
 
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
-void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::string &s,std::vector<struct event> *buffer,int f_offset,int offset)
+void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::string &s,std::vector<struct event> *buffer,uint64_t f_offset,int offset)
 {
   std::vector<int> send_count,recv_count;
 
@@ -224,7 +426,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::stri
   send_buffers.resize(numprocs); recv_buffers.resize(numprocs);
 
   int recsize = sizeof(struct event);  
-  int offsets = f_offset;
+  uint64_t offsets = f_offset;
 
   for(int i=0;i<buffer->size();i++)
   {
@@ -233,7 +435,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::stri
      send_count[p]+=2;
      send_buffers[p].push_back((double)key);
      send_buffers[p].push_back(offsets);
-     offsets += recsize;
+     offsets += (uint64_t)recsize;
   }
 
   

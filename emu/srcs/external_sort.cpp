@@ -1049,18 +1049,17 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 
      MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
-     std::vector<std::vector<struct event>> send_buffers;
-     std::vector<std::vector<struct event>> recv_buffers;
+     std::vector<std::vector<struct event>*> send_buffers;
+     std::vector<std::vector<struct event>*> recv_buffers;
 
      send_buffers.resize(numprocs);
      recv_buffers.resize(numprocs);
 
-     /*
      for(int i=0;i<numprocs;i++)
      {
 	send_buffers[i] = new std::vector<struct event> ();
 	recv_buffers[i] = new std::vector<struct event> ();
-     }*/
+     }
 
      std::vector<struct event> *block2_g = new std::vector<struct event> ();
 
@@ -1068,7 +1067,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      {
        if(dest[i] != -1)
        {	    
-	  send_buffers[dest[i]].push_back((*block2)[i]);
+	  send_buffers[dest[i]]->push_back((*block2)[i]);
        }
        else block2_g->push_back((*block2)[i]);
      }
@@ -1079,7 +1078,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      for(int i=0;i<numprocs;i++)
      {	
 	total_recv += recv_count[i];
-	if(recv_count[i]>0) recv_buffers[i].resize(recv_count[i]);
+	if(recv_count[i]>0) recv_buffers[i]->resize(recv_count[i]);
      }
 
      nreq = 0;
@@ -1087,12 +1086,12 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      {
 	if(send_count[i]>0)
 	{
-	  MPI_Isend(send_buffers[i].data(),send_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
+	  MPI_Isend(send_buffers[i]->data(),send_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
 	  nreq++;
 	}
 	if(recv_count[i]>0)
 	{
-	  MPI_Irecv(recv_buffers[i].data(),recv_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
+	  MPI_Irecv(recv_buffers[i]->data(),recv_count[i],key_value,i,tag,merge_comm,&reqs[nreq]);
 	  nreq++;
 	}
      }
@@ -1103,16 +1102,9 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 
      for(int i=0;i<numprocs;i++)
      {
-	for(int j=0;j<recv_buffers[i].size();j++)
-	   block2_range->push_back(recv_buffers[i][j]);
+	for(int j=0;j<recv_buffers[i]->size();j++)
+	   block2_range->push_back((*recv_buffers[i])[j]);
      }
-
-     /*
-     for(int i=0;i<numprocs;i++)
-     {
-	delete send_buffers[i];
-	delete recv_buffers[i];
-     }*/
 
      block2->assign(block2_range->begin(),block2_range->end());
      block2_range->clear();
@@ -1230,9 +1222,9 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      if(myrank==0)
      for(int i=0;i<numprocs;i++) 
      {
-	 recv_buffers[i].clear();
+	 recv_buffers[i]->clear();
 	 if(recvlo_sizes[i]>0)
-	 recv_buffers[i].resize(recvlo_sizes[i]);
+	 recv_buffers[i]->resize(recvlo_sizes[i]);
      }
      
      nreq = 0;
@@ -1249,7 +1241,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 	{
            if(recvlo_sizes[i]>0)
 	   {
-	     MPI_Irecv(recv_buffers[i].data(),recvlo_sizes[i],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	     MPI_Irecv(recv_buffers[i]->data(),recvlo_sizes[i],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
 	     nreq++;
 	   }
 	}
@@ -1263,9 +1255,9 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      {	
 	for(int i=0;i<numprocs;i++)
 	{
-	   for(int j=0;j<recv_buffers[i].size();j++)
+	   for(int j=0;j<recv_buffers[i]->size();j++)
 	   {
-		block1_f->push_back(recv_buffers[i][j]);
+		block1_f->push_back((*recv_buffers[i])[j]);
 	   }
 	}
 	block1->assign(block1_f->begin(),block1_f->end());
@@ -1293,8 +1285,8 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      if(myrank==0)
      for(int i=0;i<numprocs;i++)
      {
-	recv_buffers[i].clear();
-	if(recvlo_sizes[i]>0) recv_buffers[i].resize(recvlo_sizes[i]);
+	recv_buffers[i]->clear();
+	if(recvlo_sizes[i]>0) recv_buffers[i]->resize(recvlo_sizes[i]);
      }
 
      nreq = 0;
@@ -1310,7 +1302,7 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
 	{
 	   if(recvlo_sizes[i]>0)
 	   {
-		MPI_Irecv(recv_buffers[i].data(),recvlo_sizes[i],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+		MPI_Irecv(recv_buffers[i]->data(),recvlo_sizes[i],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
 		nreq++;
 	   }
 	}
@@ -1324,9 +1316,9 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      {
 	for(int i=0;i<numprocs;i++)
 	{
-	   for(int j=0;j<recv_buffers[i].size();j++)
+	   for(int j=0;j<recv_buffers[i]->size();j++)
 	   {
-		block2_g->push_back(recv_buffers[i][j]);
+		block2_g->push_back((*recv_buffers[i])[j]);
 	   }
 	}
 	block2->assign(block2_g->begin(),block2_g->end());
@@ -1390,6 +1382,12 @@ int hdf5_sort::insert_block(std::vector<struct event> *block1,std::vector<struct
      }
 
      //if(myrank==0) std::cout <<" minkey_a = "<<minkey_a<<" maxkey_a = "<<maxkey_a<<std::endl;
+
+     for(int i=0;i<numprocs;i++)
+     {
+	delete send_buffers[i];
+	delete recv_buffers[i];
+     }
 
      delete block2_range;
      delete block2_g;

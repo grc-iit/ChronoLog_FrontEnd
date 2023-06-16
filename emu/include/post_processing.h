@@ -29,7 +29,7 @@ class file_post_processing
    	    int myrank;
  	    int numprocs;	    
   	    hdf5_sort *hs; 
-	    hdf5_invlist<int,int,hashfcn,std::equal_to<int>> *iv;	    
+	    hdf5_invlist<int,uint64_t,hashfcn,std::equal_to<int>> *iv;	    
 
    public :
 	    file_post_processing(int n,int p) : numprocs(n),myrank(p)
@@ -37,7 +37,7 @@ class file_post_processing
 
                 H5open();
 		hs = new hdf5_sort(numprocs,myrank);
-		iv = new hdf5_invlist<int,int,hashfcn,std::equal_to<int>>(numprocs,myrank);
+		iv = new hdf5_invlist<int,uint64_t,hashfcn,std::equal_to<int>>(numprocs,myrank);
 	    }
 
 	    void sort_on_secondary_key()
