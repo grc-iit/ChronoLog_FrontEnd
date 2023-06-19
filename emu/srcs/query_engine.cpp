@@ -11,6 +11,7 @@ void query_engine::send_query(std::string &s)
        r.id = count;
        r.sorted = true;
        r.output_file = false;
+       r.single_point = false;
        if(myrank==0)
        {
           Q->PutAll(r);
@@ -130,25 +131,13 @@ void query_engine::service_query(struct thread_arg_q* t)
 {
 	int end_service = 0;
 
-	std::vector<std::string> names;
-	names.push_back("table0");
-	names.push_back("table1");
-	names.push_back("table2");
-	names.push_back("table3");
-
 	bool sorted = false;
 
-	int numrounds = 0;
-
-	//usleep(10*128*20000);
-
 	while(true)
-	//for(int n=0;n<numrounds;n++)
 	{
 	   struct query_req *r = nullptr;
 	   r=Q->Get();
 	   if(r != nullptr)
-	  //for(int i=0;i<names.size();i++)
           {
 
 	      std::string sname(r->name);
@@ -171,8 +160,6 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      //filename += names[i]+".h5";
                 filename += sname+".h5";
 
-	      //usleep(128*20000);
-
 	      uint64_t minkey_f,maxkey_f;
 
 	      uint64_t minkey_r,maxkey_r;
@@ -182,7 +169,6 @@ void query_engine::service_query(struct thread_arg_q* t)
 	
 		  
 	      struct io_request *nq = new struct io_request();
-	      //nq->name.assign(names[i]);
 	      nq->name.assign(sname);
 	      nq->completed.store(0);
 	      nq->buf1 = buf1;

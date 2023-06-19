@@ -38,6 +38,7 @@ class nvme_buffers
 	std::vector<boost::shared_mutex*> file_locks;
         std::string prefix;
 	std::vector<std::atomic<int>*> buffer_state;
+	std::vector<std::vector<std::pair<uint64_t,uint64_t>>> nvme_intervals;
 	std::vector<boost::mutex*> blocks;
 	std::mutex n1;
   public:
@@ -64,7 +65,10 @@ class nvme_buffers
 
 	void create_nvme_buffer(std::string &s,event_metadata &em);
 	void copy_to_nvme(std::string &s,std::vector<struct event> *inp,int numevents);
-	void get_buffer(int,int,int);
+	void find_event(int,uint64_t,struct event&);
+	int get_proc(int,uint64_t);
+	void update_interval(int);
+	bool get_buffer(int,int,int);
 	int buffer_index(std::string&);
 	void release_buffer(int);
 	void erase_from_nvme(std::string &s, int numevents);

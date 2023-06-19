@@ -141,14 +141,14 @@ public:
       void process_queries(struct thread_arg_p *t)
       {
 
-	   usleep(10*128*20000);
+	   /*usleep(10*128*20000);
 	   QE->send_query(t->snames[0]);
 	   usleep(20000*128);
 	   QE->send_query(t->snames[1]);
 	   usleep(20000*128);
 	   QE->send_query(t->snames[2]);
 	   usleep(20000*128);
-	   QE->send_query(t->snames[3]);
+	   QE->send_query(t->snames[3]);*/
       }
 
       void generate_queries(std::vector<std::string> &snames)

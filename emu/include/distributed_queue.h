@@ -99,6 +99,7 @@ class distributed_queue
 		r_n->collective = r.collective;
 		r_n->sorted = r.sorted;
 		r_n->output_file = r.output_file;
+		r_n->single_point = r.single_point;
 		r_n->op = r.op;
 		return local_queue->push(r_n);
 	   }

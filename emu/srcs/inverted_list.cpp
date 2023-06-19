@@ -373,7 +373,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s
  } 
 
  int j=0;
-
+ int k=0;
  for(i=0;i<KeyTimestamps.size();)
  {
 	for(j=i;j<KeyTimestamps.size();)
@@ -383,9 +383,12 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s
 
 	int gap = j-i;
 
-	for(int k=j;k<KeyTimestamps.size();k++)
+	for(k=j;k<KeyTimestamps.size();k++)
 	{
-	   if(block_ids[k]==-1) break;
+	   if(block_ids[k]==-1) 
+	   {
+		   break;
+	   }
 	   KeyTimestamps[k-gap] = KeyTimestamps[k];
 	}
 	i = k-gap;

@@ -16,7 +16,7 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
    
     atomic_buffer *ab = dm->get_atomic_buffer(index);
 
-    //boost::shared_lock<boost::shared_mutex> lk(ab->m); 
+    boost::shared_lock<boost::shared_mutex> lk(ab->m); 
 
     for(int i=0;i<num_events;i++)
     {
@@ -37,10 +37,9 @@ void read_write_process::sort_events(std::string &s)
       auto r = write_names.find(s);
       int index = (r->second).first;
       m1.unlock();
-      //get_events_from_map(s);
       int nm_index = nm->buffer_index(s);
-      nm->get_buffer(nm_index,nm_index,1);
-      //boost::upgrade_lock<boost::shared_mutex> lk1(myevents[index]->m);
+      while(nm->get_buffer(nm_index,nm_index,1)==false);
+      boost::upgrade_lock<boost::shared_mutex> lk1(myevents[index]->m);
       ds->get_unsorted_data(myevents[index]->buffer,index);
       uint64_t min_v,max_v;
       int numevents = myevents[index]->buffer_size.load();
@@ -292,7 +291,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	{
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
-	   nm->get_buffer(nm_index,tag_p,2);
+	   while(nm->get_buffer(nm_index,tag_p,2)==false);
 	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}
@@ -650,7 +649,7 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
      int index;
      int tag_p = 100;
      int nm_index = nm->buffer_index(s);
-     nm->get_buffer(nm_index,tag_p,3);
+     while(nm->get_buffer(nm_index,tag_p,3)==false);
      nm->fetch_buffer(data_array,s,index,tag_p);
      nm->release_buffer(nm_index);
    }
@@ -820,7 +819,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	{
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
-	   nm->get_buffer(nm_index,tag_p,2);
+	   while(nm->get_buffer(nm_index,tag_p,2)==false);
 	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}
@@ -924,7 +923,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
      if(sync_empty_all[0]==numprocs)
      {
 
-	    while(!io_queue_sync->empty())
+	    /*while(!io_queue_sync->empty())
 	    {
 		struct io_request *r = nullptr;
 
@@ -937,11 +936,11 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 		uint64_t minkey_f,maxkey_f;
 		uint64_t minkey_r = UINT64_MAX;
 		uint64_t maxkey_r = 0;
+		get_nvme_buffer(r->buf1,r->buf2,r->name,tag);
 		preaddata(file_name.c_str(),r->name,minkey,maxkey,minkey_f,maxkey_f,minkey_r,maxkey_r,r->buf3);
 		int tag = 100;
-		get_nvme_buffer(r->buf1,r->buf2,r->name,tag);
 		r->completed.store(1);
-	    }
+	    }*/
 
      }
 

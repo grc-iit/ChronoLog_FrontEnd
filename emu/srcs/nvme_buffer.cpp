@@ -29,6 +29,13 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
 	  std::atomic<int> *bs = (std::atomic<int>*)std::malloc(sizeof(std::atomic<int>));
 	  bs->store(0);
 	  buffer_state.push_back(bs);
+	  std::vector<std::pair<uint64_t,uint64_t>> ranges(numprocs);
+	  for(int i=0;i<numprocs;i++)
+	  {
+		ranges[i].first = UINT64_MAX;
+		ranges[i].second = 0;
+	  }
+	  nvme_intervals.push_back(ranges);
       }
 }
 
@@ -53,6 +60,8 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
       ev->push_back((*inp)[i]);
 
     nvme_files[index]->flush();
+
+    update_interval(index);
     //buffer_state[index]->store(0);
 
 }
@@ -77,11 +86,54 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents)
       ev->erase(ev->begin(),ev->begin()+numevents);
 
       nvme_files[index]->flush();
+      update_interval(index);
       //buffer_state[index]->store(0);
 
 }
 
-void nvme_buffers::get_buffer(int index,int tag,int type)
+void nvme_buffers::update_interval(int index)
+{
+   int nreq = 0;
+
+   MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+
+   std::vector<uint64_t> send_range(2);
+
+   MyEventVect *ev = nvme_ebufs[index];
+
+   int len = ev->size();
+
+   send_range[0] = UINT64_MAX; send_range[1] = 0;
+
+   if(len > 0)
+   {
+	send_range[0] = (*ev)[0].ts;
+	send_range[1] = (*ev)[len-1].ts;
+   }
+
+   std::vector<uint64_t> recv_ranges(2*numprocs);
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(send_range.data(),2,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recv_ranges[2*i],2,MPI_UINT64_T,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+   for(int i=0;i<numprocs;i++)
+   {
+	nvme_intervals[index][i].first = recv_ranges[2*i];
+	nvme_intervals[index][i].second = recv_ranges[2*i+1];
+   }
+
+   std::free(reqs);
+
+}
+
+bool nvme_buffers::get_buffer(int index,int tag,int type)
 {
    MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
    int nreq = 0;
@@ -90,39 +142,62 @@ void nvme_buffers::get_buffer(int index,int tag,int type)
    int op;
 
    int m_tag = tag;
+   int prev_value = 0;
+   int next_value = type;
+
+
    if(myrank==0)
    {
-	//blocks[index]->lock();
+      do
+      {
+	prev_value = 0;
+	next_value = type;
+      }while(!buffer_state[index]->compare_exchange_strong(prev_value,next_value));
+      
+      for(int i=1;i<numprocs;i++)
+      {
+	MPI_Isend(&s_req,1,MPI_INT,i,m_tag,MPI_COMM_WORLD,&reqs[nreq]);	
+	nreq++;
 
-	//std::cout <<" index = "<<index<<" type = "<<type<<" tag = "<<tag<<std::endl;	
-	int prev_value = 0;
-	int next_value = type;
-
-	do
-	{
-	   prev_value = 0;
-	   next_value = type;
-
-	}while(!buffer_state[index]->compare_exchange_strong(prev_value,next_value));
-
-	for(int i=1;i<numprocs;i++)
-	{
-	   MPI_Isend(&s_req,1,MPI_INT,i,m_tag,MPI_COMM_WORLD,&reqs[nreq]);
-	   nreq++;
-	}
-
+      }
    }
    else
    {
-	MPI_Irecv(&op,1,MPI_INT,0,m_tag,MPI_COMM_WORLD,&reqs[nreq]);
+	
+	int r_type = 0;
+	MPI_Irecv(&r_type,1,MPI_INT,0,m_tag,MPI_COMM_WORLD,&reqs[nreq]);
 	nreq++;
    }
 
    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
-   if(myrank != 0) buffer_state[index]->store(type);
+   if(myrank != 0)
+   {
+	do
+	{
+	   prev_value = 0;
+	   next_value = type;
+	}while(!buffer_state[index]->compare_exchange_strong(prev_value,next_value));
+   }
+
+   int send_req = 1;
+   std::vector<int> recv_req(numprocs);
+   std::fill(recv_req.begin(),recv_req.end(),0);
+
+   nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&send_req,1,MPI_INT,i,m_tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recv_req[i],1,MPI_INT,i,m_tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
    std::free(reqs);
+
+   return true;
 
 }
 
@@ -146,6 +221,63 @@ void nvme_buffers::release_buffer(int index)
 	  blocks[index]->unlock();
      }*/
      buffer_state[index]->store(0);
+
+}
+
+int nvme_buffers::get_proc(int index,uint64_t ts)
+{
+   int pid = -1;
+
+   int prev_value=0;
+   int new_value=4;
+
+   do
+   {
+	prev_value = 0;
+	new_value = 4;
+   }while(!buffer_state[index]->compare_exchange_strong(prev_value,new_value));
+
+
+   for(int i=0;i<numprocs;i++)
+   {
+      if(ts >= nvme_intervals[index][i].first &&
+	 ts <= nvme_intervals[index][i].second)
+      {
+	pid = i; break;
+      }
+   }
+
+   buffer_state[index]->store(0);
+
+   return pid;
+
+}
+
+void nvme_buffers::find_event(int index,uint64_t ts,struct event &e)
+{
+
+   int prev_value = 0;
+   int new_value = 4;
+
+   do
+   {
+	prev_value = 0;
+	new_value = 4;
+   }while(!buffer_state[index]->compare_exchange_strong(prev_value,new_value));
+
+   MyEventVect *ev = nvme_ebufs[index];
+
+   e.ts = UINT64_MAX;
+
+   for(int i=0;i<ev->size();i++)
+   {
+	if((*ev)[i].ts==ts)
+	{
+	   e = (*ev)[i]; break;
+	}
+   }
+
+   buffer_state[index]->store(0);
 
 }
 

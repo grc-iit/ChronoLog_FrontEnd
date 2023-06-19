@@ -234,7 +234,7 @@ public:
 		m1.unlock();
 
 		int index = nm->buffer_index(s);
-		nm->get_buffer(index,tag,3);
+		while(nm->get_buffer(index,tag,3)==false);
 			
 		int size = myevents[aindex]->buffer_size.load();
 		for(int i=0;i<size;i++)
@@ -242,6 +242,22 @@ public:
 
 		nm->fetch_buffer(buffer2,s,index,tag);
 		nm->release_buffer(index);
+	}
+
+	void find_event(int index,uint64_t ts,struct event &e)
+	{
+	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
+
+	   e.ts = UINT64_MAX;
+
+           for(int i=0;i<myevents[index]->buffer_size.load();i++)
+	   {	   
+		if((*myevents[index]->buffer)[i].ts==ts)
+		{	
+		   e = (*myevents[index]->buffer)[i];	
+		   break;
+		}
+	   }
 	}
 
 	event_metadata & get_metadata(std::string &s)

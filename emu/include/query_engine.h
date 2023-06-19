@@ -29,17 +29,16 @@ class query_engine
 	int numthreads;
 	std::atomic<int> end_session;
 	std::atomic<int> query_number;
-	boost::lockfree::queue<struct query_resp*> *O; 
 	std::unordered_map<std::string,std::pair<int,int>> buffer_names;
 	std::vector<struct atomic_buffer*> sbuffers;
 	std::mutex m1;
+	std::unordered_map<int,struct query_response*> response_table; 
 
    public:
 	query_engine(int n,int r,data_server_client *c,read_write_process *w) : numprocs(n), myrank(r), dsc(c), rwp(w)
 	{
 
     	   Q = new distributed_queue(numprocs,myrank);
-	   O = new boost::lockfree::queue<struct query_resp*> (128);
 	   hs = new hdf5_sort(n,r);
 	   tl::engine *t_server = dsc->get_thallium_server();
            tl::engine *t_server_shm = dsc->get_thallium_shm_server();
@@ -74,16 +73,6 @@ class query_engine
 	    delete Q;
 	    delete S;
 	    delete hs;
-	    while(!O->empty())
-	    {
-		struct query_resp *r = nullptr;
-		if(O->pop(r))
-		{
-		   delete r->response_vector;
-		   delete r;
-		}
-	    }
-	    delete O;
 	}
 
 	void end_sessions()

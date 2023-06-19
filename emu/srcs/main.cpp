@@ -102,11 +102,11 @@ int main(int argc,char **argv)
 
   int num_writer_threads = 4;
 
-  int nbatches = 32;
+  int nbatches = 64;
 
   t1 = std::chrono::high_resolution_clock::now();
 
-  np->spawn_post_processing();
+  //np->spawn_post_processing();
 
   MPI_Barrier(MPI_COMM_WORLD);
 

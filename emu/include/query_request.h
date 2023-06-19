@@ -13,6 +13,7 @@ struct query_req
  int id;
  bool sorted;
  bool collective;
+ bool single_point;
  bool output_file;
  int op;
 };
