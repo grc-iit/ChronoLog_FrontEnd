@@ -12,12 +12,43 @@ void query_engine::send_query(std::string &s)
        r.sorted = true;
        r.output_file = false;
        r.single_point = false;
+       r.sender = 0;
        if(myrank==0)
        {
-          Q->PutAll(r);
+          Q->PutRequestAll(r);
 	  std::cout <<" query id = "<<r.id<<std::endl;
         }
 
+}
+
+void query_engine::query_point(std::string &s,uint64_t ts)
+{
+   int count = query_number.fetch_add(1); 
+   struct query_req r;
+   r.name = s;
+   r.minkey = ts;
+   r.maxkey = ts;
+   r.collective = false;
+   r.id = count;
+   r.sender = myrank;
+   r.from_nvme = true;
+   r.sorted = false;
+   r.output_file = false;
+   r.single_point = true;
+  
+
+   int index = rwp->get_stream_index(s);
+
+   int pid = rwp->get_event_proc(index,ts);
+
+   std::cout <<" pid = "<<pid<<std::endl;
+
+   pid = rwp->get_nvme_proc(index,ts);
+
+   std::cout <<" rank = "<<myrank<<" pid = "<<pid<<std::endl;
+
+   if(pid==-1) pid = 4;
+   Q->PutRequest(r,pid);
 }
 
 void query_engine::sort_response(std::string &s,int id,std::vector<struct event> *buf,uint64_t &maxkey)
@@ -136,7 +167,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 	while(true)
 	{
 	   struct query_req *r = nullptr;
-	   r=Q->Get();
+	   r=Q->GetRequest();
 	   if(r != nullptr)
           {
 
@@ -149,8 +180,29 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      uint64_t min_key1,max_key1;
 
 	      bool b = false;
+	    
+	      int pid = -1;
 
-	      std::vector<struct event> *buf1 = new std::vector<struct event> ();
+	      struct event e;
+	      if(!r->from_nvme)
+	      rwp->find_event(r->name,r->minkey,e);
+	      else
+	      rwp->find_nvme_event(r->name,r->minkey,e);
+	      pid = r->sender;
+	     
+	      struct query_resp s;
+	     
+	      s.id = r->id;
+   	      s.minkey = r->minkey;
+   	      s.maxkey = r->maxkey;
+   	      s.sender = myrank;
+   	      s.response = e;
+   	      s.complete = true;
+  		
+	      std::cout <<" ts = "<<e.ts<<std::endl; 
+	      Q->PutResponse(s,pid); 
+	     
+	      /*std::vector<struct event> *buf1 = new std::vector<struct event> ();
 	      std::vector<struct event> *buf2 = new std::vector<struct event> ();
 	      std::vector<struct event> *buf3 = new std::vector<struct event> ();
 	      std::vector<struct event> *resp_vec = nullptr;
@@ -188,7 +240,7 @@ void query_engine::service_query(struct thread_arg_q* t)
          	std::cout <<" id = "<<r->id<<" minkey 3 = "<<minkeys[2]<<" maxkey 3 = "<<maxkeys[2]<<std::endl;
          	std::cout <<" id = "<<r->id<<" minkey 2 = "<<minkeys[1]<<" maxkey 2 = "<<maxkeys[1]<<std::endl;
          	std::cout <<" id = "<<r->id<<" minkey 1 = "<<minkeys[0]<<" maxkey 1 = "<<maxkeys[0]<<std::endl;
-     	      }
+     	      }*/
 
 
 	      /*if(sorted)
@@ -198,7 +250,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 		  sort_response(names[i],i,buf1,maxkey);
 	      }*/
 	        
-	      resp_vec = new std::vector<struct event> ();
+	      /*resp_vec = new std::vector<struct event> ();
 
 	      uint64_t minkey = UINT64_MAX;
 	      uint64_t maxkey = 0;
@@ -229,7 +281,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 		   }
 		}
 		buf1->clear();
-	       }
+	       }*/
       	      /*struct query_resp *p = new struct query_resp();
 
 	      p->response_vector = nullptr;
@@ -237,10 +289,10 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 	      O->push(p);	 */   
 
-	      delete buf1; 
-	      delete buf2;
-	      delete buf3;
-	      delete resp_vec;
+	      //delete buf1; 
+	      //delete buf2;
+	      //delete buf3;
+	      //delete resp_vec;
 	      delete r;
            }
 	}

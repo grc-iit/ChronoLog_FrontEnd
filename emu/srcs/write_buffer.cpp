@@ -39,7 +39,7 @@ void databuffers::set_valid_range(int index,uint64_t &n1,uint64_t &n2)
 void databuffers::add_event(event &e,int index)
 {
       uint64_t key = e.ts;
-      int v = 1;
+      int v = myrank;
 
       auto t1 = std::chrono::high_resolution_clock::now();
 

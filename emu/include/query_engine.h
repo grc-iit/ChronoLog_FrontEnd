@@ -3,7 +3,7 @@
 
 #include "query_request.h"
 #include "query_response.h"
-#include "distributed_queue.h"
+#include "distributed_queues.h"
 #include "query_parser.h"
 #include "rw.h"
 #include "external_sort.h"
@@ -18,7 +18,7 @@ class query_engine
    private:
 	int numprocs;
 	int myrank;
-	distributed_queue *Q;
+	distributed_queues *Q;
  	query_parser *S;  
         dsort *ds;	
 	read_write_process *rwp;
@@ -38,7 +38,7 @@ class query_engine
 	query_engine(int n,int r,data_server_client *c,read_write_process *w) : numprocs(n), myrank(r), dsc(c), rwp(w)
 	{
 
-    	   Q = new distributed_queue(numprocs,myrank);
+    	   Q = new distributed_queues(numprocs,myrank);
 	   hs = new hdf5_sort(n,r);
 	   tl::engine *t_server = dsc->get_thallium_server();
            tl::engine *t_server_shm = dsc->get_thallium_shm_server();
@@ -94,6 +94,7 @@ class query_engine
 
 	void sort_file(std::string &s);
 	void send_query(std::string &s);
+	void query_point(std::string&,uint64_t);
 	void sort_response(std::string&,int,std::vector<struct event>*,uint64_t&);
 	void get_range(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,uint64_t minkeys[3],uint64_t maxkeys[3],int);
 	void service_query(struct thread_arg_q*);

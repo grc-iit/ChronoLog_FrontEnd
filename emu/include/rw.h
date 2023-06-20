@@ -226,6 +226,21 @@ public:
 
 	void sort_events(std::string &);
 
+	int get_event_proc(int index,uint64_t ts)
+	{
+	    int pid = dm->GetValue(ts,index);
+	    return pid;
+	}
+	int get_nvme_proc(int index,uint64_t ts)
+	{
+	   int index_r = nm->get_proc(index,ts);
+	   return index_r;
+	}
+	void find_nvme_event(std::string &s,uint64_t ts, struct event &e)
+	{
+	    int index = nm->buffer_index(s);
+	    nm->find_event(index,ts,e); 
+	}
 	void get_nvme_buffer(std::vector<struct event> *buffer1,std::vector<struct event> *buffer2,std::string &s,int tag)
 	{
 		m1.lock();
@@ -244,8 +259,14 @@ public:
 		nm->release_buffer(index);
 	}
 
-	void find_event(int index,uint64_t ts,struct event &e)
+	void find_event(std::string &s,uint64_t ts,struct event &e)
 	{
+           int index = -1;
+           m1.lock();
+	   auto r = write_names.find(s);
+	   index = (r->second).first;
+	   m1.unlock();
+
 	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 
 	   e.ts = UINT64_MAX;
@@ -267,6 +288,16 @@ public:
 		event_metadata em = (r->second).second;
 		m1.unlock();
 		return em;
+	}
+	int get_stream_index(std::string &s)
+	{
+	   int index = -1;
+	   m1.lock();
+	   auto r = write_names.find(s);
+	   if(r != write_names.end())
+	     index = (r->second).first;	   
+	   m1.unlock();
+	   return index;
 	}
 
 	void get_file_minmax(std::string &s,uint64_t &min_v,uint64_t &max_v)

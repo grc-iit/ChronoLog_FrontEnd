@@ -12,7 +12,8 @@ struct query_resp
    int response_id;
    uint64_t minkey;
    uint64_t maxkey;
-   std::vector<struct event> *response_vector;
+   int  sender;
+   struct event response;
    std::string output_file;
    bool complete;
 };

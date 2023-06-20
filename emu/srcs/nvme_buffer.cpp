@@ -277,6 +277,8 @@ void nvme_buffers::find_event(int index,uint64_t ts,struct event &e)
 	}
    }
 
+   std::cout <<" ts = "<<ts<<std::endl;
+
    buffer_state[index]->store(0);
 
 }

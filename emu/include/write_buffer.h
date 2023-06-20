@@ -83,6 +83,11 @@ class databuffers
   {
 	  return dmap->num_dropped();
   }
+  int GetValue(uint64_t ts,int index)
+  {
+	return dmap->GetValue(ts,index);
+
+  } 
   atomic_buffer* create_write_buffer(int maxsize);
   void clear_write_buffer(int index);
   void clear_write_buffer_no_lock(int index);

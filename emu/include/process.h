@@ -141,6 +141,10 @@ public:
       void process_queries(struct thread_arg_p *t)
       {
 
+	   usleep(20000*128*10);
+	   uint64_t ts = 1687267769797971;
+	   if(myrank==2)
+	   QE->query_point(t->snames[0],ts);
 	   /*usleep(10*128*20000);
 	   QE->send_query(t->snames[0]);
 	   usleep(20000*128);

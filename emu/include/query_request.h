@@ -11,6 +11,8 @@ struct query_req
  uint64_t minkey;
  uint64_t maxkey;
  int id;
+ int sender;
+ bool from_nvme;
  bool sorted;
  bool collective;
  bool single_point;

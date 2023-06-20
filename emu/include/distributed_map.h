@@ -111,12 +111,19 @@ class distributed_hashmap
 	std::bind(&distributed_hashmap<KeyT,ValueT,HashFcn,EqualFcn>::ThalliumLocalErase,
 	this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 
+	std::function<void(const tl::request &,KeyT &,int &)> getValueFunc(
+	std::bind(&distributed_hashmap<KeyT,ValueT,HashFcn,EqualFcn>::ThalliumLocalGetValue,
+	this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+
 	thallium_server->define("RemoteInsert",insertFunc);
 	thallium_server->define("RemoteFind",findFunc);
 	thallium_server->define("RemoteErase",eraseFunc);
+	thallium_server->define("RemoteGetValue",getValueFunc);
 	thallium_shm_server->define("RemoteInsert",insertFunc);
 	thallium_shm_server->define("RemoteFind",findFunc);
 	thallium_shm_server->define("RemoteErase",eraseFunc);
+	thallium_shm_server->define("RemoteGetValue",getValueFunc);
+	
    }
 
   distributed_hashmap(uint64_t np,uint64_t nc, int rank)
@@ -190,6 +197,7 @@ class distributed_hashmap
   {
         ValueT v;
         new (&v) ValueT();
+	v = -1;
         bool b = LocalGet(k,&v,index);
         return v;
   }
@@ -245,6 +253,10 @@ class distributed_hashmap
   {
 	  req.respond(LocalErase(k,s));
   }
+  void ThalliumLocalGetValue(const tl::request &req,KeyT &k,int &s)
+  {
+	req.respond(LocalGetValue(k,s));
+  }
   bool Insert(KeyT &k, ValueT &v,int index)
   {
     int destid = serverLocation(k,index);
@@ -290,7 +302,23 @@ class distributed_hashmap
        tl::remote_procedure rp = thallium_client->define("RemoteErase");
        return rp.on(serveraddrs[destid])(k,index);
      }
-  }  
+  } 
+  ValueT GetValue(KeyT &k,int index)
+  {
+     int destid = serverLocation(k,index);
+     if(ipaddrs[destid].compare(myipaddr)==0)
+     {
+	tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
+	tl::remote_procedure rp = thallium_shm_client->define("RemoteGetValue");
+	return rp.on(ep)(k,index);
+     }
+     else
+     {
+	tl::remote_procedure rp = thallium_client->define("RemoteGetValue");
+	return rp.on(serveraddrs[destid])(k,index);
+     }
+
+  } 
 };
 
 #include "../srcs/distributed_map.cpp"
