@@ -72,7 +72,10 @@ private:
       int num_io_threads;
       std::vector<struct thread_arg_w> t_args_io;
       std::vector<std::thread> io_threads;
-
+      std::atomic<int> sync_clock;
+      std::vector<int> num_dropped;
+      std::vector<int> batch_size;
+      int iters_per_batch;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n,data_server_client *rc) : myrank(r), numprocs(np), numcores(n), dsc(rc)
 	{
@@ -80,6 +83,8 @@ public:
 	   H5VLis_connector_registered_by_name("async");
            std::string unit = "microsecond";
 	   CM = C;
+	   sync_clock.store(0);
+	   iters_per_batch = 4;
 	   tl::engine *t_server = dsc->get_thallium_server();
 	   tl::engine *t_server_shm = dsc->get_thallium_shm_server();
 	   tl::engine *t_client = dsc->get_thallium_client();
@@ -89,6 +94,8 @@ public:
 	   std::vector<std::string> shmaddrs = dsc->get_shm_addrs();
 	   dm = new databuffers(numprocs,myrank,numcores,CM);
 	   dm->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
+	   CM->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
+	   CM->bind_functions();
 	   ds = new dsort(numprocs,myrank);
 	   nm = new nvme_buffers(numprocs,myrank);
 	   io_queue_async = new boost::lockfree::queue<struct io_request*> (128);
@@ -173,6 +180,8 @@ public:
 	      write_names.insert(p2);
 	      ds->create_sort_buffer();
 	      nm->create_nvme_buffer(s,em);
+	      num_dropped.push_back(0);
+	      batch_size.push_back(maxsize);
 	    }
 	    m1.unlock();
 	}	
@@ -389,6 +398,7 @@ public:
 	void io_polling(struct thread_arg_w*);
 	void io_polling_seq(struct thread_arg_w*);
 	void data_stream(struct thread_arg_w*);
+	void sync_clocks();
 };
 
 #endif

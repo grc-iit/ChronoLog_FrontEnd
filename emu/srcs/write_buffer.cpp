@@ -36,7 +36,7 @@ void databuffers::set_valid_range(int index,uint64_t &n1,uint64_t &n2)
         dmap->set_valid_range(index,n1,n2);
 }
 
-void databuffers::add_event(event &e,int index)
+bool databuffers::add_event(event &e,int index)
 {
       uint64_t key = e.ts;
       int v = myrank;
@@ -81,6 +81,7 @@ void databuffers::add_event(event &e,int index)
               atomicbuffers[index]->buffer_size.fetch_add(1);
               event_count++;
       }
+      return b;
 }
 
 std::vector<struct event> * databuffers::get_write_buffer(int index)

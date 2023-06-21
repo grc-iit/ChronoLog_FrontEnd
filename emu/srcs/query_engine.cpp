@@ -43,6 +43,8 @@ void query_engine::query_point(std::string &s,uint64_t ts)
 
    std::cout <<" pid = "<<pid<<std::endl;
 
+   if(pid != -1) r.from_nvme = false;
+
    pid = rwp->get_nvme_proc(index,ts);
 
    std::cout <<" rank = "<<myrank<<" pid = "<<pid<<std::endl;

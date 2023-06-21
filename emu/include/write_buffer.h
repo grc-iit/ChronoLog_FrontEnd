@@ -92,7 +92,7 @@ class databuffers
   void clear_write_buffer(int index);
   void clear_write_buffer_no_lock(int index);
   void set_valid_range(int index,uint64_t &n1,uint64_t &n2);
-  void add_event(event &e,int index);
+  bool add_event(event &e,int index);
   std::vector<struct event> * get_write_buffer(int index);
   atomic_buffer* get_atomic_buffer(int index);
 

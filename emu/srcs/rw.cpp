@@ -4,6 +4,34 @@
 
 typedef int DATATYPE;
 
+void read_write_process::sync_clocks()
+{
+   int nstreams = num_dropped.size();
+
+   int total_dropped = 0;
+   for(int i=0;i<nstreams;i++) total_dropped += num_dropped[i];
+
+   int max_recorded = 0;
+   for(int i=0;i<iters_per_batch;i++)
+   {
+	for(int j=0;j<nstreams;j++)
+		max_recorded += batch_size[j]; 
+   } 
+
+   if(myrank==0)
+   {
+	std::cout <<" rank = "<<myrank<<" total_dropped = "<<total_dropped<<" max_recorded = "<<max_recorded<<std::endl;
+	std::cout <<" threshold = "<<max_recorded/4<<std::endl;
+   }
+   if((double)total_dropped > (double)(max_recorded/4)) 
+   {
+	CM->UpdateOffsetMaxError();
+   }
+
+   for(int i=0;i<nstreams;i++) num_dropped[i] = 0;
+
+}
+
 void read_write_process::create_events(int num_events,std::string &s,double arrival_rate)
 {
     int datasize = 0;
@@ -16,6 +44,8 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
    
     atomic_buffer *ab = dm->get_atomic_buffer(index);
 
+    int num_dropped = 0;
+
     boost::shared_lock<boost::shared_mutex> lk(ab->m); 
 
     for(int i=0;i<num_events;i++)
@@ -25,7 +55,8 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
 
 	e.ts = ts;
 	      
-	dm->add_event(e,index);
+	bool b = dm->add_event(e,index);
+	if(!b) num_dropped++;
 	usleep(20000);
     }
 
@@ -62,6 +93,7 @@ void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& 
 	uint64_t min_n = max_k+1;
 	uint64_t max_n = UINT64_MAX;
 	dm->set_valid_range(index,min_n,max_n);
+	num_dropped[index] = 0;
    }
 
 }
@@ -149,6 +181,7 @@ void read_write_process::spawn_write_streams(std::vector<std::string> &snames,st
 
                for(int j=0;j<num_threads;j++) workers[j].join();
 
+	       sync_clocks();
 
                for(int j=0;j<num_threads;j++)
                {
@@ -876,11 +909,11 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 
 void read_write_process::data_stream(struct thread_arg_w *t)
 {
-   int niter = 4;
+   int niter = iters_per_batch;
    for(int i=0;i<niter;i++)
    {
         create_events(t->num_events,t->name,1);
-        sort_events(t->name);
+	sort_events(t->name);
    }
 
 }

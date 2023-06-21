@@ -215,7 +215,7 @@ class distributed_hashmap
   bool LocalClearMap(int index)
   {
 	my_tables[index]->clear_map();
-	dropped_events = 0;
+	dropped_events.store(0);
 	return true;
   }
 
