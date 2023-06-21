@@ -10,6 +10,10 @@ void ClockSynchronization<Clocksource>::SynchronizeClocks()
      
      MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 
+     myoffset = 0;maxError = 0;
+
+     MPI_Barrier(MPI_COMM_WORLD);
+
      if(myrank==0)
      {
        std::vector<int> requests;
@@ -23,12 +27,13 @@ void ClockSynchronization<Clocksource>::SynchronizeClocks()
        for(int i=1;i<numprocs;i++)
        {
         	  
-	MPI_Irecv(&requests[i],1,MPI_INT,i,123,MPI_COMM_WORLD,&reqs[nreq]);
+	MPI_Status s;
+	MPI_Recv(&requests[i],1,MPI_INT,i,123,MPI_COMM_WORLD,&s);
 	nreq++;
         t[i*3+0] = Timestamp();
        }
 
-       MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+       //MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
        for(int i=1;i<numprocs;i++)
 	      t[i*3+1] = Timestamp();
@@ -37,10 +42,11 @@ void ClockSynchronization<Clocksource>::SynchronizeClocks()
        for(int i=1;i<numprocs;i++)
        {
 	t[i*3+2] = Timestamp();
-	MPI_Isend(&t[i*3],3,MPI_UINT64_T,i,123,MPI_COMM_WORLD,&reqs[nreq]);
+	MPI_Send(&t[i*3],3,MPI_UINT64_T,i,123,MPI_COMM_WORLD);
 	nreq++;
        }
-       MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+       
+       //MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
    }
    else 
    {
@@ -49,10 +55,11 @@ void ClockSynchronization<Clocksource>::SynchronizeClocks()
       int nreq = 0;
       int req = 1;
 
-      MPI_Isend(&req,1,MPI_INT,0,123,MPI_COMM_WORLD,&reqs[nreq]);
+      MPI_Send(&req,1,MPI_INT,0,123,MPI_COMM_WORLD);
       nreq++;
 
-      MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+      //MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
       std::vector<uint64_t> resp;
       resp.resize(3);
@@ -60,10 +67,10 @@ void ClockSynchronization<Clocksource>::SynchronizeClocks()
       MPI_Status et;
 
       nreq = 0;
-      MPI_Irecv(resp.data(),3,MPI_UINT64_T,0,123,MPI_COMM_WORLD,&reqs[nreq]);
+      MPI_Recv(resp.data(),3,MPI_UINT64_T,0,123,MPI_COMM_WORLD,&et);
       nreq++;
       
-      MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+      //MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
       uint64_t Tresp = Timestamp();
       int64_t offset1 = resp[0]-Treq;
@@ -93,7 +100,7 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval()
           MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
  	  int nreq = 0;
 
-	   int sreq=1;
+	   /*int sreq=1;
            std::vector<int> recvreq(numprocs);
            std::fill(recvreq.begin(),recvreq.end(),0);
 
@@ -101,13 +108,14 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval()
             nreq = 0;
             for(int i=0;i<numprocs;i++)
             {
-		MPI_Isend(&sreq,1,MPI_INT,i,123,MPI_COMM_WORLD,&reqs[nreq]);
+		MPI_Send(&sreq,1,MPI_INT,i,123,MPI_COMM_WORLD,&reqs[nreq]);
 		nreq++;
-		MPI_Irecv(&recvreq[i],1,MPI_INT,i,123,MPI_COMM_WORLD,&reqs[nreq]);
+		MPI_Recv(&recvreq[i],1,MPI_INT,i,123,MPI_COMM_WORLD,&st);
 		nreq++;
-            }
+            }*/
+	  MPI_Barrier(MPI_COMM_WORLD);
 	
-	    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+	    //MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
 	   if(myrank==0)
 	   {
@@ -138,10 +146,10 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval()
 	    nreq = 0;
 	    for(int i=1;i<numprocs;i++)
 	    {
-		MPI_Isend(&maxError,1,MPI_UINT64_T,i,123,MPI_COMM_WORLD,&reqs[nreq]);
+		MPI_Send(&maxError,1,MPI_UINT64_T,i,123,MPI_COMM_WORLD);
 		nreq++;
 	    }
-	    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+	    //MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
 	}
 	else
@@ -153,9 +161,9 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval()
 	    MPI_Status et;
 
 	    nreq =0;
-	    MPI_Irecv(&maxError,1,MPI_UINT64_T,0,123,MPI_COMM_WORLD,&reqs[nreq]);
+	    MPI_Recv(&maxError,1,MPI_UINT64_T,0,123,MPI_COMM_WORLD,&et);
 	    nreq++;
-	    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+	    //MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 	}
 
 	std::vector<uint64_t> times1,times2;
@@ -166,14 +174,8 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval()
 
 	nreq = 0;
 
-	for(int i=0;i<numprocs;i++)
-	{	
-	   MPI_Isend(&times1[myrank],1,MPI_UINT64_T,i,123,MPI_COMM_WORLD,&reqs[nreq]);
-	   nreq++;
-	   MPI_Irecv(&times2[i],1,MPI_UINT64_T,i,123,MPI_COMM_WORLD,&reqs[nreq]);
-	   nreq++;
-	}
-	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+	MPI_Allreduce(times1.data(),times2.data(),numprocs,MPI_UINT64_T,MPI_SUM,MPI_COMM_WORLD);
 
 	if(myrank==0) std::cout <<" maxError = "<<maxError<<std::endl;
 
@@ -196,16 +198,22 @@ void ClockSynchronization<Clocksource>::UpdateOffsetMaxError()
      uint64_t ts2 = clock->getTimestamp()/unit;
      uint64_t ts3 = RequestTimeStamp(rank1);
 
+ 
      int64_t diff1 = ts1-ts0;
      int64_t diff2 = ts3-ts2;
      double diff = (double)(diff1+diff2)/(double)2;
      int64_t offset = std::ceil(diff);
 
-     if(offset < 0) 
+     if(myrank != 0)
      {
+       if(offset < 0) 
+       {
 	  myoffset = -1*offset; is_less = true;
+       }
+       else myoffset = offset;
      }
-     else myoffset = offset;
+
+     std::cout <<" myoffset = "<<myoffset<<std::endl;
 
      int numranks = std::ceil(0.25*(double)numprocs);
 
@@ -214,22 +222,16 @@ void ClockSynchronization<Clocksource>::UpdateOffsetMaxError()
      int i=0;
      while(i < numranks)
      {
-	int pid = random()%numprocs;
-
-	bool found = false;
-	for(int j=0;j<ranks.size();j++)
-		if(ranks[j]==pid || ranks[j]==myrank){ found = true; break;}
-
-	if(!found)
-	{
-	   ranks.push_back(pid); i++;
-	}
+	int pid = (myrank+1+i)%numprocs;
+	ranks.push_back(pid);
+	i++;
      }
 
+     
      std::vector<uint64_t> timestamps;
      std::vector<uint64_t> error;
 
-     for(int i=0;i<ranks.size();i++)
+     for(i=0;i<ranks.size();i++)
      {
 	uint64_t ts = RequestTimeStamp(ranks[i]);
 	ts += delay;
@@ -240,11 +242,11 @@ void ClockSynchronization<Clocksource>::UpdateOffsetMaxError()
         else e = ts-mts;
 	error.push_back(e);	
      }
-
      uint64_t Error = 0;
-     for(int i=0;i<error.size();i++)
+     for(i=0;i<error.size();i++)
 	     if(error[i] > Error) Error = error[i];
-     maxError = Error;
+     //maxError = Error;
+     std::cout <<" maxError = "<<maxError<<std::endl;
 }
 
 template<typename Clocksource>

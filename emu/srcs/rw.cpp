@@ -23,7 +23,7 @@ void read_write_process::sync_clocks()
 	std::cout <<" rank = "<<myrank<<" total_dropped = "<<total_dropped<<" max_recorded = "<<max_recorded<<std::endl;
 	std::cout <<" threshold = "<<max_recorded/4<<std::endl;
    }
-   if((double)total_dropped > (double)(max_recorded/4)) 
+   //if(myrank==0)//if((double)total_dropped > (double)(max_recorded/4)) 
    {
 	CM->UpdateOffsetMaxError();
    }
@@ -181,8 +181,6 @@ void read_write_process::spawn_write_streams(std::vector<std::string> &snames,st
 
                for(int j=0;j<num_threads;j++) workers[j].join();
 
-	       sync_clocks();
-
                for(int j=0;j<num_threads;j++)
                {
                     struct io_request *r = new struct io_request();
@@ -325,7 +323,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
+	   //nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}
 	delete data_arrays[i];
@@ -684,6 +682,7 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
      int nm_index = nm->buffer_index(s);
      while(nm->get_buffer(nm_index,tag_p,3)==false);
      nm->fetch_buffer(data_array,s,index,tag_p);
+     nm->erase_from_nvme(s,data_array->size());
      nm->release_buffer(nm_index);
    }
    else
@@ -853,7 +852,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
+	   //nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}
 	delete data_arrays[i];
@@ -982,6 +981,11 @@ void read_write_process::io_polling(struct thread_arg_w *t)
      {
        snames.clear(); data.clear(); total_records.clear(); offsets.clear(); numrecords.clear();
        minkeys.clear(); maxkeys.clear();
+
+	CM->SynchronizeClocks();
+	CM->ComputeErrorInterval();
+       //sync_clocks();
+
 
        while(!io_queue_async->empty())
        {

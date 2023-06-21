@@ -83,6 +83,7 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    int num_splitters = 0;
    for(int i=0;i<numprocs;i++) num_splitters += splitter_counts[i];
 
+   
    if(myrank==0 && index >= 4)
    std::cout <<" num_splitters = "<<num_splitters<<" index = "<<index<<" tag = "<<tag<<std::endl;
 

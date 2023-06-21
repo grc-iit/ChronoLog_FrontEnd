@@ -171,7 +171,7 @@ class ClockSynchronization
            }
            else
            {
-                   tl::remote_procedure rp = thallium_client->define("RemotePutRequest");
+                   tl::remote_procedure rp = thallium_client->define("RemoteTimeStamp");
                    b = rp.on(serveraddrs[server_id])(myrank);
            }
            return b;
