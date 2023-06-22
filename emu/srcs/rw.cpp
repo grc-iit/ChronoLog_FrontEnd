@@ -323,7 +323,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   //nm->erase_from_nvme(sts[i],data_arrays[i]->size());
+	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}
 	delete data_arrays[i];
@@ -682,7 +682,7 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
      int nm_index = nm->buffer_index(s);
      while(nm->get_buffer(nm_index,tag_p,3)==false);
      nm->fetch_buffer(data_array,s,index,tag_p);
-     nm->erase_from_nvme(s,data_array->size());
+     //nm->erase_from_nvme(s,data_array->size());
      nm->release_buffer(nm_index);
    }
    else
@@ -852,7 +852,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   //nm->erase_from_nvme(sts[i],data_arrays[i]->size());
+	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
 	   nm->release_buffer(nm_index);
 	}
 	delete data_arrays[i];
@@ -984,7 +984,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
 	CM->SynchronizeClocks();
 	CM->ComputeErrorInterval();
-       //sync_clocks();
+        //sync_clocks();
 
 
        while(!io_queue_async->empty())

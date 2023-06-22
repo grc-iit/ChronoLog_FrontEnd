@@ -213,7 +213,7 @@ void ClockSynchronization<Clocksource>::UpdateOffsetMaxError()
        else myoffset = offset;
      }
 
-     std::cout <<" myoffset = "<<myoffset<<std::endl;
+     //std::cout <<" myoffset = "<<myoffset<<std::endl;
 
      int numranks = std::ceil(0.25*(double)numprocs);
 
@@ -245,8 +245,8 @@ void ClockSynchronization<Clocksource>::UpdateOffsetMaxError()
      uint64_t Error = 0;
      for(i=0;i<error.size();i++)
 	     if(error[i] > Error) Error = error[i];
-     //maxError = Error;
-     std::cout <<" maxError = "<<maxError<<std::endl;
+     maxError = Error;
+     //std::cout <<" maxError = "<<maxError<<std::endl;
 }
 
 template<typename Clocksource>
