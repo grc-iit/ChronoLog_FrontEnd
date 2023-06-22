@@ -102,7 +102,7 @@ int main(int argc,char **argv)
 
   int num_writer_threads = 4;
 
-  int nbatches = 50;
+  int nbatches = 256;
 
   t1 = std::chrono::high_resolution_clock::now();
 
