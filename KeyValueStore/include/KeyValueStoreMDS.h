@@ -31,10 +31,11 @@
 #include "KeyValueStoreMetadata.h"
 #include "data_server_client.h"
 #include "block_map.h"
-#include "city.h"
+#include "stringfunctions.h"
 
 struct keyvaluestoremetadata
 {
+   std::string name;
    int num_attributes;
    std::vector<std::string> attribute_names;
    std::vector<std::string> attribute_types;
@@ -43,32 +44,12 @@ struct keyvaluestoremetadata
 
 };
 
-struct stringhash
-{
-
-   uint64_t operator()(std::string &s)
-   {
-	uint64_t hashvalue = CityHash64(s.c_str(),64);
-	return hashvalue;
-   }
-
-};
-
-struct stringequal
-{
-
-   bool operator()(std::string &s1,std::string &s2)
-   {
-	return (s1.compare(s2)==0);
-   }
-};
-
-
 namespace tl=thallium;
 
 template<typename A>
 void serialize(A &ar,struct keyvaluestoremetadata &e)
 {
+        ar & e.name;
         ar & e.num_attributes;
         ar & e.attribute_names;
 	ar & e.attributes_types;
@@ -101,9 +82,17 @@ class KeyValueStoreMDS
 	    {
 		nservers = numprocs;
 		serverid = myrank;
-		t_pool = new memory_pool<std::string,KeyValueStoreMetadata*,stringhash,stringequal> (100);
-		std::string emptykey = "";
-		directory = new BlockMap<std::string,KeyValueStoreMetadata*,stringhash,stringequal> (1024,t_pool,emptykey);
+		if(myrank==0)
+		{
+		  t_pool = new memory_pool<std::string,KeyValueStoreMetadata*,stringhash,stringequal> (100);
+		  std::string emptykey = "";
+		  directory = new BlockMap<std::string,KeyValueStoreMetadata*,stringhash,stringequal> (1024,t_pool,emptykey);
+		}
+		else
+		{
+		  t_pool = nullptr;
+		  directory = nullptr;
+		}
 
 	    }
 	     void server_client_addrs(tl::engine *t_server,tl::engine *t_client,tl::engine *t_server_shm, tl::engine *t_client_shm,std::vector<std::string> &ips,std::vector<std::string> &shm_addrs,std::vector<tl::endpoint> &saddrs)
@@ -139,7 +128,7 @@ class KeyValueStoreMDS
 
 	    bool LocalInsert(std::string &s,struct keyvaluestoremetadata &k)
 	    {
-		KeyValueStoreMetadata *m = new KeyValueStoreMetadata(k.num_attributes,k.attribute_types,k.attribute_names,k.attribute_lengths,k.value_size);
+		KeyValueStoreMetadata *m = new KeyValueStoreMetadata(k.name,k.num_attributes,k.attribute_types,k.attribute_names,k.attribute_lengths,k.value_size);
 		int ret = directory->insert(s,m);
 		if(ret == INSERTED) return true;
 		else 
@@ -160,6 +149,7 @@ class KeyValueStoreMDS
 		KeyValueStoreMetadata k;
 		bool b = directory->get(s,&&k);
 		struct keyvaluestoremetadata r;
+		r.name = k.db_name();
 		r.num_attributes = k.num_attributes();
 		std::vector<std::string> names = r.attribute_names();
 		r.attribute_names.assign(names.begin(),names.end());
@@ -236,8 +226,8 @@ class KeyValueStoreMDS
 
 	    ~KeyValueStoreMDS()
 	    {
-		delete t_pool;
-		delete directory;
+		if(t_pool != nullptr) delete t_pool;
+		if(directory != nullptr) delete directory;
 	    }
 
 

@@ -12,6 +12,7 @@
 class KeyValueStoreMetadata
 {
    private :
+	    std::string &name;
 	    int numattributes;
 	    std::vector<std::string> attr_types;
 	    std::vector<std::string> attr_names;
@@ -19,8 +20,9 @@ class KeyValueStoreMetadata
 	    int datalength;
 
    public :
-	   KeyValueStoreMetadata(int n,std::vector<std::string> &types, std::vector<std::string>&names,std::vector<int> &lens,int len) 
+	   KeyValueStoreMetadata(std::string &sname,int n,std::vector<std::string> &types, std::vector<std::string>&names,std::vector<int> &lens,int len) 
 	   {
+		name = sname;
 		numattributes = n;
 		attr_types.assign(types.begin(),types.end());
 		attr_names.assign(names.begin(),names.end());
@@ -32,6 +34,7 @@ class KeyValueStoreMetadata
 	   }
 	   void operator=(KeyValueStoreMetadata &m)
 	   {
+		name = m.db_name();
 		num_attributes = m.num_attributes();
 		std::vector<std::string> types = m.attribute_types();
 		attr_types.assign(types.begin(),types.end());
@@ -41,6 +44,10 @@ class KeyValueStoreMetadata
 		attr_lens.assign(lengths.begin(),lengths.end());
 		datalength = m.value_size();
 
+	   }
+	   std::string &s db_name()
+	   {
+		return name;
 	   }
 	   int num_attributes()
 	   {
@@ -62,8 +69,9 @@ class KeyValueStoreMetadata
 	   {
 		return datalength;
 	   }
-	   void get_attribute_features(std::vector<std::string> &types,std::vector<std::string> &names,std::vector<int> &lens)
+	   void get_attribute_features(std::string &sname,std::vector<std::string> &types,std::vector<std::string> &names,std::vector<int> &lens)
 	   {
+		sname.assign(name);
 		types.assign(attr_types.begin(),attr_types.end());
 		names.assign(attr_names.begin(),attr_names.end());
 		lens.assign(attr_lens.begin(),attr_lens.end());

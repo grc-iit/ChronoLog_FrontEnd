@@ -25,23 +25,19 @@ class KeyValueStoreAccessor
           {
 		md = m;
 	  }
-	  void create_invertedlist(std::string &attr_name)
-	  {
-
-
-
-
-	  }	
+	  void create_invertedlist(std::string &attr_name);
 	  template<typename T>
 	  bool insert_invertedlist(std::string &attr_name, T&key,uint64_t &ts);
-
 	  template<typename T>
 	  bool find_invertedlist(std::string &attr_name,T &key);
-	 
 	  template<typename T>
 	  uint64_t get_invertedlist(std::string &attr_name,T &key);
-
 	  void flush_invertedlist(std::string &attr_name);
+	  void fill_invertedlist(std::string &);
+	  template <typename T>
+	  bool Put(T &key, char *value);
+	  template <typename T>
+          bool Get(T &key,char *value);
 	  ~KeyValueStoreAccessor()
 	  {
 
