@@ -4,8 +4,9 @@
 #include "KeyValueStoreMetadata.h"
 #include "KeyValueStoreAccessor.h"
 #include "KeyValueStoreMDS.h"
+#include "KeyValueStoreIO.h"
 #include "data_server_client.h"
-#include "stringfunctions.h"
+#include "util.h"
 #include <hdf5.h>
 #include "h5_async_lib.h"
 
@@ -16,6 +17,7 @@ class KeyValueStore
 	    int myrank;
 	    KeyValueStoreMDS *mds;
 	    data_server_client *ds; 
+	    KeyValueStoreIO *io_layer;
 	    BlockMap<std::string,KeyValueStoreAccessor*,stringhash,stringequal> *accessor_maps;
 	    memory_pool<std::string,KeyValueStoreAccessor*,stringhash,stringequal> *t_pool; 
     public:
@@ -24,6 +26,7 @@ class KeyValueStore
 		H5open();
 		int base_port = 1000;
 		ds = new data_server_client(numprocs,myrank,base_port);
+		io_layer = new KeyValueStoreIO(numprocs,myrank);
 		mds = new KeyValueStoreMDS(numprocs,myrank);
 		t_pool = new memory_pool<std::string,KeyValueStoreAccessor*,stringhash,stringequal> (100);
 		std::string emptyKey = "";
@@ -45,6 +48,7 @@ class KeyValueStore
 		delete t_pool;
 		delete accessor_maps;
 		delete mds;
+		delete io_layer;
 		delete ds;
 
 	   }

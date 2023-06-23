@@ -31,7 +31,7 @@
 #include "KeyValueStoreMetadata.h"
 #include "data_server_client.h"
 #include "block_map.h"
-#include "stringfunctions.h"
+#include "util.h"
 
 struct keyvaluestoremetadata
 {
