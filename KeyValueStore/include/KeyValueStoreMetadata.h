@@ -7,12 +7,12 @@
 #include <numeric>
 #include <cfloat>
 #include <cmath>
-
+#include <cassert>
 
 class KeyValueStoreMetadata
 {
    private :
-	    std::string &name;
+	    std::string name;
 	    int numattributes;
 	    std::vector<std::string> attr_types;
 	    std::vector<std::string> attr_names;
@@ -35,7 +35,7 @@ class KeyValueStoreMetadata
 	   void operator=(KeyValueStoreMetadata &m)
 	   {
 		name = m.db_name();
-		num_attributes = m.num_attributes();
+		numattributes = m.num_attributes();
 		std::vector<std::string> types = m.attribute_types();
 		attr_types.assign(types.begin(),types.end());
 		std::vector<std::string> names = m.attribute_names();
@@ -45,7 +45,7 @@ class KeyValueStoreMetadata
 		datalength = m.value_size();
 
 	   }
-	   std::string &s db_name()
+	   std::string & db_name()
 	   {
 		return name;
 	   }

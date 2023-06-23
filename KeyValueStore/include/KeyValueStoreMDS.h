@@ -52,8 +52,8 @@ void serialize(A &ar,struct keyvaluestoremetadata &e)
         ar & e.name;
         ar & e.num_attributes;
         ar & e.attribute_names;
-	ar & e.attributes_types;
-	ar & e.attributes_lengths;
+	ar & e.attribute_types;
+	ar & e.attribute_lengths;
 	ar & e.value_size;
 }
 
@@ -63,7 +63,7 @@ class KeyValueStoreMDS
 	      int myrank;
 	      int numprocs;
 	      BlockMap<std::string,KeyValueStoreMetadata*,stringhash,stringequal> *directory;
-	      memory_pool<std::string,KeyValueStorMetadata*,stringhash,stringequal> *t_pool;
+	      memory_pool<std::string,KeyValueStoreMetadata*,stringhash,stringequal> *t_pool;
               tl::engine *thallium_server;
               tl::engine *thallium_shm_server;
               tl::engine *thallium_client;
@@ -144,20 +144,20 @@ class KeyValueStoreMDS
 		if(ret != NOT_IN_TABLE) return true;
 		else return false;
 	    }
-	    struct keyvaluestoremetadata &k LocalGet(std::string &s)
+	    struct keyvaluestoremetadata& LocalGet(std::string &s)
 	    {
-		KeyValueStoreMetadata k;
-		bool b = directory->get(s,&&k);
+		KeyValueStoreMetadata *k;
+		bool b = directory->get(s,&k);
 		struct keyvaluestoremetadata r;
-		r.name = k.db_name();
-		r.num_attributes = k.num_attributes();
-		std::vector<std::string> names = r.attribute_names();
+		r.name = k->db_name();
+		r.num_attributes = k->num_attributes();
+		std::vector<std::string> names = k->attribute_names();
 		r.attribute_names.assign(names.begin(),names.end());
-		std::vector<std::string> types = r.attribute_types();
+		std::vector<std::string> types = k->attribute_types();
 		r.attribute_types.assign(types.begin(),types.end());
-		std::vector<int> lengths = r.attribute_lengths();
+		std::vector<int> lengths = k->attribute_lengths();
 		r.attribute_lengths.assign(lengths.begin(),lengths.end());
-		r.value_size = r.value_size();
+		r.value_size = k->value_size();
 		return r;
 	    }
 
@@ -208,7 +208,7 @@ class KeyValueStoreMDS
 		   return rp.on(serveraddrs[destid])(s);
 		}
 	    }
-	    struct keyvaluestoremetadata & Get(std::string &s)
+	    struct keyvaluestoremetadata Get(std::string &s)
 	    {
 		int destid = 0;
 		if(ipaddrs[destid].compare(myipaddr)==0)
