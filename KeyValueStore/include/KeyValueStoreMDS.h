@@ -1,7 +1,7 @@
 #ifndef __KeyValueStoreMDS_H_
 #define __KeyValueStoreMDS_H_
 
-#include "block_map.h"
+#include "blockmap.h"
 #include <thallium.hpp>
 #include <thallium/serialization/proc_input_archive.hpp>
 #include <thallium/serialization/proc_output_archive.hpp>
@@ -30,7 +30,6 @@
 #include <cassert>
 #include "KeyValueStoreMetadata.h"
 #include "data_server_client.h"
-#include "block_map.h"
 #include "util.h"
 
 struct keyvaluestoremetadata
@@ -82,7 +81,7 @@ class KeyValueStoreMDS
 	    {
 		nservers = numprocs;
 		serverid = myrank;
-		if(myrank==0)
+		if(serverid==0)
 		{
 		  t_pool = new memory_pool<std::string,KeyValueStoreMetadata*,stringhash,stringequal> (100);
 		  std::string emptykey = "";
@@ -90,10 +89,10 @@ class KeyValueStoreMDS
 		}
 		else
 		{
-		  t_pool = nullptr;
-		  directory = nullptr;
-		}
+		   t_pool = nullptr;
+		   directory = nullptr;
 
+		}
 	    }
 	     void server_client_addrs(tl::engine *t_server,tl::engine *t_client,tl::engine *t_server_shm, tl::engine *t_client_shm,std::vector<std::string> &ips,std::vector<std::string> &shm_addrs,std::vector<tl::endpoint> &saddrs)
             {
@@ -128,9 +127,13 @@ class KeyValueStoreMDS
 
 	    bool LocalInsert(std::string &s,struct keyvaluestoremetadata &k)
 	    {
+
 		KeyValueStoreMetadata *m = new KeyValueStoreMetadata(k.name,k.num_attributes,k.attribute_types,k.attribute_names,k.attribute_lengths,k.value_size);
 		int ret = directory->insert(s,m);
-		if(ret == INSERTED) return true;
+		if(ret == INSERTED) 
+		{
+			return true;
+		}
 		else 
 		{
 		   delete m;
@@ -140,11 +143,12 @@ class KeyValueStoreMDS
 
 	    bool LocalFind(std::string &s)
 	    {
+		int k = 1;
 		int ret = directory->find(s);
 		if(ret != NOT_IN_TABLE) return true;
 		else return false;
 	    }
-	    struct keyvaluestoremetadata& LocalGet(std::string &s)
+	    std::vector<std::string> LocalGet(std::string &s)
 	    {
 		KeyValueStoreMetadata *k;
 		bool b = directory->get(s,&k);
@@ -158,7 +162,7 @@ class KeyValueStoreMDS
 		std::vector<int> lengths = k->attribute_lengths();
 		r.attribute_lengths.assign(lengths.begin(),lengths.end());
 		r.value_size = k->value_size();
-		return r;
+		return r.attribute_names;
 	    }
 
 	    void ThalliumLocalInsert(const tl::request &req,std::string &s,struct keyvaluestoremetadata &k)
@@ -179,7 +183,6 @@ class KeyValueStoreMDS
 	    bool Insert(std::string &s,struct keyvaluestoremetadata &k)
 	    {
 		int destid = 0;
-
 		if(ipaddrs[destid].compare(myipaddr)==0)
                 {
                     tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
@@ -208,7 +211,7 @@ class KeyValueStoreMDS
 		   return rp.on(serveraddrs[destid])(s);
 		}
 	    }
-	    struct keyvaluestoremetadata Get(std::string &s)
+	    std::vector<std::string> Get(std::string &s)
 	    {
 		int destid = 0;
 		if(ipaddrs[destid].compare(myipaddr)==0)

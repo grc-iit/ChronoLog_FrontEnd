@@ -27,7 +27,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <mpi.h>
-#include "distributed_map.h"
 
 namespace tl = thallium;
 
@@ -64,6 +63,8 @@ class data_server_client
         strcpy(ip, inet_ntoa(*addr_list[0]));
         myipaddr.assign(ip);
 
+	//std::cout <<" nservers = "<<nservers<<" server_id = "<<serverid<<" ip = "<<myipaddr<<" name = "<<myhostname<<std::endl;
+
 	std::vector<int> strlens;
         strlens.resize(nservers);
         int l = myipaddr.length();
@@ -97,7 +98,9 @@ class data_server_client
 
         int port_addr = base_port+serverid-pos;
         std::string server_addr = "na+sm://";
-	
+
+	//std::cout <<" serverid = "<<serverid<<" port_addr = "<<port_addr<<std::endl;
+
 	thallium_shm_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,4);
         std::string server_shm_addr = thallium_shm_server->self();
         l = server_shm_addr.length();

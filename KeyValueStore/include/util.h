@@ -10,7 +10,7 @@ struct stringhash
 
    uint64_t operator()(std::string &s)
    {
-        uint64_t hashvalue = CityHash64(s.c_str(),64);
+        uint64_t hashvalue = std::hash<std::string>()(s);//CityHash64(s.c_str(),64);
         return hashvalue;
    }
 

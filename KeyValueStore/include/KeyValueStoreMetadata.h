@@ -8,6 +8,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cassert>
+#include <iostream>
 
 class KeyValueStoreMetadata
 {
@@ -27,8 +28,8 @@ class KeyValueStoreMetadata
 		attr_types.assign(types.begin(),types.end());
 		attr_names.assign(names.begin(),names.end());
 		int l = 0;
-		for(int i=0;i<attr_lens.size();i++) l+=lens[i];
-		assert (l == len);
+		for(int i=0;i<lens.size();i++) l+=lens[i];
+		assert(l==len);
 		attr_lens.assign(lens.begin(),lens.end());
 		datalength = len;
 	   }
