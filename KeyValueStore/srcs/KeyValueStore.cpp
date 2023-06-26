@@ -16,11 +16,7 @@ void KeyValueStore::createKeyValueStoreEntry(std::string &s, KeyValueStoreMetada
          k.attribute_lengths.assign(lengths.begin(),lengths.end());
          k.value_size = m.value_size();
 
-	 if(myrank==1)
-	 {
-           int i = 0;
-	   mds->Insert(s,i);
-	 }
+	 bool b = mds->Insert(s,k);
 }
 
 void KeyValueStore::findKeyValueStoreEntry(std::string &s)

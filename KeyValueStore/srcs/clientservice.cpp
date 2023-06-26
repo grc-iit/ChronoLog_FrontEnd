@@ -35,9 +35,11 @@ int main(int argc,char **argv)
    int len = names.size()*sizeof(int);
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
  
-   k->KeyValueStoreT(); 
-   //k->createKeyValueStoreEntry(sname,m);
+   k->createKeyValueStoreEntry(sname,m);
 
+  
+
+   MPI_Barrier(MPI_COMM_WORLD);
 
    delete k;
 
