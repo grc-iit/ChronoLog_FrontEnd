@@ -37,14 +37,16 @@ class KeyValueStore
            	std::vector<std::string> shmaddrs = ds->get_shm_addrs();
            	mds->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 		mds->bind_functions();
+		io_layer->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
+		io_layer->bind_functions();
 		t_pool = new memory_pool<std::string,KeyValueStoreAccessor*,stringhash,stringequal> (100);
 		std::string emptyKey = "";
 		accessor_maps = new BlockMap<std::string,KeyValueStoreAccessor*,stringhash,stringequal>(128,t_pool,emptyKey);
 		
 		MPI_Barrier(MPI_COMM_WORLD);
 	   }
-	   void createKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &m);
-	   void findKeyValueStoreEntry(std::string &);
+	   void createKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &);
+	   bool findKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &);
 	   void removeKeyValueStoreEntry(std::string &s);
 	   void addKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   bool findKeyValueStoreInvList(std::string &s,std::string &attr_name);
@@ -87,6 +89,10 @@ class KeyValueStore
 	   {
 
 		H5close();
+		std::vector<KeyValueStoreAccessor*> values;
+		accessor_maps->get_map(values);
+		for(int i=0;i<values.size();i++)
+			delete values[i];
 		delete t_pool;
 		delete accessor_maps;
 		delete mds;

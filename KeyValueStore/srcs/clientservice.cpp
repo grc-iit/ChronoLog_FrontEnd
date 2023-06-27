@@ -37,10 +37,12 @@ int main(int argc,char **argv)
  
    k->createKeyValueStoreEntry(sname,m);
 
-  
+   k->addKeyValueStoreInvList(sname,names[0]);  
+   //KeyValueStoreMetadata m2;
+
+   //bool b = k->findKeyValueStoreEntry(sname,m2);
 
    MPI_Barrier(MPI_COMM_WORLD);
-
    delete k;
 
    MPI_Finalize();
