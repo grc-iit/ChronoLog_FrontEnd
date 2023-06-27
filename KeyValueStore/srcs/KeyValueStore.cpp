@@ -4,19 +4,9 @@
 
 void KeyValueStore::createKeyValueStoreEntry(std::string &s, KeyValueStoreMetadata &m)
 {
-
-	struct keyvaluestoremetadata k;
-	 k.name = m.db_name();
-         k.num_attributes = m.num_attributes();
-	 std::vector<std::string> names = m.attribute_names();
-         k.attribute_names.assign(names.begin(),names.end());
-	 std::vector<std::string> types = m.attribute_types();
-         k.attribute_types.assign(types.begin(),types.end());
-	 std::vector<int> lengths = m.attribute_lengths();
-         k.attribute_lengths.assign(lengths.begin(),lengths.end());
-         k.value_size = m.value_size();
-
-	 bool b = mds->Insert(s,k);
+   std::vector<std::string> pk;
+   m.packmetadata(pk);
+   bool b = mds->Insert(s,pk);
 }
 
 void KeyValueStore::findKeyValueStoreEntry(std::string &s)

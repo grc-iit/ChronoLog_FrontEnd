@@ -52,37 +52,33 @@ class KeyValueStore
 
 	   void KeyValueStoreT()
 	   {
-		struct keyvaluestoremetadata m;
-		m.name = "table0";
-   		m.num_attributes = 4;
+		std::string name = "table0";
+   		int num_attributes = 4;
    		std::vector<std::string> types;
    		types.push_back("int");
    		types.push_back("int");
    		types.push_back("int");
    		types.push_back("int");
-		m.attribute_types.assign(types.begin(),types.end());
    		std::vector<std::string> names;
    		names.push_back("name1");
    		names.push_back("name2");
    		names.push_back("name3");
    		names.push_back("name4");
-		m.attribute_names.assign(names.begin(),names.end());
    		std::vector<int> lens;
    		lens.push_back(sizeof(int));
    		lens.push_back(sizeof(int));
    		lens.push_back(sizeof(int));
    		lens.push_back(sizeof(int));
-		m.attribute_lengths.assign(lens.begin(),lens.end());
    		int len = names.size()*sizeof(int);
-		m.value_size = len;
-		std::string name = "table0";
-		mds->Insert(name,m);
-
+		KeyValueStoreMetadata *k = new KeyValueStoreMetadata(name,num_attributes,types,names,lens,len);
+		std::vector<std::string> ks;
+	       	k->packmetadata(ks);
+		mds->Insert(name,ks);
+		delete k;
 		MPI_Barrier(MPI_COMM_WORLD);
 		if(myrank==0)
 		{
 		  std::vector<std::string> ns  = mds->Get(name);
-		  std::cout <<" ns = "<<ns.size()<<std::endl;
 		}	
 		MPI_Barrier(MPI_COMM_WORLD);
 	   }

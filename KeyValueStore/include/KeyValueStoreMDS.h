@@ -32,29 +32,10 @@
 #include "data_server_client.h"
 #include "util.h"
 
-struct keyvaluestoremetadata
-{
-   std::string name;
-   int num_attributes;
-   std::vector<std::string> attribute_names;
-   std::vector<std::string> attribute_types;
-   std::vector<int> attribute_lengths;
-   int value_size;
 
-};
+
 
 namespace tl=thallium;
-
-template<typename A>
-void serialize(A &ar,struct keyvaluestoremetadata &e)
-{
-        ar & e.name;
-        ar & e.num_attributes;
-        ar & e.attribute_names;
-	ar & e.attribute_types;
-	ar & e.attribute_lengths;
-	ar & e.value_size;
-}
 
 class KeyValueStoreMDS
 {
@@ -109,7 +90,7 @@ class KeyValueStoreMDS
 	    void bind_functions()
 	    {
 
-	       std::function<void(const tl::request &,std::string &,struct keyvaluestoremetadata &)> insertFunc(
+	       std::function<void(const tl::request &,std::string &,std::vector<std::string> &)> insertFunc(
                std::bind(&KeyValueStoreMDS::ThalliumLocalInsert,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 	       std::function<void(const tl::request &,std::string &)> findFunc(
 	       std::bind(&KeyValueStoreMDS::ThalliumLocalFind,this,std::placeholders::_1,std::placeholders::_2));
@@ -125,10 +106,10 @@ class KeyValueStoreMDS
                thallium_shm_server->define("RemoteGetMDS",getFunc);
 	    }
 
-	    bool LocalInsert(std::string &s,struct keyvaluestoremetadata &k)
+	    bool LocalInsert(std::string &s,std::vector<std::string> &k)
 	    {
-
-		KeyValueStoreMetadata *m = new KeyValueStoreMetadata(k.name,k.num_attributes,k.attribute_types,k.attribute_names,k.attribute_lengths,k.value_size);
+		KeyValueStoreMetadata *m = new KeyValueStoreMetadata();
+		m->unpackmetadata(k);
 		int ret = directory->insert(s,m);
 		if(ret == INSERTED) 
 		{
@@ -152,20 +133,12 @@ class KeyValueStoreMDS
 	    {
 		KeyValueStoreMetadata *k;
 		bool b = directory->get(s,&k);
-		struct keyvaluestoremetadata r;
-		r.name = k->db_name();
-		r.num_attributes = k->num_attributes();
-		std::vector<std::string> names = k->attribute_names();
-		r.attribute_names.assign(names.begin(),names.end());
-		std::vector<std::string> types = k->attribute_types();
-		r.attribute_types.assign(types.begin(),types.end());
-		std::vector<int> lengths = k->attribute_lengths();
-		r.attribute_lengths.assign(lengths.begin(),lengths.end());
-		r.value_size = k->value_size();
-		return r.attribute_names;
+		std::vector<std::string> metadata;
+		if(b) k->packmetadata(metadata);
+		return metadata;
 	    }
 
-	    void ThalliumLocalInsert(const tl::request &req,std::string &s,struct keyvaluestoremetadata &k)
+	    void ThalliumLocalInsert(const tl::request &req,std::string &s,std::vector<std::string> &k)
 	    {
 		req.respond(LocalInsert(s,k));
 	    }
@@ -180,7 +153,7 @@ class KeyValueStoreMDS
 		req.respond(LocalGet(s));
 	    }
 
-	    bool Insert(std::string &s,struct keyvaluestoremetadata &k)
+	    bool Insert(std::string &s,std::vector<std::string> &k)
 	    {
 		int destid = 0;
 		if(ipaddrs[destid].compare(myipaddr)==0)
@@ -230,7 +203,14 @@ class KeyValueStoreMDS
 	    ~KeyValueStoreMDS()
 	    {
 		if(t_pool != nullptr) delete t_pool;
-		if(directory != nullptr) delete directory;
+		if(directory != nullptr) 
+		{
+			std::vector<KeyValueStoreMetadata*> values;
+			directory->get_map(values);
+			for(int i=0;i<values.size();i++)
+				delete values[i];	
+			delete directory;
+		}
 	    }
 
 
