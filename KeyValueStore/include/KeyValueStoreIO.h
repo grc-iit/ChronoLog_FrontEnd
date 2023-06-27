@@ -291,6 +291,12 @@ class KeyValueStoreIO
 		}
 		return ret;
 	     }
+
+	     void service_request_queue();
+	     void service_sync_queue();
+	     void read_query();
+	     void sync_writes();
+
 	    ~KeyValueStoreIO()
 	    {
 		delete req_queue;
