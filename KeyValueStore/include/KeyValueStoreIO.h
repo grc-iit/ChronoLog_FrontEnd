@@ -29,6 +29,7 @@
 #include <cassert>
 #include <boost/lockfree/queue.hpp>
 #include "event.h"
+#include <thread>
 
 struct request
 {
@@ -98,12 +99,15 @@ class KeyValueStoreIO
            std::vector<std::string> shmaddrs;
            std::string myipaddr;
            std::string myhostname;
+	   int num_io_threads;
+	   std::vector<std::thread> io_threads;
 
 
    public:
 
 	    KeyValueStoreIO(int np,int p) : nservers(np), serverid(p)
 	    {
+	        num_io_threads = 1;
 		req_queue = new boost::lockfree::queue<struct request*> (128);
 		resp_queue = new boost::lockfree::queue<struct response*> (128);
 		sync_queue = new boost::lockfree::queue<struct request*> (128);

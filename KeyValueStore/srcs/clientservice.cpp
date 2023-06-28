@@ -35,12 +35,11 @@ int main(int argc,char **argv)
    int len = names.size()*sizeof(int);
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
  
-   k->createKeyValueStoreEntry(sname,m);
+   //k->createKeyValueStoreEntry(sname,m);
 
-   k->addKeyValueStoreInvList(sname,names[0]);  
-   //KeyValueStoreMetadata m2;
+   //k->addKeyValueStoreInvList(sname,names[0]);  
 
-   //bool b = k->findKeyValueStoreEntry(sname,m2);
+
 
    MPI_Barrier(MPI_COMM_WORLD);
    delete k;

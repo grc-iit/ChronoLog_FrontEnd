@@ -1,12 +1,39 @@
 #ifndef __KeyValueStoreAccessor_H_
 #define __KeyValueStoreAccessor_H_
 
-#include "rw.h"
-#include "query_engine.h"
-#include "inverted_list.h"
+#include "invertedlist.h"
 #include "external_sort.h"
-#include "KeyValueStoreIO.h"
 #include "util.h"
+
+#include <thallium.hpp>
+#include <thallium/serialization/proc_input_archive.hpp>
+#include <thallium/serialization/proc_output_archive.hpp>
+#include <thallium/serialization/serialize.hpp>
+#include <thallium/serialization/stl/array.hpp>
+#include <thallium/serialization/stl/complex.hpp>
+#include <thallium/serialization/stl/deque.hpp>
+#include <thallium/serialization/stl/forward_list.hpp>
+#include <thallium/serialization/stl/list.hpp>
+#include <thallium/serialization/stl/map.hpp>
+#include <thallium/serialization/stl/multimap.hpp>
+#include <thallium/serialization/stl/multiset.hpp>
+#include <thallium/serialization/stl/pair.hpp>
+#include <thallium/serialization/stl/set.hpp>
+#include <thallium/serialization/stl/string.hpp>
+#include <thallium/serialization/stl/tuple.hpp>
+#include <thallium/serialization/stl/unordered_map.hpp>
+#include <thallium/serialization/stl/unordered_multimap.hpp>
+#include <thallium/serialization/stl/unordered_multiset.hpp>
+#include <thallium/serialization/stl/unordered_set.hpp>
+#include <thallium/serialization/stl/vector.hpp>
+#include <unistd.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <cassert>
+#include "KeyValueStoreIO.h"
+
+namespace tl=thallium;
 
 typedef hdf5_invlist<int,uint64_t,inthashfunc,std::equal_to<int>> integer_invlist;
 typedef hdf5_invlist<uint64_t,uint64_t,unsignedlonghashfunc,std::equal_to<uint64_t>> unsigned_long_invlist;
@@ -20,85 +47,76 @@ class KeyValueStoreAccessor
 	    int numprocs;
 	    int myrank;
 	    KeyValueStoreMetadata md;
-	    KeyValueStoreIO *kio; 
-	    std::vector<std::pair<std::string,integer_invlist*>> integer_lists;
-	    std::vector<std::pair<std::string,unsigned_long_invlist*>> unsigned_long_lists;
-	    std::vector<std::pair<std::string,float_invlist*>> float_lists;
-	    std::vector<std::pair<std::string,double_invlist*>> double_lists;
-	    std::vector<std::string> secondary_attributes;
+	    std::vector<std::pair<std::string,void*>> lists;
+	    std::unordered_map<std::string,int> secondary_attributes;
+	    KeyValueStoreIO *kio;
+	    data_server_client *d;
 
    public :
-	  KeyValueStoreAccessor(int np,int p,KeyValueStoreMetadata &m,KeyValueStoreIO *k)
+	  KeyValueStoreAccessor(int np,int p,KeyValueStoreMetadata &m,KeyValueStoreIO *io,data_server_client *ds)
           {
 		numprocs = np;
 		myrank = p;
 		md = m;
-		kio = k;
+		kio = io;
+		d = ds;
 	  }
+
 	  KeyValueStoreMetadata & get_metadata()
 	  {
 		return md;
 	  }
-	  void create_invertedlist(std::string &attr_name)
+	  int create_invertedlist(std::string &attr_name)
 	  {
-		std::vector<std::string> &names = md.attribute_names();
-		std::vector<std::string> &types = md.attribute_types();
+		std::string name = md.db_name();
+		std::string type = md.get_type(attr_name);
+		std::string pre = name+attr_name;
 
-		int pos = -1;
-		for(int i=0;i<names.size();i++)
+		if(type.empty()) return -1;
+	
+		auto r = secondary_attributes.find(attr_name);
+		int ret; 
+		if(r == secondary_attributes.end())
 		{
-		    if(names[i].compare(attr_name)==0)
-		    {
-			pos = i; break;
-		    }
-		}	
-		if(pos==-1) return;
-
-		if(types[pos].compare("int")==0)
-		{
-		   secondary_attributes.push_back(attr_name);
-		   integer_invlist *iv = new integer_invlist(numprocs,myrank);
-		   std::pair<std::string,integer_invlist*> sp;
-		   sp.first = attr_name;
-		   sp.second = iv;
-		   integer_lists.push_back(sp);
+		  
+		  if(type.compare("int")==0)
+		  {
+		   int maxint = INT32_MAX;
+		   ret = add_new_inverted_list<integer_invlist,int>(attr_name,2048,maxint,pre,d);
+		  }
+		  else if(type.compare("unsignedlong")==0)
+		  {
+		   uint64_t maxuint = UINT64_MAX;
+		   ret = add_new_inverted_list<unsigned_long_invlist,uint64_t>(attr_name,2048,maxuint,pre,d);
+		  }
+		  else if(type.compare("float")==0)
+		  {
+		   float maxfl = DBL_MAX;
+		   ret = add_new_inverted_list<float_invlist,float>(attr_name,2048,maxfl,pre,d);
+		  }
+		  else if(type.compare("double")==0)
+		  {
+		   double maxd = DBL_MAX;
+		   ret = add_new_inverted_list<double_invlist,double>(attr_name,2048,maxd,pre,d);
+		  }
 		}
-		else if(types[pos].compare("unsignedlong")==0)
-		{
-		  secondary_attributes.push_back(attr_name);
-		  unsigned_long_invlist *iv = new unsigned_long_invlist(numprocs,myrank);
-		  std::pair<std::string,unsigned_long_invlist*> sp;
-		  sp.first = attr_name;
-		  sp.second = iv;
-		  unsigned_long_lists.push_back(sp);
-		}
-		else if(types[pos].compare("float")==0)
-		{	
-		   secondary_attributes.push_back(attr_name);
-		   float_invlist *iv = new float_invlist(numprocs,myrank);
-		   std::pair<std::string,float_invlist*> sp;
-		   sp.first = attr_name;
-		   sp.second = iv;
-		   float_lists.push_back(sp);
-		}
-		else if(types[pos].compare("double")==0)
-		{
-		   secondary_attributes.push_back(attr_name);
-		   double_invlist *iv = new double_invlist(numprocs,myrank);
-		   std::pair<std::string,double_invlist*> sp;
-		   sp.first = attr_name;
-		   sp.second = iv;
-		   double_lists.push_back(sp);
-		}
+		else ret = r->second;
+		return ret;
 	  }
+	  template<typename T,typename N>
+	  int add_new_inverted_list(std::string &,int,N&,std::string &,data_server_client*);
 	  template<typename T>
-	  bool insert_entry(std::string &attr_name, T&key,uint64_t &ts);
+	  bool delete_inverted_list(int);
+	  template<typename T,typename N>
+	  bool insert_entry(int, N&key,uint64_t &ts);
 	  template<typename T>
-	  bool find_entry(std::string &attr_name,T &key);
+	  bool find_entry(int,T &key);
 	  template<typename T>
-	  uint64_t get_entry(std::string &attr_name,T &key);
-	  void flush_invertedlist(std::string &attr_name);
-	  void fill_invertedlist(std::string &);
+	  uint64_t get_entry(int,T &key);
+	  template<typename T>
+	  void flush_invertedlist(int);
+	  template<typename T>
+	  void fill_invertedlist(int);
 	  template <typename T>
 	  bool Put(T &key, char *value);
 	  template <typename T>
@@ -106,14 +124,16 @@ class KeyValueStoreAccessor
 	  void sort_on_secondary_key(std::string &attr_name);
 	  ~KeyValueStoreAccessor()
 	  {
-		for(int i=0;i<integer_lists.size();i++)
-			delete integer_lists[i].second;
-		for(int i=0;i<unsigned_long_lists.size();i++)
-			delete unsigned_long_lists[i].second;
-		for(int i=0;float_lists.size();i++)
-			delete float_lists[i].second;
-		for(int i=0;i<double_lists.size();i++)
-			delete double_lists[i].second;
+		for(int i=0;i<lists.size();i++)
+		{
+		   std::string attr_name = lists[i].first;
+		   std::string type = md.get_type(attr_name);
+		   bool ret = false;
+		   if(type.compare("int")==0) ret = delete_inverted_list<integer_invlist>(i);
+		   else if(type.compare("unsignedlong")==0) ret = delete_inverted_list<unsigned_long_invlist>(i);
+		   else if(type.compare("float")==0) ret = delete_inverted_list<float_invlist>(i);
+		   else if(type.compare("double")==0) ret = delete_inverted_list<double_invlist>(i);
+		}
 	  }
 
 };

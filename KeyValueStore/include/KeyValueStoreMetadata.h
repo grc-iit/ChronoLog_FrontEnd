@@ -115,6 +115,18 @@ class KeyValueStoreMetadata
 		std::size_t dlen;
 		datalength = std::stoi(s[c].c_str(),&dlen);
 	   }
+	   std::string& get_type(std::string &attr_name)
+	   {
+
+		for(int i=0;i<attr_names.size();i++)
+		{
+		   if(attr_names[i].compare(attr_name)==0)
+			return attr_types[i];
+		}
+
+		std::string null;
+		return null;
+	   }
 	   void get_attribute_features(std::string &sname,std::vector<std::string> &types,std::vector<std::string> &names,std::vector<int> &lens)
 	   {
 		sname.assign(name);

@@ -2,7 +2,7 @@
 #define __KeyValueStore_H_
 
 #include "KeyValueStoreMetadata.h"
-#include "KeyValueStoreAccessor.h"
+#include "KeyValueStoreAccessorRepository.h"
 #include "KeyValueStoreMDS.h"
 #include "KeyValueStoreIO.h"
 #include "data_server_client.h"
@@ -16,17 +16,15 @@ class KeyValueStore
 	    int numprocs;
 	    int myrank;
 	    KeyValueStoreMDS *mds;
-	    data_server_client *ds; 
-	    KeyValueStoreIO *io_layer;
-	    BlockMap<std::string,KeyValueStoreAccessor*,stringhash,stringequal> *accessor_maps;
-	    memory_pool<std::string,KeyValueStoreAccessor*,stringhash,stringequal> *t_pool; 
+	    data_server_client *ds;
+	    KeyValueStoreIO *io_layer; 
+	    KeyValueStoreAccessorRepository *tables;
     public:
 	    KeyValueStore(int np,int r) : numprocs(np), myrank(r)
 	   {
 		H5open();
 		int base_port = 2000;
 		ds = new data_server_client(numprocs,myrank,base_port);
-		io_layer = new KeyValueStoreIO(numprocs,myrank);
 		mds = new KeyValueStoreMDS(numprocs,myrank);
 		tl::engine *t_server = ds->get_thallium_server();
            	tl::engine *t_server_shm = ds->get_thallium_shm_server();
@@ -37,12 +35,10 @@ class KeyValueStore
            	std::vector<std::string> shmaddrs = ds->get_shm_addrs();
            	mds->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 		mds->bind_functions();
+		io_layer = new KeyValueStoreIO(numprocs,myrank);
 		io_layer->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 		io_layer->bind_functions();
-		t_pool = new memory_pool<std::string,KeyValueStoreAccessor*,stringhash,stringequal> (100);
-		std::string emptyKey = "";
-		accessor_maps = new BlockMap<std::string,KeyValueStoreAccessor*,stringhash,stringequal>(128,t_pool,emptyKey);
-		
+		tables = new KeyValueStoreAccessorRepository(numprocs,myrank,io_layer,ds);
 		MPI_Barrier(MPI_COMM_WORLD);
 	   }
 	   void createKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &);
@@ -88,16 +84,11 @@ class KeyValueStore
 	   ~KeyValueStore()
 	   {
 
-		H5close();
-		std::vector<KeyValueStoreAccessor*> values;
-		accessor_maps->get_map(values);
-		for(int i=0;i<values.size();i++)
-			delete values[i];
-		delete t_pool;
-		delete accessor_maps;
-		delete mds;
+		delete tables;
 		delete io_layer;
+		delete mds;
 		delete ds;
+		H5close();
 
 	   }
 
