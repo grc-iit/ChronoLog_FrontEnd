@@ -1,7 +1,7 @@
 
 include_directories("../emu/include")
 include_directories("include")
-add_executable(KeyValueStore srcs/clientservice.cpp srcs/KeyValueStore.cpp ../emu/srcs/city.cpp)
+add_executable(KeyValueStore srcs/clientservice.cpp srcs/KeyValueStore.cpp srcs/KeyValueStoreIO.cpp ../emu/srcs/city.cpp)
 if(PARALLEL)
 target_link_libraries(KeyValueStore ${MPI_CXX_LIBRARIES})
 endif()

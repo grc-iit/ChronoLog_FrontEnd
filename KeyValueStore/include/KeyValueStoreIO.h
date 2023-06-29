@@ -30,6 +30,7 @@
 #include <boost/lockfree/queue.hpp>
 #include "event.h"
 #include <thread>
+#include <mpi.h>
 
 struct request
 {
@@ -56,7 +57,11 @@ struct response
   bool complete;
 };
 
+struct thread_arg 
+{
+  int tid;
 
+};
 
 namespace tl=thallium;
 
@@ -109,6 +114,7 @@ class KeyValueStoreIO
            std::string myhostname;
 	   int num_io_threads;
 	   std::vector<std::thread> io_threads;
+	   std::vector<struct thread_arg> t_args;
 	   std::atomic<int> request_count;
 
 
@@ -121,8 +127,24 @@ class KeyValueStoreIO
 		req_queue = new boost::lockfree::queue<struct request*> (128);
 		resp_queue = new boost::lockfree::queue<struct response*> (128);
 		sync_queue = new boost::lockfree::queue<struct request*> (128);
+
+		 t_args.resize(num_io_threads);
+	 	 for(int i=0;i<num_io_threads;i++) t_args[i].tid = i;	 
+	
+		 io_threads.resize(num_io_threads);
+
+		 std::function<void(struct thread_arg *)> IOFunc(
+                 std::bind(&KeyValueStoreIO::io_function,this, std::placeholders::_1));
+		
+		 std::thread t{IOFunc,&t_args[0]};
+		 io_threads[0] = std::move(t);
+
 	    }
 
+	     void end_io()
+	     {
+		for(int i=0;i<num_io_threads;i++) io_threads[i].join();
+	     }
 	     void server_client_addrs(tl::engine *t_server,tl::engine *t_client,tl::engine *t_server_shm, tl::engine *t_client_shm,std::vector<std::string> &ips,std::vector<std::string> &shm_addrs,std::vector<tl::endpoint> &saddrs)
             {
                 thallium_server = t_server;
@@ -306,10 +328,9 @@ class KeyValueStoreIO
 		return ret;
 	     }
 
-	     void service_request_queue();
-	     void service_sync_queue();
-	     void read_query();
-	     void sync_writes();
+
+	     void get_common_requests(std::vector<struct request*>&);
+	     void io_function(struct thread_arg *);
 
 	    ~KeyValueStoreIO()
 	    {

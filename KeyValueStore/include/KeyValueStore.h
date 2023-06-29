@@ -85,6 +85,7 @@ class KeyValueStore
 	   ~KeyValueStore()
 	   {
 
+		io_layer->end_io();
 		delete tables;
 		delete io_layer;
 		delete mds;
