@@ -94,7 +94,7 @@ class BlockMap
 	    bool found = false;
 	    while(n != nullptr)
 	    {
-		if(EqualFcn()(n->key,k)) found = true;
+		//if(EqualFcn()(n->key,k)) found = true;
 		if(HashFcn()(n->key)>HashFcn()(k)) 
 		{
 		   break;
@@ -187,7 +187,33 @@ class BlockMap
 
 	   return found;
 	}
-	
+
+	bool getvalues(KeyT &k,std::vector<ValueT> &values)
+	{
+	   bool found = false;
+
+	   uint64_t pos = KeyToIndex(k);
+
+	   boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+
+	   node_type *n = (*table)[pos].head->next;
+
+	   while(n != nullptr)
+	   {
+	      if(EqualFcn()(n->key,k))
+	      {
+		values.push_back(n->value);
+	      }
+	      if(HashFcn()(n->key) > HashFcn()(k)) break;
+	      n = n->next;
+
+	   }
+
+	   if(values.size() > 0) found = true;
+	   return found;
+
+	}
+
 	template<typename... Args>
 	bool update_field(KeyT &k,void(*fn)(ValueT *,Args&&... args),Args&&... args_)
 	{
@@ -303,6 +329,8 @@ class BlockMap
 	{
 	  for(int i=0;i<maxSize;i++)
 	  {
+             boost::unique_lock<boost::mutex> lk((*table)[i].mutex_t);
+
 	     node_type *n = (*table)[i].head->next;
 	     while(n != nullptr)
 	     {
@@ -322,6 +350,8 @@ class BlockMap
 	   int num_entries = 0;
 	   for(int i=0;i<maxSize;i++)
 	   {
+	     boost::unique_lock<boost::mutex> lk((*table)[i].mutex_t);
+
 	     node_type *n = (*table)[i].head->next;
 
 	     while(n != nullptr)
@@ -334,7 +364,7 @@ class BlockMap
 	   //std::cout <<" num_entries = "<<num_entries<<" allocated = "<<allocated.load()<<std::endl;
 	   return true;
 	}
-	
+
 	bool get_map_keyvalue(std::vector<std::vector<KeyT>> *keys,std::vector<std::vector<ValueT>> *values)
 	{
 	   keys->resize(maxSize);
@@ -342,6 +372,8 @@ class BlockMap
 	   int num_entries=0;
 	   for(int i=0;i<maxSize;i++)
 	   {
+		boost::unique_lock<boost::mutex> lk((*table)[i].mutex_t);
+
 		node_type *n = (*table)[i].head->next;
 
 		while(n != nullptr)

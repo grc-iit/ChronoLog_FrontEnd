@@ -8,8 +8,7 @@ void KeyValueStore::createKeyValueStoreEntry(std::string &s, KeyValueStoreMetada
    m.packmetadata(pk);
    bool b = mds->Insert(s,pk);
 
-   /*KeyValueStoreAccessor *ka = new KeyValueStoreAccessor(numprocs,myrank,m);
-   if(accessor_maps->insert(s,ka)!=INSERTED) delete ka;*/
+   tables->add_accessor(s,m);
 }
 
 bool KeyValueStore::findKeyValueStoreEntry(std::string &s,KeyValueStoreMetadata &m)
@@ -24,10 +23,47 @@ bool KeyValueStore::findKeyValueStoreEntry(std::string &s,KeyValueStoreMetadata 
    return ret;
 }
 
+void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int numreq)
+{
+    KeyValueStoreAccessor* ka = tables->get_accessor(s);
+
+    if(ka==nullptr)
+    {
+	KeyValueStoreMetadata m;
+	if(!findKeyValueStoreEntry(s,m)) return;
+	if(!tables->add_accessor(s,m)) return;
+	ka = tables->get_accessor(s);
+    }
+    int pos = ka->get_inverted_list_index(attr_name);
+
+    if(pos==-1) tables->create_invertedlist(s,attr_name);
+
+    pos = ka->get_inverted_list_index(attr_name);
+
+    for(int i=0;i<numreq;i++)
+    {
+	srandom(myrank);
+	int key = random()%RAND_MAX;
+
+	uint64_t ts = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+
+	ka->insert_entry<integer_invlist,int>(pos,key,ts);
+    }
+
+
+}
+
 void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_name)
 {
+      if(!tables->find_accessor(s))
+      {
+	   KeyValueStoreMetadata m;
+	   if(!findKeyValueStoreEntry(s,m)) return;
 
+	   if(!tables->add_accessor(s,m)) return;
+      }
 
+      tables->create_invertedlist(s,attr_name);
 }
 
 

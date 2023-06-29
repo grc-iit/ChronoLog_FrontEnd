@@ -34,9 +34,11 @@
 struct request
 {
   std::string name;
+  std::string attr_name;
   int id;
   int keytype;
   int intkey;
+  uint64_t unsignedlongkey;
   float floatkey;
   double doublekey;
   int sender;
@@ -46,6 +48,7 @@ struct request
 struct response
 {
   std::string name;
+  std::string attr_name;
   int id;
   int response_id;
   struct event e;
@@ -53,15 +56,19 @@ struct response
   bool complete;
 };
 
+
+
 namespace tl=thallium;
 
 template<typename A>
 void serialize(A &ar,struct request &e)
 {
 	ar & e.name;
+	ar & e.attr_name;
         ar & e.id;
         ar & e.keytype;
 	ar & e.intkey;
+	ar & e.unsignedlongkey;
 	ar & e.floatkey;
 	ar & e.doublekey;
 	ar & e.sender;
@@ -72,6 +79,7 @@ template<typename A>
 void serialize(A &ar,struct response &e)
 {
    ar & e.name;
+   ar & e.attr_name;
    ar & e.id;
    ar & e.response_id;
    ar & e.e.ts;
@@ -101,6 +109,7 @@ class KeyValueStoreIO
            std::string myhostname;
 	   int num_io_threads;
 	   std::vector<std::thread> io_threads;
+	   std::atomic<int> request_count;
 
 
    public:
@@ -108,6 +117,7 @@ class KeyValueStoreIO
 	    KeyValueStoreIO(int np,int p) : nservers(np), serverid(p)
 	    {
 	        num_io_threads = 1;
+		request_count.store(0);
 		req_queue = new boost::lockfree::queue<struct request*> (128);
 		resp_queue = new boost::lockfree::queue<struct response*> (128);
 		sync_queue = new boost::lockfree::queue<struct request*> (128);
@@ -165,7 +175,7 @@ class KeyValueStoreIO
 	     {
 		struct request *s = new struct request();
 		s->name = r.name;
-		s->id = r.id;
+		s->id = request_count.fetch_add(1);
 		s->keytype = r.keytype;
   		s->intkey = r.intkey;
   		s->floatkey = r.floatkey;

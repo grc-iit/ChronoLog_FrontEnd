@@ -45,13 +45,34 @@ class KeyValueStoreAccessorRepository
 		else b = true;
 		return b;
 	      }
-	      
+
+	      bool find_accessor(std::string &s)
+	      {
+		if(accessor_maps->find(s)==NOT_IN_TABLE) return false;
+		return true;
+	      }
+
+	      bool create_invertedlist(std::string &s,std::string &a)
+	      {
+	           KeyValueStoreAccessor *ka = nullptr;
+
+		   accessor_maps->get(s,&ka);
+
+		   if(ka==nullptr) return false;
+		   
+		   int ret = ka->create_invertedlist(a);
+
+		   if(ret == -1) return false;
+		   return true;
+	      }
+
 	      KeyValueStoreAccessor *get_accessor(std::string &s)
 	      {
 		KeyValueStoreAccessor *k = nullptr;
 		accessor_maps->get(s,&k);
 		return k;
 	      }
+	      
 
 };
 

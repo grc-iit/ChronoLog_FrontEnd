@@ -13,6 +13,70 @@ int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::partition_no(KeyT &k)
       return id;
 }
 
+template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
+bool hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::put_entry(KeyT &k,ValueT &v)
+{
+	int pid = partition_no(k);
+
+	bool b = false;
+	
+	if(pid == serverid)
+	   b = LocalPutEntry(k,v);
+	else
+	   b = PutEntry(k,v,pid);
+	return b;
+}
+
+template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
+int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entry(KeyT& k,std::vector<ValueT>&values)
+{
+	int pid = partition_no(k);
+        int ret = -1;
+
+	if(pid==serverid)
+	    values = LocalGetEntry(k);
+	else 
+	    values = Get(k,pid);
+	
+	ret = create_async_io_request(k); 
+	return ret;
+}
+
+template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
+void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_async_io_request(KeyT &k,std::vector<ValueT> &values)
+{
+      struct request r;
+      r.name = filename;
+      r.attr_name = attributename;
+      r.id = 0;
+
+      if(typeid(k)==typeid(r.intkey))
+      {
+           r.keytype = 0;
+   	   r.intkey = (int)k;	   
+      }
+      else if(typeid(k)==typeid(r.unsignedlongkey))
+      {
+	   r.keytype = 1;
+	   r.unsignedlongkey = (uint64_t)k;
+      }
+      else if(typeid(k)==typeid(r.floatkey))
+      {
+	   r.keytype = 2;
+	   r.floatkey = (float)k;
+      }
+      else if(typeid(k)==typeid(r.doublekey))
+      {
+	   r.keytype = 2;
+	   r.doublekey = (double)k;
+      }
+      r.sender = myrank;
+      r.flush = false;
+
+      io_t->LocalPutRequest(r);
+
+}
+
 template<typename KeyT, typename ValueT,typename hashfcn,typename equalfcn>
 void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::string &s,int offset)
 {

@@ -47,6 +47,7 @@ class KeyValueStore
 	   void addKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   bool findKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void removeKeyValueStoreInvList(std::string &s,std::string &attr_name);
+	   void create_keyvalues(std::string &,std::string &,int);
 
 	   void KeyValueStoreT()
 	   {

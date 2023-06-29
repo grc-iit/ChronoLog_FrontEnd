@@ -70,7 +70,6 @@ class KeyValueStoreAccessor
 	  {
 		std::string name = md.db_name();
 		std::string type = md.get_type(attr_name);
-		std::string pre = name+attr_name;
 
 		if(type.empty()) return -1;
 	
@@ -82,29 +81,39 @@ class KeyValueStoreAccessor
 		  if(type.compare("int")==0)
 		  {
 		   int maxint = INT32_MAX;
-		   ret = add_new_inverted_list<integer_invlist,int>(attr_name,2048,maxint,pre,d);
+		   ret = add_new_inverted_list<integer_invlist,int>(name,attr_name,2048,maxint,d,kio);
 		  }
 		  else if(type.compare("unsignedlong")==0)
 		  {
 		   uint64_t maxuint = UINT64_MAX;
-		   ret = add_new_inverted_list<unsigned_long_invlist,uint64_t>(attr_name,2048,maxuint,pre,d);
+		   ret = add_new_inverted_list<unsigned_long_invlist,uint64_t>(name,attr_name,2048,maxuint,d,kio);
 		  }
 		  else if(type.compare("float")==0)
 		  {
 		   float maxfl = DBL_MAX;
-		   ret = add_new_inverted_list<float_invlist,float>(attr_name,2048,maxfl,pre,d);
+		   ret = add_new_inverted_list<float_invlist,float>(name,attr_name,2048,maxfl,d,kio);
 		  }
 		  else if(type.compare("double")==0)
 		  {
 		   double maxd = DBL_MAX;
-		   ret = add_new_inverted_list<double_invlist,double>(attr_name,2048,maxd,pre,d);
+		   ret = add_new_inverted_list<double_invlist,double>(name,attr_name,2048,maxd,d,kio);
 		  }
 		}
 		else ret = r->second;
 		return ret;
 	  }
+
+	  int get_inverted_list_index(std::string &attr_name)
+	  {
+		int ret = -1;
+		auto r = secondary_attributes.find(attr_name);
+		if(r==secondary_attributes.end()) return ret;
+
+		return r->second;
+	  }
+
 	  template<typename T,typename N>
-	  int add_new_inverted_list(std::string &,int,N&,std::string &,data_server_client*);
+	  int add_new_inverted_list(std::string &,std::string &,int,N&,data_server_client*,KeyValueStoreIO*);
 	  template<typename T>
 	  bool delete_inverted_list(int);
 	  template<typename T,typename N>
@@ -117,10 +126,10 @@ class KeyValueStoreAccessor
 	  void flush_invertedlist(int);
 	  template<typename T>
 	  void fill_invertedlist(int);
-	  template <typename T>
-	  bool Put(T &key, char *value);
-	  template <typename T>
-          bool Get(T &key,char *value);
+	  template <typename T,typename N,typename M>
+	  bool Put(N &key, M &value);
+	  template <typename T,typename N>
+          bool Get(N &key,char *value);
 	  void sort_on_secondary_key(std::string &attr_name);
 	  ~KeyValueStoreAccessor()
 	  {

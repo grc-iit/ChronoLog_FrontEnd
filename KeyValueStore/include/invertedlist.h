@@ -7,6 +7,7 @@
 #include "h5_async_lib.h"
 #include "event.h"
 #include "data_server_client.h"
+#include "KeyValueStoreIO.h"
 
 namespace tl=thallium;
 
@@ -43,7 +44,10 @@ class hdf5_invlist
 	   int maxsize;
 	   KeyT emptyKey;
 	   hid_t kv1;
+	   std::string filename;
+	   std::string attributename;
 	   std::string rpc_prefix;
+	   bool file_exists;
 	   data_server_client *d;
 	   tl::engine *thallium_server;
            tl::engine *thallium_shm_server;
@@ -56,15 +60,20 @@ class hdf5_invlist
            std::string myhostname;
            int nservers;
            int serverid;
+	   KeyValueStoreIO *io_t;
 
    public:
-	   hdf5_invlist(int n,int p,int size,KeyT emptykey,std::string &pre,data_server_client *ds) : numprocs(n), myrank(p)
+	   hdf5_invlist(int n,int p,int size,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io) : numprocs(n), myrank(p)
 	   {
 	     tag = 20000;
 	     maxsize = size;
 	     emptyKey = emptykey;
-	     rpc_prefix = pre;
+	     filename = table;
+	     attributename = attr;
+	     rpc_prefix = filename+attributename;
 	     d = ds;
+	     io_t = io;
+	     file_exists = false;
 	     tl::engine *t_server = d->get_thallium_server();
              tl::engine *t_server_shm = d->get_thallium_shm_server();
              tl::engine *t_client = d->get_thallium_client();
@@ -92,8 +101,19 @@ class hdf5_invlist
 
 	   void bind_functions()
 	   {
+	       std::function<void(const tl::request &,KeyT &,ValueT&)> putEntryFunc(
+               std::bind(&hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::ThalliumLocalPutEntry,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 
+	       std::function<void(const tl::request &,KeyT&)> getEntryFunc(
+	       std::bind(&hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::ThalliumLocalGetEntry,this,std::placeholders::_1,std::placeholders::_2));		       
 
+	       std::string fcnname1 = rpc_prefix+"RemotePutEntry";
+               thallium_server->define(fcnname1.c_str(),putEntryFunc);
+               thallium_shm_server->define(fcnname1.c_str(),putEntryFunc);
+
+	       std::string fcnname2 = rpc_prefix+"RemoteGetEntry";
+	       thallium_server->define(fcnname2.c_str(),getEntryFunc);
+	       thallium_shm_server->define(fcnname2.c_str(),getEntryFunc);
 
 		MPI_Barrier(MPI_COMM_WORLD);
 	   }
@@ -107,22 +127,79 @@ class hdf5_invlist
 		  delete invlist;
 	         }
 		H5Tclose(kv1);
-
 	   }
 
 	   inline int nearest_power_two(int n)
-	   {
+	  {
 		int c = 1;
-
-		while(c < n)
-		{
-		   c = 2*c;
-		}
+		while(c < n) c = 2*c;
 		return c;
 	   }
 
-	   bool put_entry(KeyT&,uint64_t&);
-	   bool get_entry(KeyT&,std::vector<uint64_t>&values);
+	   bool LocalPutEntry(KeyT &k,ValueT& v)
+	   {
+		bool b = false;
+		int ret = invlist->bm->insert(k,v);
+		if(ret==INSERTED) b = true;
+		return b;
+	   }
+
+	   std::vector<ValueT> LocalGetEntry(KeyT &k)
+	   {
+		bool b;
+		std::vector<ValueT> values;
+		b = invlist->bm->getvalues(k,values);
+		return values;
+	   }
+
+	   void ThalliumLocalPutEntry(const tl::request &req,KeyT &k,ValueT &v)
+           {
+                req.respond(LocalPutEntry(k,v));
+           }
+
+	   void ThalliumLocalGetEntry(const tl::request &req,KeyT &k)
+	   {
+		req.respond(LocalGetEntry(k));
+	   }
+
+	   bool PutEntry(KeyT &k,ValueT &v,int destid)
+	   {
+              if(ipaddrs[destid].compare(myipaddr)==0)
+              {
+                    tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
+		    std::string fcnname = rpc_prefix+"RemotePutEntry";
+                    tl::remote_procedure rp = thallium_shm_client->define(fcnname.c_str());
+                    return rp.on(ep)(k,v);
+              }
+              else
+              {
+		    std::string fcnname = rpc_prefix+"RemotePutEntry";
+                    tl::remote_procedure rp = thallium_client->define(fcnname.c_str());
+                    return rp.on(serveraddrs[destid])(k,v);
+              }
+	   }
+
+	   std::vector<ValueT> GetEntry(KeyT &k,int destid)
+	   {
+		if(ipaddrs[destid].compare(myipaddr)==0)
+		{
+		    tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
+		    std::string fcnname = rpc_prefix+"RemoteGetEntry";
+		    tl::remote_procedure rp = thallium_shm_client->define(fcnname.c_str());
+		    return rp.on(ep)(k);
+		}
+		else
+		{
+		   std::string fcnname = rpc_prefix+"RemoteGetEntry";
+		   tl::remote_procedure rp = thallium_client->define(fcnname.c_str());
+		   return rp.on(serveraddrs[destid])(k);
+		}
+	   }
+
+	   void create_async_io_request(KeyT &,std::vector<ValueT>&);
+	   void create_sync_io_request();
+	   bool put_entry(KeyT&,ValueT&);
+	   int get_entry(KeyT&,std::vector<ValueT>&);
 	   void fill_invlist_from_file(std::string&,int);
 	   void flush_table_file(std::string &,int);
 	   int partition_no(KeyT &k);		  
