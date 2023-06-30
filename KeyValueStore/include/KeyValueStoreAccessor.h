@@ -3,7 +3,7 @@
 
 #include "invertedlist.h"
 #include "external_sort.h"
-#include "util.h"
+#include "util_t.h"
 
 #include <thallium.hpp>
 #include <thallium/serialization/proc_input_archive.hpp>
@@ -81,22 +81,22 @@ class KeyValueStoreAccessor
 		  if(type.compare("int")==0)
 		  {
 		   int maxint = INT32_MAX;
-		   ret = add_new_inverted_list<integer_invlist,int>(name,attr_name,2048,maxint,d,kio);
+		   ret = add_new_inverted_list<integer_invlist,int>(name,attr_name,8192,maxint,d,kio);
 		  }
 		  else if(type.compare("unsignedlong")==0)
 		  {
 		   uint64_t maxuint = UINT64_MAX;
-		   ret = add_new_inverted_list<unsigned_long_invlist,uint64_t>(name,attr_name,2048,maxuint,d,kio);
+		   ret = add_new_inverted_list<unsigned_long_invlist,uint64_t>(name,attr_name,8192,maxuint,d,kio);
 		  }
 		  else if(type.compare("float")==0)
 		  {
 		   float maxfl = DBL_MAX;
-		   ret = add_new_inverted_list<float_invlist,float>(name,attr_name,2048,maxfl,d,kio);
+		   ret = add_new_inverted_list<float_invlist,float>(name,attr_name,8192,maxfl,d,kio);
 		  }
 		  else if(type.compare("double")==0)
 		  {
 		   double maxd = DBL_MAX;
-		   ret = add_new_inverted_list<double_invlist,double>(name,attr_name,2048,maxd,d,kio);
+		   ret = add_new_inverted_list<double_invlist,double>(name,attr_name,8192,maxd,d,kio);
 		  }
 		}
 		else ret = r->second;
@@ -120,10 +120,10 @@ class KeyValueStoreAccessor
 	  bool insert_entry(int, N&key,uint64_t &ts);
 	  template<typename T>
 	  bool find_entry(int,T &key);
+	  template<typename T,typename N>
+	  std::vector<uint64_t> get_entry(int,N &key);
 	  template<typename T>
-	  uint64_t get_entry(int,T &key);
-	  template<typename T>
-	  void flush_invertedlist(int);
+	  void flush_invertedlist(std::string &);
 	  template<typename T>
 	  void fill_invertedlist(int);
 	  template <typename T,typename N,typename M>

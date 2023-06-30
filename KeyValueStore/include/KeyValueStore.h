@@ -6,7 +6,7 @@
 #include "KeyValueStoreMDS.h"
 #include "KeyValueStoreIO.h"
 #include "data_server_client.h"
-#include "util.h"
+#include "util_t.h"
 #include <hdf5.h>
 #include "h5_async_lib.h"
 
@@ -48,39 +48,6 @@ class KeyValueStore
 	   bool findKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void removeKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void create_keyvalues(std::string &,std::string &,int);
-
-	   void KeyValueStoreT()
-	   {
-		std::string name = "table0";
-   		int num_attributes = 4;
-   		std::vector<std::string> types;
-   		types.push_back("int");
-   		types.push_back("int");
-   		types.push_back("int");
-   		types.push_back("int");
-   		std::vector<std::string> names;
-   		names.push_back("name1");
-   		names.push_back("name2");
-   		names.push_back("name3");
-   		names.push_back("name4");
-   		std::vector<int> lens;
-   		lens.push_back(sizeof(int));
-   		lens.push_back(sizeof(int));
-   		lens.push_back(sizeof(int));
-   		lens.push_back(sizeof(int));
-   		int len = names.size()*sizeof(int);
-		KeyValueStoreMetadata *k = new KeyValueStoreMetadata(name,num_attributes,types,names,lens,len);
-		std::vector<std::string> ks;
-	       	k->packmetadata(ks);
-		mds->Insert(name,ks);
-		delete k;
-		MPI_Barrier(MPI_COMM_WORLD);
-		if(myrank==0)
-		{
-		  std::vector<std::string> ns  = mds->Get(name);
-		}	
-		MPI_Barrier(MPI_COMM_WORLD);
-	   }
 
 	   ~KeyValueStore()
 	   {

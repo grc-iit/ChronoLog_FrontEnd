@@ -116,7 +116,7 @@ class KeyValueStoreIO
 	   std::vector<std::thread> io_threads;
 	   std::vector<struct thread_arg> t_args;
 	   std::atomic<int> request_count;
-
+	   std::atomic<int> synchronization_word;
 
    public:
 

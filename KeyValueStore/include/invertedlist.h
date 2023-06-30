@@ -8,6 +8,7 @@
 #include "event.h"
 #include "data_server_client.h"
 #include "KeyValueStoreIO.h"
+#include "util_t.h"
 
 namespace tl=thallium;
 
@@ -41,6 +42,7 @@ class hdf5_invlist
 	   int myrank;
 	   struct invnode<KeyT,ValueT,hashfcn,equalfcn>* invlist;
 	   int tag;
+	   int totalsize;
 	   int maxsize;
 	   KeyT emptyKey;
 	   hid_t kv1;
@@ -61,19 +63,27 @@ class hdf5_invlist
            int nservers;
            int serverid;
 	   KeyValueStoreIO *io_t;
-
+           int nbits;
+	   int nbits_p;
    public:
-	   hdf5_invlist(int n,int p,int size,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io) : numprocs(n), myrank(p)
+	   hdf5_invlist(int n,int p,int tsize,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io) : numprocs(n), myrank(p)
 	   {
 	     tag = 20000;
-	     maxsize = size;
+	     totalsize = tsize;
+	     int size = nearest_power_two(totalsize);
+	     nbits = log2(size);
+	     int nprocs = nearest_power_two(numprocs);
+	     nbits_p = log2(nprocs);
+	     int nbits_r = nbits-nbits_p; 
+	     maxsize = pow(2,nbits_r);
+	     if(myrank==0) std::cout <<" nbits = "<<nbits<<" nbits_p = "<<nbits_p<<" maxsize = "<<maxsize<<std::endl;
 	     emptyKey = emptykey;
 	     filename = table;
 	     attributename = attr;
 	     rpc_prefix = filename+attributename;
 	     d = ds;
 	     io_t = io;
-	     file_exists = false;
+	     file_exists = true;
 	     tl::engine *t_server = d->get_thallium_server();
              tl::engine *t_server_shm = d->get_thallium_shm_server();
              tl::engine *t_client = d->get_thallium_client();
@@ -127,13 +137,6 @@ class hdf5_invlist
 		  delete invlist;
 	         }
 		H5Tclose(kv1);
-	   }
-
-	   inline int nearest_power_two(int n)
-	  {
-		int c = 1;
-		while(c < n) c = 2*c;
-		return c;
 	   }
 
 	   bool LocalPutEntry(KeyT &k,ValueT& v)
@@ -196,15 +199,16 @@ class hdf5_invlist
 		}
 	   }
 
+	   std::vector<struct event> get_events(KeyT&,std::vector<ValueT> &);
 	   void create_async_io_request(KeyT &,std::vector<ValueT>&);
 	   void create_sync_io_request();
 	   bool put_entry(KeyT&,ValueT&);
 	   int get_entry(KeyT&,std::vector<ValueT>&);
 	   void fill_invlist_from_file(std::string&,int);
-	   void flush_table_file(std::string &,int);
+	   void flush_table_file(int);
 	   int partition_no(KeyT &k);		  
 	   void add_entries_to_tables(std::string&,std::vector<struct event>*,uint64_t,int); 
-	   void get_entries_from_tables(std::string &,std::vector<std::vector<KeyT>> *,std::vector<std::vector<ValueT>>*,int&,int&);
+	   void get_entries_from_tables(std::vector<std::vector<KeyT>> *,std::vector<std::vector<ValueT>>*,int&,int&);
 };
 
 #include "../srcs/invertedlist.cpp"

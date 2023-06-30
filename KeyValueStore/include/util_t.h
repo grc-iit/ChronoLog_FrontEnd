@@ -74,4 +74,6 @@ struct doublehashfunc
     }
 };
 
+int nearest_power_two(int n);
+
 #endif

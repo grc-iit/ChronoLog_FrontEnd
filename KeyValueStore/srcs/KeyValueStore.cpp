@@ -41,16 +41,29 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 
     pos = ka->get_inverted_list_index(attr_name);
 
+    std::vector<int> keys;
+
+    srandom(myrank);
     for(int i=0;i<numreq;i++)
     {
-	srandom(myrank);
-	int key = random()%RAND_MAX;
+	int key = (int)random()%RAND_MAX;
 
 	uint64_t ts = std::chrono::high_resolution_clock::now().time_since_epoch().count();
 
+	//usleep(20000);
+
 	ka->insert_entry<integer_invlist,int>(pos,key,ts);
+	keys.push_back(key);
+    }
+    for(int i=0;i<keys.size();i++)
+    {
+	std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);	
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    ka->flush_invertedlist<integer_invlist>(attr_name);
+  
 
 }
 

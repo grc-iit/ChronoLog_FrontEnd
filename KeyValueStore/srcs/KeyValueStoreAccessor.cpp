@@ -37,4 +37,28 @@ bool KeyValueStoreAccessor::insert_entry(int pos, N&key,uint64_t &ts)
    return b;
 }
 
+template<typename T,typename N>
+std::vector<uint64_t> KeyValueStoreAccessor::get_entry(int pos,N &key)
+{
+   std::vector<uint64_t> values;
+   if(pos >= lists.size()) return values;
 
+   T *invlist = reinterpret_cast<T*>(lists[pos].second);
+   int ret = invlist->get_entry(key,values);
+   return values;
+}
+
+template<typename T>
+void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name)
+{
+    int offset = md.locate_offset(attr_name);
+
+    if(offset==-1) return;
+
+    int pos = get_inverted_list_index(attr_name); 
+
+    if(pos==-1) return;
+
+    T *invlist = reinterpret_cast<T*>(lists[pos].second);
+    invlist->flush_table_file(offset);
+}

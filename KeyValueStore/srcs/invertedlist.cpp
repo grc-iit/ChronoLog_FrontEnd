@@ -1,14 +1,16 @@
 
-
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
 int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::partition_no(KeyT &k)
 {
 
       uint64_t hashval = hashfcn()(k);
       int np = nearest_power_two(numprocs);   
-      int nbits = log2(np);
       uint64_t key = hashval;
-      key = key >> (64-nbits);   
+      uint64_t mask = UINT64_MAX;
+      mask = mask << (64-nbits);
+      mask = mask >> (64-nbits);
+      key = key & mask;
+      key = key >> (nbits-nbits_p);   
       int id = (int)key;
       return id;
 }
@@ -36,9 +38,10 @@ int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entry(KeyT& k,std::vector<Va
 	if(pid==serverid)
 	    values = LocalGetEntry(k);
 	else 
-	    values = Get(k,pid);
-	
-	ret = create_async_io_request(k); 
+	    values = GetEntry(k,pid);
+
+	std::vector<struct event> events = get_events(k,values);	
+	//ret = create_async_io_request(k); 
 	return ret;
 }
 
@@ -74,6 +77,66 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_async_io_request(KeyT &k
       r.flush = false;
 
       io_t->LocalPutRequest(r);
+
+}
+
+template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
+std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events(KeyT &k,std::vector<ValueT> &values)
+{
+   std::string fname = "file";
+   fname += filename+".h5";
+
+   if(file_exists)
+   {
+
+     hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
+     hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+
+     hid_t fid = H5Fopen(fname.c_str(),H5F_ACC_RDONLY,fapl);
+
+     hsize_t attr_size[1];
+     attr_size[0] = MAXBLOCKS*4+4;
+     const char *attrname[1];
+     hid_t attr_space[1];
+     attr_space[0] = H5Screate_simple(1, attr_size, NULL);
+
+     attrname[0] = "Datasizes";
+
+     std::string data_string = "Data1";
+     hid_t dataset1 = H5Dopen2(fid,data_string.c_str(), H5P_DEFAULT);
+
+     hid_t attr_id = H5Aopen(dataset1,attrname[0],H5P_DEFAULT);
+     std::vector<uint64_t> attrs;
+     attrs.resize(attr_size[0]);
+
+     int ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
+
+     hsize_t adims[1];
+     adims[0] = VALUESIZE;
+     hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
+     hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
+     H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
+     H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
+
+     int numblocks = attrs[3];
+
+
+
+
+     H5Tclose(s1);
+     H5Tclose(s2);
+     H5Aclose(attr_id);
+     H5Dclose(dataset1);
+     H5Fclose(fid);
+     H5Pclose(fapl);
+     H5Pclose(xfer_plist);
+   }
+
+
+
+
+   std::vector<struct event> events;
+   return events;
 
 }
 
@@ -221,10 +284,10 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
-void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s,int offset)
+void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 {
- std::string filename = "file";
- filename += s+".h5";
+ std::string fname = "file";
+ fname += filename+".h5";
 
  hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
  hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -243,7 +306,13 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s
 
  int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
 
- hid_t fid = H5Fopen(filename.c_str(),H5F_ACC_RDWR,fapl);
+ hid_t fid;
+ if(!file_exists)
+ {
+	fid = H5Fcreate(fname.c_str(),H5F_ACC_TRUNC,H5P_DEFAULT,fapl);
+ }
+ else
+ fid = H5Fopen(fname.c_str(),H5F_ACC_RDWR,fapl);
 
  hsize_t adims[1];
  adims[0] = VALUESIZE;
@@ -252,6 +321,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s
  H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
  H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
 
+ /*
  hsize_t attr_size[1];
  attr_size[0] = MAXBLOCKS*4+4;
  const char *attrname[1];
@@ -259,7 +329,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s
  attr_space[0] = H5Screate_simple(1, attr_size, NULL);
 
  attrname[0] = "Datasizes";
-
+  
  std::string data_string = "Data1";
  hid_t dataset1 = H5Dopen2(fid,data_string.c_str(), H5P_DEFAULT);
 
@@ -268,15 +338,16 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s
  attrs.resize(attr_size[0]);
 
  ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
+*/
 
-
+ 
  std::vector<std::vector<KeyT>> *keys = new std::vector<std::vector<KeyT>> ();
  std::vector<std::vector<ValueT>> *timestamps = new std::vector<std::vector<ValueT>> ();
 
  int key_pre = 0;
  int total_keys = 0;
 
- get_entries_from_tables(s,keys,timestamps,key_pre,total_keys); 
+ get_entries_from_tables(keys,timestamps,key_pre,total_keys); 
 
  std::vector<struct KeyIndex<int>>  KeyTimestamps;
 
@@ -296,6 +367,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s
 
  std::sort(KeyTimestamps.begin(),KeyTimestamps.end(),compareIndex<int>);
 
+ std::cout <<" rank = "<<myrank<<" numkeys = "<<KeyTimestamps.size()<<std::endl;
+ /*
  int numblocks = attrs[3];
 
  int block_id = 0;
@@ -422,12 +495,14 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(std::string &s
  }
 
 
+ 
+ delete buffer;*/
 
- delete buffer;
+  if(!file_exists) file_exists = true;
 
- H5Dclose(dataset1);
- H5Sclose(file_dataspace);
- H5Aclose(attr_id);
+ //H5Dclose(dataset1);
+ //H5Sclose(file_dataspace);
+ //H5Aclose(attr_id);
  H5Tclose(s2);
  H5Tclose(s1);
  H5Pclose(dataset_pl);
@@ -513,7 +588,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::stri
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
-void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entries_from_tables(std::string &s,std::vector<std::vector<KeyT>> *keys,std::vector<std::vector<ValueT>> *offsets,int &key_b,int &numkeys)
+void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entries_from_tables(std::vector<std::vector<KeyT>> *keys,std::vector<std::vector<ValueT>> *offsets,int &key_b,int &numkeys)
 {
 
 	if(invlist==nullptr) return;

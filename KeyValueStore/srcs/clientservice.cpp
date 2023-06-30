@@ -39,7 +39,7 @@ int main(int argc,char **argv)
 
    k->addKeyValueStoreInvList(sname,names[0]);  
 
-   k->create_keyvalues(sname,names[0],100);
+   k->create_keyvalues(sname,names[0],100000);
 
 
    MPI_Barrier(MPI_COMM_WORLD);
