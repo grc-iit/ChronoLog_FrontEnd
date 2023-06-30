@@ -4,6 +4,11 @@
 #include "city.h"
 #include <string>
 #include <boost/container_hash/hash.hpp>
+#include <mpi.h>
+#include <hdf5.h>
+#include "h5_async_lib.h"
+#include <vector>
+#include "event.h"
 
 struct stringhash
 {
@@ -75,5 +80,6 @@ struct doublehashfunc
 };
 
 int nearest_power_two(int n);
+void create_integertestinput(int,int,int,std::vector<int> &keys,std::vector<uint64_t> &ts);
 
 #endif

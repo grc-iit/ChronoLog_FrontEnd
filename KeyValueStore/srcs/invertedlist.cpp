@@ -289,6 +289,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  std::string fname = "file";
  fname += filename+".h5";
 
+ if(!file_exists) return;
+
  hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
  hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
  H5Pset_fapl_mpio(fapl,MPI_COMM_WORLD, MPI_INFO_NULL);
@@ -306,13 +308,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
  int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
 
- hid_t fid;
- if(!file_exists)
- {
-	fid = H5Fcreate(fname.c_str(),H5F_ACC_TRUNC,H5P_DEFAULT,fapl);
- }
- else
- fid = H5Fopen(fname.c_str(),H5F_ACC_RDWR,fapl);
+ hid_t fid = H5Fopen(fname.c_str(),H5F_ACC_RDWR,fapl);
 
  hsize_t adims[1];
  adims[0] = VALUESIZE;
@@ -320,8 +316,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
  H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
  H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
-
- /*
  hsize_t attr_size[1];
  attr_size[0] = MAXBLOCKS*4+4;
  const char *attrname[1];
@@ -338,7 +332,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  attrs.resize(attr_size[0]);
 
  ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
-*/
 
  
  std::vector<std::vector<KeyT>> *keys = new std::vector<std::vector<KeyT>> ();
@@ -367,8 +360,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
  std::sort(KeyTimestamps.begin(),KeyTimestamps.end(),compareIndex<int>);
 
- std::cout <<" rank = "<<myrank<<" numkeys = "<<KeyTimestamps.size()<<std::endl;
- /*
  int numblocks = attrs[3];
 
  int block_id = 0;
@@ -379,7 +370,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
  int min_block = INT_MAX;
  int max_block = INT_MIN;
-
+ /*
  while(i < KeyTimestamps.size())
  {
    if(block_id >= numblocks) break;
@@ -498,11 +489,9 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  
  delete buffer;*/
 
-  if(!file_exists) file_exists = true;
-
- //H5Dclose(dataset1);
+ H5Dclose(dataset1);
  //H5Sclose(file_dataspace);
- //H5Aclose(attr_id);
+ H5Aclose(attr_id);
  H5Tclose(s2);
  H5Tclose(s1);
  H5Pclose(dataset_pl);
