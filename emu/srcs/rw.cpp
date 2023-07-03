@@ -908,8 +908,8 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 
 void read_write_process::data_stream(struct thread_arg_w *t)
 {
-   int niter = iters_per_batch;
-   for(int i=0;i<niter;i++)
+   //int niter = iters_per_batch;
+   for(int i=0;i<1;i++)
    {
         create_events(t->num_events,t->name,1);
 	sort_events(t->name);

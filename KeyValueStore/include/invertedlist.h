@@ -208,7 +208,7 @@ class hdf5_invlist
 	   void flush_table_file(int);
 	   int partition_no(KeyT &k);		  
 	   void add_entries_to_tables(std::string&,std::vector<struct event>*,uint64_t,int); 
-	   void get_entries_from_tables(std::vector<std::vector<KeyT>> *,std::vector<std::vector<ValueT>>*,int&,int&);
+	   void get_entries_from_tables(std::vector<struct KeyIndex<KeyT>> &,int&,int&);
 };
 
 #include "../srcs/invertedlist.cpp"

@@ -46,9 +46,9 @@ class hdf5_invlist
 	   hdf5_invlist(int n,int p) : numprocs(n), myrank(p)
 	   {
 	     tag = 20000;
-	     kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct KeyIndex<int>));
-    	     H5Tinsert(kv1,"key",HOFFSET(struct KeyIndex<int>,key),H5T_NATIVE_INT);
-    	     H5Tinsert(kv1,"index",HOFFSET(struct KeyIndex<int>,index),H5T_NATIVE_INT);
+	     //kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct KeyIndex<int>));
+    	     //H5Tinsert(kv1,"key",HOFFSET(struct KeyIndex<int>,key),H5T_NATIVE_INT);
+    	     //H5Tinsert(kv1,"index",HOFFSET(struct KeyIndex<int>,index),H5T_NATIVE_INT);
 	   }
 	   ~hdf5_invlist()
 	   {
@@ -66,7 +66,7 @@ class hdf5_invlist
 		   }
 		   delete rv;
 		}
-		H5Tclose(kv1);
+		//H5Tclose(kv1);
 
 	   }
 

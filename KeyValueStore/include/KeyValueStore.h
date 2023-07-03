@@ -23,6 +23,7 @@ class KeyValueStore
 	    KeyValueStore(int np,int r) : numprocs(np), myrank(r)
 	   {
 		H5open();
+   	        H5VLis_connector_registered_by_name("async");
 		int base_port = 2000;
 		ds = new data_server_client(numprocs,myrank,base_port);
 		mds = new KeyValueStoreMDS(numprocs,myrank);

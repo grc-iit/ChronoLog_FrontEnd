@@ -8,7 +8,7 @@ int nearest_power_two(int n)
    return c;
 }
 
-void create_integertestinput(int numprocs,int myrank,int offset,std::vector<int> &keys,std::vector<uint64_t> &ts)
+void create_integertestinput(int numprocs,int myrank,int offset,std::vector<int> &keys,std::vector<uint64_t> &timestamps)
 {
    std::string filename = "filetable0.h5";
    hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
@@ -26,6 +26,7 @@ void create_integertestinput(int numprocs,int myrank,int offset,std::vector<int>
 
    attrname[0] = "Datasizes";
 
+  
    std::string data_string = "Data1";
    hid_t dataset1 = H5Dopen2(fid,data_string.c_str(), H5P_DEFAULT);
 
@@ -40,8 +41,11 @@ void create_integertestinput(int numprocs,int myrank,int offset,std::vector<int>
    adims[0] = VALUESIZE;
    hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
    hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
+   if(s1< 0 || s2 < 0) std::cout <<" data types "<<std::endl;
    H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
    H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
+
+ 
 
    int pos = 4;
    int numblocks = attrs[3];
@@ -56,11 +60,11 @@ void create_integertestinput(int numprocs,int myrank,int offset,std::vector<int>
         int records_per_proc = nrecords/numprocs;
         int rem = nrecords%numprocs;
 
-        hsize_t pre = offset_r;
-        for(int i=0;i<myrank;i++)
+        hsize_t pre = (hsize_t)offset_r;
+        for(int j=0;j<myrank;j++)
         {
            int size_p=0;
-           if(i < rem) size_p = records_per_proc+1;
+           if(j < rem) size_p = records_per_proc+1;
            else size_p = records_per_proc;
            pre += size_p;
         }
@@ -81,23 +85,22 @@ void create_integertestinput(int numprocs,int myrank,int offset,std::vector<int>
 
 	for(int j=0;j<buffer->size();j++)
 	{
-	   ts.push_back((*buffer)[j].ts);
+	   timestamps.push_back((*buffer)[j].ts);
 	   int key = *(int*)((*buffer)[j].data+offset);
 	   keys.push_back(key);
 	}
    }
 
    delete buffer;
-   H5Tclose(s1);
-   H5Tclose(s2);
    H5Aclose(attr_id);
    H5Sclose(attr_space[0]);
    H5Dclose(dataset1);
+   H5Tclose(s1);
+   H5Tclose(s2);
    H5Sclose(file_dataspace);
    H5Fclose(fid);
    H5Pclose(fapl);
    H5Pclose(xfer_plist);
-
-
+  
 
 }

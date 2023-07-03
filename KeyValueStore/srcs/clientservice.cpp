@@ -34,7 +34,7 @@ int main(int argc,char **argv)
    lens.push_back(sizeof(int));
    int len = names.size()*sizeof(int);
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
- 
+
    k->createKeyValueStoreEntry(sname,m);
 
    k->addKeyValueStoreInvList(sname,names[0]);  
