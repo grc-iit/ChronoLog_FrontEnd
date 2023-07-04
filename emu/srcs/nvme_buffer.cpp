@@ -36,6 +36,7 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
 		ranges[i].second = 0;
 	  }
 	  nvme_intervals.push_back(ranges);
+	  total_blocks[index] = 0;
       }
 }
 
@@ -61,12 +62,41 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
 
     nvme_files[index]->flush();
 
+    add_block(index,numevents);
+
     update_interval(index);
     //buffer_state[index]->store(0);
 
 }
 
-void nvme_buffers::erase_from_nvme(std::string &s, int numevents)
+void nvme_buffers::add_block(int index,int numevents)
+{
+   MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+
+   int sendlen = numevents;
+   std::vector<int> recvlens(numprocs);
+
+   std::fill(recvlens.begin(),recvlens.end(),0);
+
+   int nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&sendlen,1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recvlens[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+   numblocks[index].push_back(recvlens);
+
+   total_blocks[index]++;
+
+   std::free(reqs);
+}
+
+void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
 {
       std::string fname = prefix+s;
       auto r = nvme_fnames.find(fname);
@@ -86,9 +116,29 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents)
       ev->erase(ev->begin(),ev->begin()+numevents);
 
       nvme_files[index]->flush();
+
+      remove_blocks(index,nblocks);
+
       update_interval(index);
       //buffer_state[index]->store(0);
 
+}
+
+void nvmne_buffers::remove_blocks(int index,int nc)
+{
+   total_blocks[index] -= nc;
+
+   std::vector<std::vector<int>> temp;
+
+   for(int i=nc;i<numblocks[index].size();i++)
+   {
+      temp.push_back(numblocks[index][i];
+   }
+
+   numblocks[index].clear();
+
+   for(int i=0;i<temp.size();i++)
+      numblocks[index].push_back(temp[i]);
 }
 
 void nvme_buffers::update_interval(int index)
@@ -283,7 +333,7 @@ void nvme_buffers::find_event(int index,uint64_t ts,struct event &e)
 
 }
 
-void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::string &s,int &index, int &tag)
+void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::string &s,int &index, int &tag,int &bc,std::vector<std::vector<int>> &blockcounts)
 {
 
      std::string fname = prefix+s;
@@ -306,6 +356,12 @@ void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::strin
          data_array->push_back((*ev)[i]);
      }
 
+     bc = total_blocks[index];
+
+     for(int i=0;i<numblocks[index].size();i++)
+     {
+	blockcounts.push_back(numblocks[index][i]);
+     }
           //nvme_ebufs[index]->clear();
           //nvme_files[index]->flush();
 

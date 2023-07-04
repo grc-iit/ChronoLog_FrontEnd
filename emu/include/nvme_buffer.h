@@ -41,10 +41,14 @@ class nvme_buffers
 	std::vector<std::vector<std::pair<uint64_t,uint64_t>>> nvme_intervals;
 	std::vector<boost::mutex*> blocks;
 	std::mutex n1;
+	std::vector<int> total_blocks;
+	std::vector<std::vector<std::vector<int>>> numblocks; 
   public:
 	nvme_buffers(int np,int rank) : numprocs(np), myrank(rank)
 	{
 	   prefix = "/mnt/nvme/asasidharan/rank"+std::to_string(myrank);
+	   total_blocks.resize(MAXSTREAMS);
+	   numblocks.resize(MAXSTREAMS);
 	}
 	~nvme_buffers()
 	{
@@ -68,11 +72,13 @@ class nvme_buffers
 	void find_event(int,uint64_t,struct event&);
 	int get_proc(int,uint64_t);
 	void update_interval(int);
+	void add_block(int,int);
 	bool get_buffer(int,int,int);
 	int buffer_index(std::string&);
 	void release_buffer(int);
-	void erase_from_nvme(std::string &s, int numevents);
-	void fetch_buffer(std::vector<struct event> *,std::string &s,int &,int &);
+	void remove_blocks(int,int);
+	void erase_from_nvme(std::string &s, int numevents,int);
+	void fetch_buffer(std::vector<struct event> *,std::string &s,int &,int &,int &,std::vector<std::vector<int>>&);
 
 };
 

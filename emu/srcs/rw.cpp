@@ -196,7 +196,7 @@ void read_write_process::spawn_write_streams(std::vector<std::string> &snames,st
 
 }
 
-void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::vector<struct event>*>&data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme)
+void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::vector<struct event>*>&data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>>&blockcounts)
 {
     hid_t       fid;
     hid_t       acc_tpl;
@@ -260,21 +260,41 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     int ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
     dims[0] = (hsize_t)(total_records[i]+attrs[0]);
-    hsize_t block_size = data_arrays[i]->size();
-
     maxsize = H5S_UNLIMITED;
     H5Dset_extent(dataset1, dims);
-    
     file_dataspace = H5Dget_space(dataset1);
+  
+    hsize_t offset_w = 0;
 
-    mem_dataspace = H5Screate_simple(1,&block_size,&maxsize);
-   
+    hsize_t offset_p=0;
+
+    for(int j=0;j<bcounts[i];j++)
+    {
+
+        hsize_t block_size = blockcounts[i][j][myrank];
+
+        hid_t memdataspace = H5Screate_simple(1,&block_size,&maxsize);
+  
+        hsize_t offset_t = offset_w;	
+	for(int k=0;k<myrank;k++)
+		offset_t += blockcounts[i][j][k];
     
-    hsize_t one = 1;
-    offsets[i] += attrs[0];
-    ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offsets[i],NULL,&one,&block_size);
+	hsize_t blocktotal = 0;
+	for(int k=0;k<numprocs;k++)
+		blocktotal += blockcounts[i][j][k];
+
+	struct event *data_p = data_array[i]->data()+offset_p;
+
+        hsize_t one = 1;
+        //offsets[i] += attrs[0];
+        ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset_t,NULL,&one,&block_size);
     
-    ret = H5Dwrite_async(dataset1,s2, mem_dataspace, file_dataspace,async_dxpl,data_arrays[i]->data(),es_id);
+        ret = H5Dwrite_async(dataset1,s2, mem_dataspace, file_dataspace,async_dxpl,data_p,es_id);
+
+	offset_p += block_size;
+	offset_w += blocktotal;
+	memspaces.push_back(memdataspace);
+    }
 
     attrs[0] += total_records[i];
     int pos = attrs[3];
@@ -301,15 +321,16 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     H5Pclose(gapl);
     H5Fclose_async(fid,es_id);
     filespaces.push_back(file_dataspace);
-    memspaces.push_back(mem_dataspace);
     }
 
+    int prefix = 0;
     for(int i=0;i<event_ids.size();i++)
     {
         H5ESwait(event_ids[i],H5ES_WAIT_FOREVER,&num,&op_failed);
 	H5ESclose(event_ids[i]);
         H5Sclose(filespaces[i]);
-        H5Sclose(memspaces[i]);
+	for(int j=0;j<bcounts[i];j++)
+        H5Sclose(memspaces[prefix+j]);
 	std::string filename = "file"+sts[i]+".h5";
 	int ps = -1;
 	m1.lock();
@@ -327,6 +348,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   nm->release_buffer(nm_index);
 	}
 	delete data_arrays[i];
+	prefix += bcounts[i];
     }
 
     H5Sclose(attr_space[0]);
@@ -664,7 +686,7 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     return true;
 }
 
-std::vector<struct event>* read_write_process::create_data_spaces(std::string &s,hsize_t &poffset,hsize_t &trecords,uint64_t &minkey,uint64_t &maxkey,bool from_nvme)
+std::vector<struct event>* read_write_process::create_data_spaces(std::string &s,hsize_t &poffset,hsize_t &trecords,uint64_t &minkey,uint64_t &maxkey,bool from_nvme,int &nblocks,std::vector<std::vector<int>> &blockcounts)
 {
 
    std::vector<int> num_events_recorded_l,num_events_recorded;
@@ -674,14 +696,14 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
    std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
    std::vector<struct event> *data_array = new std::vector<struct event> ();
-
+   
    if(from_nvme)
    {
      int index;
      int tag_p = 100;
      int nm_index = nm->buffer_index(s);
      while(nm->get_buffer(nm_index,tag_p,3)==false);
-     nm->fetch_buffer(data_array,s,index,tag_p);
+     nm->fetch_buffer(data_array,s,index,tag_p,nblocks,blockcounts);
      //nm->erase_from_nvme(s,data_array->size());
      nm->release_buffer(nm_index);
    }
@@ -726,7 +748,7 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
    return data_array;
 }
 
-void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<hsize_t>&total_records,std::vector<hsize_t> &offsets,std::vector<std::vector<struct event>*> &data_arrays,std::vector<uint64_t>& minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme)
+void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<hsize_t>&total_records,std::vector<hsize_t> &offsets,std::vector<std::vector<struct event>*> &data_arrays,std::vector<uint64_t>& minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
 {
 
   hid_t async_fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -776,22 +798,35 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 
         hid_t file_dataspace = H5Screate_simple(1,&total_records[i],maxdims);
 
-        hsize_t block_count = data_arrays[i]->size();
-        hid_t mem_dataspace = H5Screate_simple(1,&block_count, NULL);
-
 	filespaces.push_back(file_dataspace);
-        memspaces.push_back(mem_dataspace);
 
-        ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offsets[i],NULL,&block_count,NULL);
-         
+	hsize_t boffset = 0;
         hid_t es_id = H5EScreate();
         hid_t fid = H5Fcreate_async(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, async_fapl, es_id);
         hid_t grp_id = H5Gcreate_async(fid, grp_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT, es_id);
-
         hid_t dataset1 = H5Dcreate_async(fid, DATASETNAME1,s2,file_dataspace, H5P_DEFAULT,dataset_pl, H5P_DEFAULT,es_id);
 
-        ret = H5Dwrite_async(dataset1,s2, mem_dataspace,file_dataspace,async_dxpl,data_arrays[i]->data(),es_id);
-        
+	hsize_t block_w = 0;
+
+	for(int j=0;j<bcounts[i];j++)
+	{
+
+           hsize_t block_count = blockcounts[i][j][myrank];
+           hid_t mem_dataspace = H5Screate_simple(1,&block_count, NULL);
+           memspaces.push_back(mem_dataspace);
+           struct event *data_p = data_array[i]->data()+block_w;  
+	   
+           hsize_t boffset_p = boffset;
+	   for(int k=0;k<myrank;k++)
+		   boffset += blockcounts[i][j][k];
+	   hsize_t blocktotal = 0;
+	   for(int k=0;k<numprocs;k++) blocktotal += blockcounts[i][j][k];
+
+           ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&boffset_p,NULL,&block_count,NULL);
+           ret = H5Dwrite_async(dataset1,s2, mem_dataspace,file_dataspace,async_dxpl,data_p,es_id);
+	   boffset += blocktotal;
+	   block_w += block_count;
+	}
         std::vector<uint64_t> attr_data;
 	attr_data.resize(attr_size[0]);
         attr_data[0] = total_records[i];
@@ -828,7 +863,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	//H5Sclose(mem_dataspace);
     }
 
-    
+    int prefix = 0;
     for(int i=0;i<event_ids.size();i++)
     {
         //int err = H5Dclose_async(dset_ids[i],event_ids[i]);
@@ -838,7 +873,10 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         H5ESclose(event_ids[i]);
         //H5Pclose(lists[i]);
 	H5Sclose(filespaces[i]);
-        H5Sclose(memspaces[i]);
+	for(int j=0;j<bcounts[i];j++)
+	{
+           H5Sclose(memspaces[prefix+j]);
+	}
 	std::string filename = "file"+sts[i]+".h5";
 	int ps = -1;
 	m1.lock();
@@ -856,6 +894,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   nm->release_buffer(nm_index);
 	}
 	delete data_arrays[i];
+	prefix += bcounts[i];
     }
 
     H5Sclose(attr_space[0]);
@@ -866,7 +905,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 
 }
 
-void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::vector<struct event>*>& data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme)
+void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::vector<struct event>*>& data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int> &bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
 {
 
    std::vector<std::string> sts_n, sts_e;
@@ -901,8 +940,8 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 	}
    }
 
-   pwrite_files(sts_n,trec_n,off_n,darray_n,minkeys_n,maxkeys_n,clear_nvme);
-   pwrite_extend_files(sts_e,trec_e,off_e,darray_e,minkeys_e,maxkeys_e,clear_nvme);
+   pwrite_files(sts_n,trec_n,off_n,darray_n,minkeys_n,maxkeys_n,clear_nvme,bcounts,blockcounts);
+   pwrite_extend_files(sts_e,trec_e,off_e,darray_e,minkeys_e,maxkeys_e,clear_nvme,bcounts,blockcounts);
 
 }
 
@@ -928,6 +967,9 @@ void read_write_process::io_polling(struct thread_arg_w *t)
     std::vector<std::vector<struct event>*> data;
     std::vector<hsize_t> total_records, offsets,numrecords;
     std::vector<uint64_t> minkeys, maxkeys;
+    std::vector<int> bcounts;
+    std::vector<std::vector<std::vector<int>>> blockcounts; 
+
 
     bool clear_nvme = false;
 
@@ -981,6 +1023,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
      {
        snames.clear(); data.clear(); total_records.clear(); offsets.clear(); numrecords.clear();
        minkeys.clear(); maxkeys.clear();
+       bcounts.clear(); blockcounts.clear();
 
 	CM->SynchronizeClocks();
 	CM->ComputeErrorInterval();
@@ -1000,7 +1043,9 @@ void read_write_process::io_polling(struct thread_arg_w *t)
               hsize_t trecords, offset, numrecords;
 	      uint64_t min_key,max_key;
               std::vector<struct event> *data_r = nullptr;
-              data_r = create_data_spaces(r->name,offset,trecords,min_key,max_key,true);
+	      int nblocks;
+	      std::vector<std::vector<int>> blockc;
+              data_r = create_data_spaces(r->name,offset,trecords,min_key,max_key,true,nblocks,blockc);
               snames.push_back(r->name);
               total_records.push_back(trecords);
               offsets.push_back(offset);
@@ -1008,6 +1053,8 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 	      maxkeys.push_back(max_key);
            //t->numrecords.push_back(numrecords);
               data.push_back(data_r);
+	      bcounts.push_back(nblocks);
+ 	      blockcounts.push_back(blockc);
 	      clear_nvme = true;
           }
 
@@ -1017,13 +1064,15 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
       num_streams.store(0);
       std::atomic_thread_fence(std::memory_order_seq_cst);
-      pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme);
+      pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
 
       snames.clear();
       data.clear();
       total_records.clear();
       offsets.clear();
       numrecords.clear();
+      bcounts.clear();
+      blockcounts.clear();
      }
 
   }
