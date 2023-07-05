@@ -264,7 +264,9 @@ public:
 		for(int i=0;i<size;i++)
 		   buffer1->push_back((*(myevents[aindex])->buffer)[i]);
 
-		nm->fetch_buffer(buffer2,s,index,tag);
+		int bc;
+		std::vector<std::vector<int>> numblocks;
+		nm->fetch_buffer(buffer2,s,index,tag,bc,numblocks);
 		nm->release_buffer(index);
 	}
 

@@ -264,7 +264,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     H5Dset_extent(dataset1, dims);
     file_dataspace = H5Dget_space(dataset1);
   
-    hsize_t offset_w = 0;
+    hsize_t offset_w = attrs[0];
 
     hsize_t offset_p=0;
 
@@ -283,13 +283,13 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	for(int k=0;k<numprocs;k++)
 		blocktotal += blockcounts[i][j][k];
 
-	struct event *data_p = data_array[i]->data()+offset_p;
+	struct event *data_p = data_arrays[i]->data()+offset_p;
 
         hsize_t one = 1;
         //offsets[i] += attrs[0];
         ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset_t,NULL,&one,&block_size);
     
-        ret = H5Dwrite_async(dataset1,s2, mem_dataspace, file_dataspace,async_dxpl,data_p,es_id);
+        ret = H5Dwrite_async(dataset1,s2, memdataspace, file_dataspace,async_dxpl,data_p,es_id);
 
 	offset_p += block_size;
 	offset_w += blocktotal;
@@ -344,7 +344,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
+	   nm->erase_from_nvme(sts[i],data_arrays[i]->size(),bcounts[i]);
 	   nm->release_buffer(nm_index);
 	}
 	delete data_arrays[i];
@@ -465,7 +465,7 @@ void read_write_process::preadappend(const char *srcfile,const char *destfile,st
      darrays.push_back(data_array);
      std::vector<uint64_t> minkeys,maxkeys;
      minkeys.push_back(minkey); maxkeys.push_back(maxkey);
-     pwrite(sname,total_records,offsets,darrays,minkeys,maxkeys,false);
+     //pwrite(sname,total_records,offsets,darrays,minkeys,maxkeys,false);
 
      H5Sclose(mem_dataspace);
 
@@ -704,7 +704,7 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
      int nm_index = nm->buffer_index(s);
      while(nm->get_buffer(nm_index,tag_p,3)==false);
      nm->fetch_buffer(data_array,s,index,tag_p,nblocks,blockcounts);
-     //nm->erase_from_nvme(s,data_array->size());
+     //nm->erase_from_nvme(s,data_array->size(),nblocks);
      nm->release_buffer(nm_index);
    }
    else
@@ -814,11 +814,11 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
            hsize_t block_count = blockcounts[i][j][myrank];
            hid_t mem_dataspace = H5Screate_simple(1,&block_count, NULL);
            memspaces.push_back(mem_dataspace);
-           struct event *data_p = data_array[i]->data()+block_w;  
+           struct event *data_p = data_arrays[i]->data()+block_w;  
 	   
            hsize_t boffset_p = boffset;
 	   for(int k=0;k<myrank;k++)
-		   boffset += blockcounts[i][j][k];
+		   boffset_p += blockcounts[i][j][k];
 	   hsize_t blocktotal = 0;
 	   for(int k=0;k<numprocs;k++) blocktotal += blockcounts[i][j][k];
 
@@ -890,7 +890,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   nm->erase_from_nvme(sts[i],data_arrays[i]->size());
+	   nm->erase_from_nvme(sts[i],data_arrays[i]->size(),bcounts[i]);
 	   nm->release_buffer(nm_index);
 	}
 	delete data_arrays[i];
@@ -947,8 +947,8 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 
 void read_write_process::data_stream(struct thread_arg_w *t)
 {
-   //int niter = iters_per_batch;
-   for(int i=0;i<1;i++)
+   int niter = iters_per_batch;
+   for(int i=0;i<4;i++)
    {
         create_events(t->num_events,t->name,1);
 	sort_events(t->name);

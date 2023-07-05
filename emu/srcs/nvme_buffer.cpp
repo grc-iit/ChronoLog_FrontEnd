@@ -36,7 +36,7 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
 		ranges[i].second = 0;
 	  }
 	  nvme_intervals.push_back(ranges);
-	  total_blocks[index] = 0;
+	  total_blocks[file_names.size()-1] = 0;
       }
 }
 
@@ -124,7 +124,7 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
 
 }
 
-void nvmne_buffers::remove_blocks(int index,int nc)
+void nvme_buffers::remove_blocks(int index,int nc)
 {
    total_blocks[index] -= nc;
 
@@ -132,7 +132,7 @@ void nvmne_buffers::remove_blocks(int index,int nc)
 
    for(int i=nc;i<numblocks[index].size();i++)
    {
-      temp.push_back(numblocks[index][i];
+      temp.push_back(numblocks[index][i]);
    }
 
    numblocks[index].clear();
@@ -362,7 +362,8 @@ void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::strin
      {
 	blockcounts.push_back(numblocks[index][i]);
      }
-          //nvme_ebufs[index]->clear();
+
+     //nvme_ebufs[index]->clear();
           //nvme_files[index]->flush();
 
      //buffer_state[index]->store(0);
