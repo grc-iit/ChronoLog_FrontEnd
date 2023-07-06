@@ -45,6 +45,7 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
     std::vector<uint64_t> ts;
     create_integertestinput(numprocs,myrank,0,keys,ts);
 
+    ka->cache_invertedtable<integer_invlist>(attr_name);
     /*srandom(myrank);*/
     for(int i=0;i<keys.size();i++)
     {

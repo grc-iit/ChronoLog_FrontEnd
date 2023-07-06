@@ -49,6 +49,16 @@ std::vector<uint64_t> KeyValueStoreAccessor::get_entry(int pos,N &key)
 }
 
 template<typename T>
+void KeyValueStoreAccessor::cache_invertedtable(std::string &attr_name)
+{
+   int pos = get_inverted_list_index(attr_name);
+   if(pos==-1) return;
+
+   T *invlist = reinterpret_cast<T*>(lists[pos].second);
+   invlist->cache_latest_table();
+}
+
+template<typename T>
 void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name)
 {
     int offset = md.locate_offset(attr_name);

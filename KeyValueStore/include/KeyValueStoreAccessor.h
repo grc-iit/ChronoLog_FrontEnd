@@ -125,6 +125,8 @@ class KeyValueStoreAccessor
 	  template<typename T>
 	  void flush_invertedlist(std::string &);
 	  template<typename T>
+	  void cache_invertedtable(std::string &);
+	  template<typename T>
 	  void fill_invertedlist(int);
 	  template <typename T,typename N,typename M>
 	  bool Put(N &key, M &value);
