@@ -209,7 +209,7 @@ class hdf5_invlist
 	   int partition_no(KeyT &k);		  
 	   void add_entries_to_tables(std::string&,std::vector<struct event>*,uint64_t,int); 
 	   void get_entries_from_tables(std::vector<struct KeyIndex<KeyT>> &,int&,int&);
-	   void merge_keyoffsets(std::vector<struct KeyIndex<KeyT>>&,std::vector<struct KeyIndex<KeyT>>&,std::vector<int>&);
+	   std::vector<struct KeyIndex<KeyT>> merge_keyoffsets(std::vector<struct KeyIndex<KeyT>>&,std::vector<struct KeyIndex<KeyT>>&,std::vector<int>&);
 };
 
 #include "../srcs/invertedlist.cpp"

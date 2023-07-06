@@ -568,20 +568,13 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     hid_t file_dataspace_table = H5Dget_space(dataset_t);
 
     hid_t dataset_k = H5Dopen2(fid,d_string.c_str(),H5P_DEFAULT);
-    hid_t file_dataspace_t = H5Screate_simple(1,&totalkeys,maxdims);
-
+    
     hsize_t tsize = 2*totalsize;
 
     hid_t mem_dataspace_t = H5Screate_simple(1,&tsize,NULL);
 
-    hsize_t offset_w = 0;
-    for(int i=0;i<myrank;i++) offset_w += msizes[i];
-
     hsize_t offset_t = myrank*2*maxsize;
     
-    hsize_t kblocksize = KeyTimestamps_s.size();
-    hid_t mem_dataspace = H5Screate_simple(1,&kblocksize,NULL);
-
     std::vector<int> numkeys(2*totalsize);
     std::fill(numkeys.begin(),numkeys.end(),0);
 
@@ -593,6 +586,13 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     hsize_t prev_keys = 0;
     for(int i=0;i<maxsize;i++) prev_keys += numkeys[offset_t+2*i];
 
+    hsize_t prevtotal = 0;
+    for(int i=0;i<totalsize;i++) prevtotal += numkeys[2*i];
+
+    hsize_t newsize = prevtotal+totalkeys;
+
+    H5Dset_extent(dataset_k,&newsize);
+    
     std::vector<struct KeyIndex<KeyT>> preKeyTimestamps;
 
     preKeyTimestamps.resize(prev_keys);
@@ -605,13 +605,27 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     ret = H5Sselect_hyperslab(file_dataspace_p,H5S_SELECT_SET,&offset_prev,NULL,&prev_keys,NULL);
     ret = H5Dread(dataset_k,kv1,mem_dataspace_p,file_dataspace_p,xfer_plist,preKeyTimestamps.data());
 
+    hid_t file_dataspace_t = H5Dget_space(dataset_k);
 
-    merge_keyoffsets(preKeyTimestamps,KeyTimestamps_s,numkeys);
+    std::vector<int> numkeys_n(2*maxsize);
+    std::fill(numkeys_n.begin(),numkeys_n.end(),0);
 
+    std::vector<struct KeyIndex<KeyT>> mergeKeyTimestamps = merge_keyoffsets(preKeyTimestamps,KeyTimestamps_s,numkeys_n);
+
+    hsize_t offset_w = numkeys[1];
+    hsize_t kblocksize = mergeKeyTimestamps.size();
+    hid_t mem_dataspace = H5Screate_simple(1,&kblocksize,NULL);
 
     ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&offset_w,NULL,&kblocksize,NULL);
-    ret = H5Dwrite(dataset_k,kv1,mem_dataspace,file_dataspace_t,xfer_plist,KeyTimestamps_s.data());
+    ret = H5Dwrite(dataset_k,kv1,mem_dataspace,file_dataspace_t,xfer_plist,mergeKeyTimestamps.data());
 
+    offset_w = myrank*2*maxsize;
+    kblocksize = 2*maxsize;
+    ret = H5Sselect_hyperslab(file_dataspace_table,H5S_SELECT_SET,&offset_w,NULL,&kblocksize,NULL);
+    hid_t memdataspace_tt = H5Screate_simple(1,&kblocksize,NULL);
+    ret = H5Dwrite(dataset_t,H5T_NATIVE_INT,memdataspace_tt,file_dataspace_table,xfer_plist,numkeys_n.data());
+
+    H5Sclose(memdataspace_tt);
     H5Sclose(mem_dataspace_p);
     H5Sclose(file_dataspace_p);
     H5Sclose(mem_dataspace);
@@ -635,7 +649,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
-void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::merge_keyoffsets(std::vector<struct KeyIndex<KeyT>> &prevlist,std::vector<struct KeyIndex<KeyT>> &newlist,std::vector<int> &numkeys)
+std::vector<struct KeyIndex<KeyT>> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::merge_keyoffsets(std::vector<struct KeyIndex<KeyT>> &prevlist,std::vector<struct KeyIndex<KeyT>> &newlist,std::vector<int> &numkeys)
 {
  
    std::vector<struct KeyIndex<KeyT>> result_list;
@@ -646,23 +660,28 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::merge_keyoffsets(std::vector<st
    {
      if(i==prevlist.size()||j==newlist.size()) break;
 
-     int pos1 = hashfcn()(prevlist[i].key)%maxsize;
-     int pos2 = hashfcn()(newlist[j].key)%maxsize;
+     uint64_t key1 = hashfcn()(prevlist[i].key);
+     uint64_t key2 = hashfcn()(newlist[j].key);
+     int pos1 = key1%maxsize;
+     int pos2 = key2%maxsize;
 
      if(pos1 < pos2)
      {
 	result_list.push_back(prevlist[i]);
+	numkeys[2*pos1]++;
 	i++;
      }
      else if(pos2 < pos1)
      {
 	result_list.push_back(newlist[j]);
+	numkeys[2*pos2]++;
 	j++;
      }
      else
      {
-	if(prevlist[i].key < newlist[j].key)
+	if(key1 < key2)
 	{
+	    numkeys[2*pos1]+=2;
 	    result_list.push_back(prevlist[i]);
 	    i++;
 	    result_list.push_back(newlist[j]);
@@ -670,6 +689,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::merge_keyoffsets(std::vector<st
 	}
 	else
 	{
+	    numkeys[2*pos1]+=2;
 	    result_list.push_back(newlist[j]);
 	    j++;
 	    result_list.push_back(prevlist[i]);
@@ -680,6 +700,34 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::merge_keyoffsets(std::vector<st
 
    }
 
+   while(j<newlist.size())
+   {
+	result_list.push_back(newlist[j]);j++;
+   }
+
+   while(i<prevlist.size())
+   {	
+	   result_list.push_back(prevlist[i]);
+	   i++;
+   }
+
+   std::vector<int> send_size(numprocs);
+   std::vector<int> recv_size(numprocs);
+   std::fill(send_size.begin(),send_size.end(),0);
+   std::fill(recv_size.begin(),recv_size.end(),0);
+
+   send_size[myrank] = result_list.size();
+   
+   MPI_Allreduce(send_size.data(),recv_size.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+
+   int prefix = 0;
+   for(int i=0;i<myrank;i++) prefix += recv_size[i];
+
+   numkeys[1] = prefix;
+   for(int i=1;i<maxsize;i++) 
+     numkeys[2*i+1] = numkeys[2*(i-1)+1]+numkeys[2*(i-1)];
+
+   return result_list;
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>

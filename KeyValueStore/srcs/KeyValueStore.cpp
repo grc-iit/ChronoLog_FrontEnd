@@ -46,7 +46,7 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
     create_integertestinput(numprocs,myrank,0,keys,ts);
 
     /*srandom(myrank);*/
-    for(int i=0;i<1000;i++)
+    for(int i=0;i<keys.size();i++)
     {
 	//int key = (int)random()%RAND_MAX;
 
@@ -60,7 +60,7 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 	ka->insert_entry<integer_invlist,int>(pos,key,ts_k);
     }
 
-    for(int i=0;i<1000;i++)
+    for(int i=0;i<keys.size();i++)
     {
 
 	std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);
