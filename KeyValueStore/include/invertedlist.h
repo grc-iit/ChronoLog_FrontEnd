@@ -65,6 +65,8 @@ class hdf5_invlist
 	   KeyValueStoreIO *io_t;
            int nbits;
 	   int nbits_p;
+	   std::vector<int> cached_keyindex_mt;
+	   std::vector<struct KeyIndex<KeyT>> cached_keyindex;
    public:
 	   hdf5_invlist(int n,int p,int tsize,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io) : numprocs(n), myrank(p)
 	   {
@@ -206,7 +208,8 @@ class hdf5_invlist
 	   int get_entry(KeyT&,std::vector<ValueT>&);
 	   void fill_invlist_from_file(std::string&,int);
 	   void flush_table_file(int);
-	   int partition_no(KeyT &k);		  
+	   int partition_no(KeyT &k);	
+           void cache_latest_table();	   
 	   void add_entries_to_tables(std::string&,std::vector<struct event>*,uint64_t,int); 
 	   void get_entries_from_tables(std::vector<struct KeyIndex<KeyT>> &,int&,int&);
 	   std::vector<struct KeyIndex<KeyT>> merge_keyoffsets(std::vector<struct KeyIndex<KeyT>>&,std::vector<struct KeyIndex<KeyT>>&,std::vector<int>&);

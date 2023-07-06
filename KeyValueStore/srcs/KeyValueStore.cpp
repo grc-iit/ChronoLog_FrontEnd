@@ -68,7 +68,7 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    ka->flush_invertedlist<integer_invlist>(attr_name);
+    //ka->flush_invertedlist<integer_invlist>(attr_name);
   
 
 }
