@@ -39,7 +39,10 @@ int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entry(KeyT& k,std::vector<Va
 	else 
 	    values = GetEntry(k,pid);
 
-	std::vector<struct event> events = get_events(k,values);	
+	if(pid==serverid)
+	{
+	  std::vector<struct event> events = get_events(k,values);	
+	}
 	//ret = create_async_io_request(k); 
 	return ret;
 }
@@ -107,16 +110,17 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
            hid_t dataset_t = H5Dopen2(fid,d_string.c_str(),H5P_DEFAULT);
 	   hid_t file_dataspace = H5Dget_space(dataset_t);
 
-
-
            uint64_t hashvalue = hashfcn()(k); 
-	   int pos = hashvalue%maxvalue;
+	   int pos = hashvalue%maxsize;
+	   int pno = partition_no(k);
+	   if(pno != myrank) std::cout <<" rank = "<<myrank<<" pno = "<<pno<<std::endl;
 	   hsize_t offset = cached_keyindex_mt[2*pos+1];
 	   hsize_t numkeys = cached_keyindex_mt[2*pos];
 
+	   if(offset+numkeys >= cached_keyindex.size()) std::cout <<" rank = "<<myrank<<" pos = "<<pos<<" offset = "<<offset<<" numkeys = "<<numkeys<<" size = "<<cached_keyindex.size()<<std::endl;
 	   hsize_t offset_r = UINT64_MAX;
 
-	   for(int i=offset;i<numkeys;i++)
+	   for(int i=offset;i<offset+numkeys;i++)
 	   {
 		if(cached_keyindex[i].key==k)
 		{
@@ -129,10 +133,10 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	   {
                hsize_t blocksize = 1;
 	       hid_t mem_dataspace = (1,&blocksize,NULL);
-	       struct event e;	
+	       std::vector<struct event> e(1);	
 
-	       ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset_r,NULL,&blocksize,NULL);
-	       ret = H5Dread(dataset_t,s2, mem_dataspace, file_dataspace, xfer_plist,&e);
+	       //int ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset_r,NULL,&blocksize,NULL);
+	       //ret = H5Dread(dataset_t,s2, mem_dataspace, file_dataspace, xfer_plist,e.data());
 
 	       H5Sclose(mem_dataspace);
 	       H5Dclose(dataset_t);
@@ -217,12 +221,13 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	    H5Sclose(mem_dataspace);
 	    H5Sclose(file_dataspace);
        }
+
+       H5Aclose(attr_id);
+       H5Dclose(dataset1);
     } 
 
      H5Tclose(s1);
      H5Tclose(s2);
-     H5Aclose(attr_id);
-     H5Dclose(dataset1);
      H5Fclose(fid);
      H5Pclose(fapl);
      H5Pclose(xfer_plist);
@@ -290,6 +295,19 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 
 	ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&offset_k,NULL,&blocksize,NULL);
 	ret = H5Dread(dataset_k,kv1,mem_dataspace_k,file_dataspace_t,xfer_plist,cached_keyindex.data());
+
+	for(int i=0;i<maxsize;i++)
+	{
+	   int offset = cached_keyindex_mt[2*i+1];
+	   int numkeys = cached_keyindex_mt[2*i];
+	   offset = offset-cached_keyindex_mt[1];
+	   if(offset+numkeys > total_keys) 
+	   {
+	      std::cout <<" rank = "<<myrank<<" i = "<<i<<std::endl;
+	      break;
+	   }
+
+	}
 
 
 	H5Dclose(dataset_k);
@@ -660,10 +678,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 	numkeys[2*pos]++;
    }
 
-   numkeys[1] = prefix;
-   for(int i=1;i<maxsize;i++)
-     numkeys[2*i+1] = numkeys[2*(i-1)+1]+numkeys[2*(i-1)];
-
    hid_t file_dataspace_t = H5Screate_simple(1,&totalkeys,maxdims);
 
    std::string dtable = attributename+"attr";
@@ -757,7 +771,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
     std::vector<struct KeyIndex<KeyT>> mergeKeyTimestamps = merge_keyoffsets(preKeyTimestamps,KeyTimestamps_s,numkeys_n);
 
-    hsize_t offset_w = numkeys[1];
+    hsize_t offset_w = numkeys_n[1];
     hsize_t kblocksize = mergeKeyTimestamps.size();
     hid_t mem_dataspace = H5Screate_simple(1,&kblocksize,NULL);
 
@@ -769,6 +783,16 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     ret = H5Sselect_hyperslab(file_dataspace_table,H5S_SELECT_SET,&offset_w,NULL,&kblocksize,NULL);
     hid_t memdataspace_tt = H5Screate_simple(1,&kblocksize,NULL);
     ret = H5Dwrite(dataset_t,H5T_NATIVE_INT,memdataspace_tt,file_dataspace_table,xfer_plist,numkeys_n.data());
+
+    for(int i=0;i<maxsize;i++)
+    {
+	int offset = numkeys_n[2*i+1]-numkeys_n[1];
+	if(offset+numkeys_n[2*i] > mergeKeyTimestamps.size())
+	{
+	      std::cout <<" rank = "<<myrank<<" i = "<<i<<" offset = "<<offset<<std::endl;
+	      break;
+	}
+    }
 
     H5Sclose(memdataspace_tt);
     H5Sclose(mem_dataspace_p);
