@@ -42,7 +42,12 @@ int main(int argc,char **argv)
    k->create_keyvalues(sname,names[1],100000);
 
 
+   ///MPI_Barrier(MPI_COMM_WORLD);
+
+   //k->end_io_session();
+
    MPI_Barrier(MPI_COMM_WORLD);
+
    delete k;
 
    MPI_Finalize();

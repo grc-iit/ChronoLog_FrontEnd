@@ -62,23 +62,53 @@ class hdf5_invlist
            std::string myhostname;
            int nservers;
            int serverid;
+	   int ntables;
 	   KeyValueStoreIO *io_t;
            int nbits;
 	   int nbits_p;
+	   int nbits_r;
 	   std::vector<int> cached_keyindex_mt;
 	   std::vector<struct KeyIndex<KeyT>> cached_keyindex;
+	   int tables_per_proc;
+	   int numtables;
+	   std::vector<int> table_ids;
+	   int pre_table;
    public:
-	   hdf5_invlist(int n,int p,int tsize,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io) : numprocs(n), myrank(p)
+	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io) : numprocs(n), myrank(p)
 	   {
 	     tag = 20000;
 	     totalsize = tsize;
+	     ntables = np;
 	     int size = nearest_power_two(totalsize);
 	     nbits = log2(size);
-	     int nprocs = nearest_power_two(numprocs);
-	     nbits_p = log2(nprocs);
-	     int nbits_r = nbits-nbits_p; 
-	     maxsize = pow(2,nbits_r);
-	     if(myrank==0) std::cout <<" nbits = "<<nbits<<" nbits_p = "<<nbits_p<<" maxsize = "<<maxsize<<std::endl;
+	     int nps = nearest_power_two(ntables);
+	     nbits_p = log2(nps);
+	     nbits_r = nbits-nbits_p; 
+	     tables_per_proc = ntables/numprocs;
+	     int rem = ntables%numprocs;
+	     if(myrank < rem) numtables = tables_per_proc+1;
+	     else numtables = tables_per_proc;
+
+	     if(myrank==0) std::cout <<" totalsize = "<<totalsize<<" number of tables = "<<ntables<<" totalbits = "<<nbits<<" nbits_per_table = "<<nbits_r<<std::endl;
+
+	     maxsize = numtables*pow(2,nbits_r);
+
+	     int prefix = 0;
+	     for(int i=0;i<myrank;i++)
+	     {	
+		int nt = 0;
+		if(i < rem) nt = tables_per_proc+1;
+		else nt = tables_per_proc;
+		prefix += nt;
+	     }
+
+	     pre_table = prefix;
+
+	     for(int i=0;i<numtables;i++)
+	     {
+		table_ids.push_back(prefix+i);
+	     }
+
 	     emptyKey = emptykey;
 	     filename = table;
 	     attributename = attr;

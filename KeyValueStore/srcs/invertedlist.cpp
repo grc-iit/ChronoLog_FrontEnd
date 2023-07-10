@@ -11,7 +11,19 @@ int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::partition_no(KeyT &k)
       key = key & mask;
       key = key >> (nbits-nbits_p);   
       int id = (int)key;
-      return id;
+      int rem = ntables%numprocs;
+      int offset = rem*(tables_per_proc+1);
+      int pid = -1;
+      if(id < offset)
+      {
+	pid = id/(tables_per_proc+1);
+      }  
+      else
+      {
+	id = id-offset;
+	pid = rem+(id/tables_per_proc);
+      }
+      return pid;
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
@@ -149,7 +161,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	   H5Dclose(dataset_t);
 
      }
-     else if(!H5Lexists(fid,d_string.c_str(),H5P_DEFAULT) || H5Lexists(fid,s_string.c_str(),H5P_DEFAULT))
+     else if(!H5Lexists(fid,d_string.c_str(),H5P_DEFAULT) || !H5Lexists(fid,s_string.c_str(),H5P_DEFAULT))
      {
        hsize_t attr_size[1];
        attr_size[0] = MAXBLOCKS*4+4;
@@ -190,7 +202,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	}
      }
     
-    /*if(blockids.size()==1)
+    if(blockids.size()==1)
     {
 
 	    hsize_t offset_r = 0;
@@ -216,7 +228,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	    delete buffer;
 	    H5Sclose(mem_dataspace);
 	    H5Sclose(file_dataspace);
-       }*/
+       }
 
        H5Aclose(attr_id);
        H5Dclose(dataset1);
@@ -232,8 +244,26 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	hid_t file_dataspace_table = H5Dget_space(dataset_table);
 
 	std::vector<int> table_mt;
-	hsize_t offset_mt = pid*2*maxsize;
-	hsize_t blocksize = 2*maxsize;
+
+	int rem = ntables%numprocs;
+
+	hsize_t offset_mt = 0;
+
+	for(int i=0;i<pid;i++)
+	{
+	    int nt = 0;
+	    if(i < rem) nt = tables_per_proc+1;
+	    else nt = tables_per_proc;    
+	    offset_mt += nt*pow(2,nbits_r);
+	}
+
+	int nt = 0;
+	if(pid < rem) nt = tables_per_proc+1;
+	else nt = tables_per_proc;
+
+	int maxsize_p = nt*pow(2,nbits_r);
+
+	hsize_t blocksize = 2*maxsize_p;
 
 	table_mt.resize(blocksize);
 
@@ -242,7 +272,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
         ret = H5Dread(dataset_mt,H5T_NATIVE_INT, mem_dataspace_mt, file_dataspace_mt, xfer_plist,table_mt.data());
 
 	uint64_t hashvalue = hashfcn()(k);
-        int pos = hashvalue%maxsize;
+        int pos = hashvalue%maxsize_p;
         hsize_t offset_t = table_mt[2*pos+1];
         blocksize = table_mt[2*pos];
 
@@ -323,7 +353,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 	cached_keyindex_mt.resize(2*maxsize);
         std::fill(cached_keyindex_mt.begin(),cached_keyindex_mt.end(),0);
 
-        hsize_t offsett =myrank*2*maxsize;
+        hsize_t offsett = 2*pre_table*pow(2,nbits_r);
 
         hid_t dataset_t = H5Dopen2(fid,attr_t.c_str(),H5P_DEFAULT);
 
@@ -757,8 +787,12 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
    hsize_t kblocksize = KeyTimestamps_s.size();
 
-   hsize_t toffset = myrank*2*maxsize;
+   hsize_t toffset = pre_table*2*pow(2,nbits_r);
    hsize_t lsize = 2*maxsize;
+
+   numkeys[1] = prefix;
+   for(int i=1;i<maxsize;i++)
+	   numkeys[2*i+1] = numkeys[2*(i-1)+1]+numkeys[2*(i-1)];
 
    ret = H5Sselect_hyperslab(file_dataspace_table,H5S_SELECT_SET,&toffset,NULL,&lsize,NULL);
    hid_t mem_dataspace_t = H5Screate_simple(1,&lsize,NULL);
@@ -792,7 +826,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
     hid_t mem_dataspace_t = H5Screate_simple(1,&tsize,NULL);
 
-    hsize_t offset_t = myrank*2*maxsize;
+    hsize_t offset_t = 2*pre_table*pow(2,nbits_r);
     
     std::vector<int> numkeys(2*totalsize);
     std::fill(numkeys.begin(),numkeys.end(),0);
@@ -838,7 +872,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&offset_w,NULL,&kblocksize,NULL);
     ret = H5Dwrite(dataset_k,kv1,mem_dataspace,file_dataspace_t,xfer_plist,mergeKeyTimestamps.data());
 
-    offset_w = myrank*2*maxsize;
+    offset_w = 2*pre_table*pow(2,nbits_r);
     kblocksize = 2*maxsize;
     ret = H5Sselect_hyperslab(file_dataspace_table,H5S_SELECT_SET,&offset_w,NULL,&kblocksize,NULL);
     hid_t memdataspace_tt = H5Screate_simple(1,&kblocksize,NULL);

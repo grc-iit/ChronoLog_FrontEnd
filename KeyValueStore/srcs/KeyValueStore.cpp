@@ -47,6 +47,9 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 
     ka->cache_invertedtable<integer_invlist>(attr_name);
     /*srandom(myrank);*/
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+
     for(int i=0;i<keys.size();i++)
     {
 	//int key = (int)random()%RAND_MAX;
@@ -61,16 +64,43 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 	ka->insert_entry<integer_invlist,int>(pos,key,ts_k);
     }
 
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    double time1 = std::chrono::duration<double>(t2-t1).count();
+
+    double max_time1 = 0;
+
+    MPI_Allreduce(&time1,&max_time1,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
+    t1 = std::chrono::high_resolution_clock::now();
+
     for(int i=0;i<keys.size();i++)
     {
 
 	std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    t2 = std::chrono::high_resolution_clock::now();
 
-   ka->flush_invertedlist<integer_invlist>(attr_name);
+    double time2 = std::chrono::duration<double>(t2-t1).count();
+
+    double max_time2 = 0;
+
+    MPI_Allreduce(&time2,&max_time2,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
+    t1 = std::chrono::high_resolution_clock::now();
+
+    ka->flush_invertedlist<integer_invlist>(attr_name);
   
+    t2 = std::chrono::high_resolution_clock::now();
+
+    double time3 = std::chrono::duration<double>(t2-t1).count();
+
+    double max_time3;
+
+    MPI_Allreduce(&time3,&max_time3,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
+    if(myrank==0) std::cout <<" put : "<<max_time1<<" seconds"<<" get : "<<max_time2<<" seconds"<<" flush : "<<max_time3<<" seconds"<<std::endl;
 
 }
 

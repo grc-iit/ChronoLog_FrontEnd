@@ -36,11 +36,11 @@ class KeyValueStore
            	std::vector<std::string> shmaddrs = ds->get_shm_addrs();
            	mds->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 		mds->bind_functions();
+		MPI_Barrier(MPI_COMM_WORLD);
 		io_layer = new KeyValueStoreIO(numprocs,myrank);
 		io_layer->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 		io_layer->bind_functions();
 		tables = new KeyValueStoreAccessorRepository(numprocs,myrank,io_layer,ds);
-		MPI_Barrier(MPI_COMM_WORLD);
 	   }
 	   void createKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &);
 	   bool findKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &);
@@ -50,10 +50,14 @@ class KeyValueStore
 	   void removeKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void create_keyvalues(std::string &,std::string &,int);
 
+	   void end_io_session()
+	   {
+		io_layer->end_io();
+	   }
 	   ~KeyValueStore()
 	   {
 
-		io_layer->end_io();
+		//io_layer->end_io();
 		delete tables;
 		delete io_layer;
 		delete mds;
