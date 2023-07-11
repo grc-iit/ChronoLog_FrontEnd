@@ -146,6 +146,9 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	       int ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset_r,NULL,&blocksize,NULL);
 	       ret = H5Dread(dataset_t,s2, mem_dataspace, file_dataspace, xfer_plist,e.data());
 
+
+	       numevents++;
+
 	       H5Sclose(mem_dataspace);
 	       H5Sclose(file_dataspace);
 	       H5Dclose(dataset_t);
@@ -218,6 +221,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	    buffer->resize(blocksize);
             ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,buffer->data());
 
+	    numevents++;
 	    
 	    for(int i=0;i<buffer->size();i++)
 	    {
@@ -254,7 +258,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	    int nt = 0;
 	    if(i < rem) nt = tables_per_proc+1;
 	    else nt = tables_per_proc;    
-	    offset_mt += nt*pow(2,nbits_r);
+	    offset_mt += 2*nt*pow(2,nbits_r);
 	}
 
 	int nt = 0;
@@ -302,6 +306,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	   hid_t mem_dataspace_e = H5Screate_simple(1,&blocksize,NULL);
 	   ret = H5Dread(dataset_t,s2,mem_dataspace_e,file_dataspace,xfer_plist,e.data());
 	   H5Sclose(mem_dataspace_e);
+	   numevents++;
 	}
 	
 	

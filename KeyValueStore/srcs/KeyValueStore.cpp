@@ -96,12 +96,17 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 
     double time3 = std::chrono::duration<double>(t2-t1).count();
 
+    int total_keys = 0;
+    int mykeys = keys.size();
+    MPI_Allreduce(&mykeys,&total_keys,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+
     double max_time3;
 
     MPI_Allreduce(&time3,&max_time3,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
-    if(myrank==0) std::cout <<" put : "<<max_time1<<" seconds"<<" get : "<<max_time2<<" seconds"<<" flush : "<<max_time3<<" seconds"<<std::endl;
+    if(myrank==0) std::cout <<" put : "<<max_time1<<" seconds"<<" get : "<<max_time2<<" seconds"<<" flush : "<<max_time3<<" seconds"<<" get throughput = "<<total_keys/max_time2<<" reqs/sec"<<std::endl;
 
+    ka->delete_inverted_list<integer_invlist>(pos);
 }
 
 void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_name)

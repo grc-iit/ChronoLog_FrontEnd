@@ -73,6 +73,7 @@ class hdf5_invlist
 	   int numtables;
 	   std::vector<int> table_ids;
 	   int pre_table;
+	   int numevents;
    public:
 	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io) : numprocs(n), myrank(p)
 	   {
@@ -162,6 +163,7 @@ class hdf5_invlist
 
 	   ~hdf5_invlist()
 	   {
+		std::cout <<" rank = "<<myrank<<" numevents = "<<numevents<<std::endl;
 	        if(invlist != nullptr) 
 	        {
 	          delete invlist->bm;
