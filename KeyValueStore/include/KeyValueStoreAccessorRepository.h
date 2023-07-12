@@ -52,7 +52,7 @@ class KeyValueStoreAccessorRepository
 		return true;
 	      }
 
-	      bool create_invertedlist(std::string &s,std::string &a)
+	      bool create_invertedlist(std::string &s,std::string &a,int c)
 	      {
 	           KeyValueStoreAccessor *ka = nullptr;
 
@@ -60,7 +60,7 @@ class KeyValueStoreAccessorRepository
 
 		   if(ka==nullptr) return false;
 		   
-		   int ret = ka->create_invertedlist(a);
+		   int ret = ka->create_invertedlist(a,c);
 
 		   if(ret == -1) return false;
 		   return true;

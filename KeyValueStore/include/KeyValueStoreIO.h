@@ -117,6 +117,8 @@ class KeyValueStoreIO
 	   std::vector<struct thread_arg> t_args;
 	   std::atomic<int> request_count;
 	   std::atomic<uint32_t> synchronization_word;
+	   boost::mutex mutex_t;
+	   boost::condition_variable cv;
 
    public:
 
@@ -136,9 +138,9 @@ class KeyValueStoreIO
 
 		 std::function<void(struct thread_arg *)> IOFunc(
                  std::bind(&KeyValueStoreIO::io_function,this, std::placeholders::_1));
-		/*	
+			
 		 std::thread t{IOFunc,&t_args[0]};
-		 io_threads[0] = std::move(t);*/
+		 io_threads[0] = std::move(t);
 
 	    }
 
@@ -190,7 +192,7 @@ class KeyValueStoreIO
 	    {
 		uint32_t mask = UINT32_MAX;
 		uint32_t mask1 = 1;
-		mask1 = mask1 << 1;
+		mask1 = mask1 << p;
 		mask = mask1 ^ mask;
 
 		bool b = false;

@@ -37,7 +37,12 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
     }
     int pos = ka->get_inverted_list_index(attr_name);
 
-    if(pos==-1) tables->create_invertedlist(s,attr_name);
+    
+    if(pos==-1) 
+    {
+      tables->create_invertedlist(s,attr_name,io_count);
+      io_count++;
+    }
 
     pos = ka->get_inverted_list_index(attr_name);
 
@@ -70,7 +75,7 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 
     double max_time1 = 0;
 
-    MPI_Allreduce(&time1,&max_time1,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+    //MPI_Allreduce(&time1,&max_time1,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
     t1 = std::chrono::high_resolution_clock::now();
 
@@ -86,7 +91,7 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 
     double max_time2 = 0;
 
-    MPI_Allreduce(&time2,&max_time2,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+    //MPI_Allreduce(&time2,&max_time2,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
     t1 = std::chrono::high_resolution_clock::now();
 
@@ -98,11 +103,11 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 
     int total_keys = 0;
     int mykeys = keys.size();
-    MPI_Allreduce(&mykeys,&total_keys,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+    //MPI_Allreduce(&mykeys,&total_keys,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
     double max_time3;
 
-    MPI_Allreduce(&time3,&max_time3,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+    //MPI_Allreduce(&time3,&max_time3,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
     if(myrank==0) std::cout <<" put : "<<max_time1<<" seconds"<<" get : "<<max_time2<<" seconds"<<" flush : "<<max_time3<<" seconds"<<" get throughput = "<<total_keys/max_time2<<" reqs/sec"<<std::endl;
 
@@ -119,7 +124,8 @@ void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_nam
 	   if(!tables->add_accessor(s,m)) return;
       }
 
-      tables->create_invertedlist(s,attr_name);
+      tables->create_invertedlist(s,attr_name,io_count);
+      io_count++;
 }
 
 

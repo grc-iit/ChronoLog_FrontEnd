@@ -345,6 +345,40 @@ class BlockMap
 	  return true;
 	}
 
+	bool fetch_clear_map(std::vector<std::vector<KeyT>> *keys, std::vector<std::vector<ValueT>> *values, ValueT &maxv)
+	{
+	    keys->resize(maxSize);
+    	    values->resize(maxSize);
+
+	    for(int i=0;i<maxSize;i++)
+	    {
+		boost::unique_lock<boost::mutex> lk((*table)[i].mutex_t);
+		node_type *n = (*table)[i].head->next;
+		node_type *p = (*table)[i].head;
+	
+		while(n != nullptr)
+		{
+		    if(n->value <= maxv)
+		    {
+			(*keys)[i].push_back(n->key);
+			(*values)[i].push_back(n->value);
+			node_type *t = n;
+			p->next = n->next;
+			n = n->next;
+			pl->memory_pool_push(t);
+		    }
+		    else
+		    {
+			p = n;
+			n = n->next;
+		    }
+		}
+
+
+	    }
+	    return true;
+	}
+
 	bool get_map(std::vector<ValueT> &values)
 	{
 	   int num_entries = 0;

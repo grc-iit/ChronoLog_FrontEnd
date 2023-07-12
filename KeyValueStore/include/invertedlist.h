@@ -74,8 +74,9 @@ class hdf5_invlist
 	   std::vector<int> table_ids;
 	   int pre_table;
 	   int numevents;
+	   int io_count;
    public:
-	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io) : numprocs(n), myrank(p)
+	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io,int c) : numprocs(n), myrank(p), io_count(c)
 	   {
 	     tag = 20000;
 	     totalsize = tsize;
@@ -158,12 +159,29 @@ class hdf5_invlist
 	       thallium_server->define(fcnname2.c_str(),getEntryFunc);
 	       thallium_shm_server->define(fcnname2.c_str(),getEntryFunc);
 
-		MPI_Barrier(MPI_COMM_WORLD);
+	       MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+	       int nreq = 0;
+	       
+	       int send_v = 1;
+	       std::vector<int> recv_v(numprocs);
+	       std::fill(recv_v.begin(),recv_v.end(),0);
+	       
+	       for(int i=0;i<numprocs;i++)
+	       {
+		  MPI_Isend(&send_v,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+		  nreq++;
+		  MPI_Irecv(&recv_v[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+		  nreq++;
+	       }
+
+	       MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+	       std::free(reqs);
+
 	   }
 
 	   ~hdf5_invlist()
 	   {
-		std::cout <<" rank = "<<myrank<<" numevents = "<<numevents<<std::endl;
 	        if(invlist != nullptr) 
 	        {
 	          delete invlist->bm;
@@ -243,7 +261,7 @@ class hdf5_invlist
 	   int partition_no(KeyT &k);	
            void cache_latest_table();	   
 	   void add_entries_to_tables(std::string&,std::vector<struct event>*,uint64_t,int); 
-	   void get_entries_from_tables(std::vector<struct KeyIndex<KeyT>> &,int&,int&);
+	   void get_entries_from_tables(std::vector<struct KeyIndex<KeyT>> &,int&,int&,uint64_t);
 	   std::vector<struct KeyIndex<KeyT>> merge_keyoffsets(std::vector<struct KeyIndex<KeyT>>&,std::vector<struct KeyIndex<KeyT>>&,std::vector<int>&);
 };
 

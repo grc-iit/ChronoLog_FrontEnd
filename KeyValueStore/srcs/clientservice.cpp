@@ -44,7 +44,8 @@ int main(int argc,char **argv)
 
    ///MPI_Barrier(MPI_COMM_WORLD);
 
-   //k->end_io_session();
+   k->end_io_session();
+
 
    MPI_Barrier(MPI_COMM_WORLD);
 

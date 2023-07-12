@@ -100,6 +100,8 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
    if(file_exists)
    {
 
+     io_t->announce_sync(io_count);
+
      hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
      hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
 
@@ -326,6 +328,8 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
      H5Fclose(fid);
      H5Pclose(fapl);
      H5Pclose(xfer_plist);
+
+     io_t->reset_sync(io_count);
    }
 
 
@@ -390,20 +394,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 
 	ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&offset_k,NULL,&blocksize,NULL);
 	ret = H5Dread(dataset_k,kv1,mem_dataspace_k,file_dataspace_t,xfer_plist,cached_keyindex.data());
-
-	for(int i=0;i<maxsize;i++)
-	{
-	   int offset = cached_keyindex_mt[2*i+1];
-	   int numkeys = cached_keyindex_mt[2*i];
-	   offset = offset-cached_keyindex_mt[1];
-	   if(offset+numkeys > total_keys) 
-	   {
-	      std::cout <<" rank = "<<myrank<<" i = "<<i<<std::endl;
-	      break;
-	   }
-
-	}
-
 
 	H5Dclose(dataset_k);
 	H5Dclose(dataset_t);
@@ -570,17 +560,21 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  attrs.resize(attr_size[0]);
 
  ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
-
  
  std::vector<std::vector<KeyT>> *keys = new std::vector<std::vector<KeyT>> ();
  std::vector<std::vector<ValueT>> *timestamps = new std::vector<std::vector<ValueT>> ();
+
+ int numblocks = attrs[3];
+ int pos = 4;
+
+ uint64_t maxts = attrs[pos+(numblocks-1)*4+1];
 
  int key_pre = 0;
  int total_keys = 0;
 
  std::vector<struct KeyIndex<KeyT>> KeyTimestamps;
 
- get_entries_from_tables(KeyTimestamps,key_pre,total_keys); 
+ get_entries_from_tables(KeyTimestamps,key_pre,total_keys,maxts); 
 
  std::vector<struct KeyIndex<int>> Timestamp_order;
 
@@ -594,11 +588,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
  std::sort(Timestamp_order.begin(),Timestamp_order.end(),compareIndex<int>);
 
- int numblocks = attrs[3];
-
  int block_id = 0;
- int pos = 4;
-
  std::vector<int> block_ids;
  int i=0;
 
@@ -883,16 +873,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     hid_t memdataspace_tt = H5Screate_simple(1,&kblocksize,NULL);
     ret = H5Dwrite(dataset_t,H5T_NATIVE_INT,memdataspace_tt,file_dataspace_table,xfer_plist,numkeys_n.data());
 
-    for(int i=0;i<maxsize;i++)
-    {
-	int offset = numkeys_n[2*i+1]-numkeys_n[1];
-	if(offset+numkeys_n[2*i] > mergeKeyTimestamps.size())
-	{
-	      std::cout <<" rank = "<<myrank<<" i = "<<i<<" offset = "<<offset<<std::endl;
-	      break;
-	}
-    }
-
     H5Sclose(memdataspace_tt);
     H5Sclose(mem_dataspace_p);
     H5Sclose(file_dataspace_p);
@@ -982,14 +962,25 @@ std::vector<struct KeyIndex<KeyT>> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::m
 	   i++;
    }
 
-   std::vector<int> send_size(numprocs);
+   MPI_Request *reqs = (MPI_Request*)std::malloc(2*numprocs*sizeof(MPI_Request));
+
    std::vector<int> recv_size(numprocs);
-   std::fill(send_size.begin(),send_size.end(),0);
    std::fill(recv_size.begin(),recv_size.end(),0);
 
-   send_size[myrank] = result_list.size();
-   
-   MPI_Allreduce(send_size.data(),recv_size.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+   int send_size = result_list.size();
+
+   int nreqs = 0;
+
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&send_size,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreqs]);
+	nreqs++;
+	MPI_Irecv(&recv_size[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreqs]);
+	nreqs++;
+   }
+
+   MPI_Waitall(nreqs,reqs,MPI_STATUS_IGNORE);
 
    int prefix = 0;
    for(int i=0;i<myrank;i++) prefix += recv_size[i];
@@ -997,6 +988,8 @@ std::vector<struct KeyIndex<KeyT>> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::m
    numkeys[1] = prefix;
    for(int i=1;i<maxsize;i++) 
      numkeys[2*i+1] = numkeys[2*(i-1)+1]+numkeys[2*(i-1)];
+
+   std::free(reqs);
 
    return result_list;
 }
@@ -1077,7 +1070,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::stri
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
-void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entries_from_tables(std::vector<struct KeyIndex<KeyT>> &KeyTimestamps,int &key_b,int &numkeys)
+void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entries_from_tables(std::vector<struct KeyIndex<KeyT>> &KeyTimestamps,int &key_b,int &numkeys,uint64_t maxts)
 {
 
 	if(invlist==nullptr) return;
@@ -1085,9 +1078,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entries_from_tables(std::ve
 	std::vector<std::vector<KeyT>> *keys = new std::vector<std::vector<KeyT>> ();
 	std::vector<std::vector<ValueT>> *offsets = new std::vector<std::vector<ValueT>> ();
 
-	invlist->bm->get_map_keyvalue(keys,offsets);
-
-	invlist->bm->clear_map();
+	invlist->bm->fetch_clear_map(keys,offsets,maxts);
 
 	MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 	int nreq = 0;

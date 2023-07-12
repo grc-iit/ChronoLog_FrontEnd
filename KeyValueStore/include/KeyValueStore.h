@@ -19,11 +19,13 @@ class KeyValueStore
 	    data_server_client *ds;
 	    KeyValueStoreIO *io_layer; 
 	    KeyValueStoreAccessorRepository *tables;
+	    int io_count;
     public:
 	    KeyValueStore(int np,int r) : numprocs(np), myrank(r)
 	   {
 		H5open();
    	        H5VLis_connector_registered_by_name("async");
+		io_count=0;
 		int base_port = 2000;
 		ds = new data_server_client(numprocs,myrank,base_port);
 		mds = new KeyValueStoreMDS(numprocs,myrank);
@@ -53,11 +55,30 @@ class KeyValueStore
 	   void end_io_session()
 	   {
 		io_layer->end_io();
+
+		MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+	        int nreq = 0;
+		int tag = 1000;
+		
+		int send_v = 1;
+		std::vector<int> recv_v(numprocs);
+		std::fill(recv_v.begin(),recv_v.end(),0);
+
+		for(int i=0;i<numprocs;i++)
+		{
+		   MPI_Isend(&send_v,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+		   nreq++;
+		   MPI_Irecv(&recv_v[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+		   nreq++;
+		}
+
+		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+		std::free(reqs);
 	   }
 	   ~KeyValueStore()
 	   {
 
-		//io_layer->end_io();
 		delete tables;
 		delete io_layer;
 		delete mds;
