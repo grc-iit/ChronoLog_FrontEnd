@@ -119,12 +119,13 @@ class KeyValueStoreIO
 	   std::atomic<uint32_t> synchronization_word;
 	   boost::mutex mutex_t;
 	   boost::condition_variable cv;
-
+	   int semaphore;
    public:
 
 	    KeyValueStoreIO(int np,int p) : nservers(np), serverid(p)
 	    {
 	        num_io_threads = 1;
+		semaphore = 0;
 		request_count.store(0);
 		synchronization_word.store(0);
 		req_queue = new boost::lockfree::queue<struct request*> (128);
@@ -185,6 +186,14 @@ class KeyValueStoreIO
 		    prev = synchronization_word.load();
 		    next = prev | mask;
 		}while(!(b = synchronization_word.compare_exchange_strong(prev,next)));
+
+		boost::unique_lock<boost::mutex> lk(mutex_t);
+
+		if(semaphore != 0)
+		{
+		     cv.wait(lk);
+		}
+
 		return b;
 	    }
 

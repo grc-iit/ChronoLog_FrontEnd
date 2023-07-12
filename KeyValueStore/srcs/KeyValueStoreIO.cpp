@@ -35,6 +35,12 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
         }
        }
 
+       boost::unique_lock<boost::mutex> lk(mutex_t);
+
+       semaphore=1;
+
+       if(read_sync_word()!=0) op_type[1] = 0;
+
        MPI_Allgather(&op_type[1],1,MPI_INT,consensus.data(),1,MPI_INT,MPI_COMM_WORLD);
 
        int nprocs_sync = 0;
@@ -42,7 +48,6 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 	       nprocs_sync += consensus[i];
        if(nprocs_sync==nservers)
        {
-
 	   std::vector<struct request *> sync_reqs;
 	   while(!sync_queue->empty())
 	   {
@@ -54,6 +59,10 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 		break;
 	   }
        }
+
+       semaphore=0;
+       cv.notify_all();
+
        break;
     }
 }
