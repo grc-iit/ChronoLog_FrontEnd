@@ -6,7 +6,7 @@ int main(int argc,char **argv)
 {
    int prov;
 
-   MPI_Init_thread(&argc,&argv,MPI_THREAD_SINGLE,&prov);
+   MPI_Init_thread(&argc,&argv,MPI_THREAD_MULTIPLE,&prov);
 
    int size,rank;
 

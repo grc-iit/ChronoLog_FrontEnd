@@ -176,6 +176,8 @@ class KeyValueStoreIO
 		uint32_t mask = 1;
 		mask = mask << p;
 		bool b = false;
+		uint32_t mask_s = 1;
+		mask_s = mask_s << 31;
 
 		uint32_t prev = synchronization_word.load();
 	        uint32_t next;
@@ -184,15 +186,11 @@ class KeyValueStoreIO
 		{
 		    b = false;
 		    prev = synchronization_word.load();
+		    uint32_t m_p = prev & mask_s;
+		    m_p = m_p >> 31;
+		    if(m_p==1) break;
 		    next = prev | mask;
 		}while(!(b = synchronization_word.compare_exchange_strong(prev,next)));
-
-		boost::unique_lock<boost::mutex> lk(mutex_t);
-
-		if(semaphore != 0)
-		{
-		     cv.wait(lk);
-		}
 
 		return b;
 	    }

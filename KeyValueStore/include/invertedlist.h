@@ -159,6 +159,7 @@ class hdf5_invlist
 	       thallium_server->define(fcnname2.c_str(),getEntryFunc);
 	       thallium_shm_server->define(fcnname2.c_str(),getEntryFunc);
 
+	       
 	       MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 	       int nreq = 0;
 	       

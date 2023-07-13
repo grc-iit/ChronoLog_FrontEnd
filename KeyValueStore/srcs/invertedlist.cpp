@@ -100,7 +100,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
    if(file_exists)
    {
 
-     io_t->announce_sync(io_count);
+     while(!io_t->announce_sync(io_count));
 
      hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
      hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);

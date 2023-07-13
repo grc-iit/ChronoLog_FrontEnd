@@ -11,6 +11,9 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 
     consensus.resize(nservers);
 
+    int count = 100000;
+    int i = 0;
+
     while(true)
     {
 
@@ -35,19 +38,29 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
         }
        }
 
-       boost::unique_lock<boost::mutex> lk(mutex_t);
-
-       semaphore=1;
-
-       if(read_sync_word()!=0) op_type[1] = 0;
 
        MPI_Allgather(&op_type[1],1,MPI_INT,consensus.data(),1,MPI_INT,MPI_COMM_WORLD);
 
        int nprocs_sync = 0;
        for(int i=0;i<consensus.size();i++)
 	       nprocs_sync += consensus[i];
-       if(nprocs_sync==nservers)
+       //if(nprocs_sync==nservers)
        {
+	   uint32_t prev, next;
+	   bool b = false;
+	   uint32_t mask = 1;
+	   mask = mask << 31;
+
+	   do
+	   {
+		prev = synchronization_word.load();
+		b = false;
+		//if(prev != 0) break;
+		next = prev | mask;
+	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
+
+	   while(synchronization_word.load()!=mask);
+
 	   std::vector<struct request *> sync_reqs;
 	   while(!sync_queue->empty())
 	   {
@@ -58,12 +71,17 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 		}
 		break;
 	   }
+	
+	   do
+	   {
+	      prev = synchronization_word.load();
+	      next = prev & ~mask;
+	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
+
        }
-
-       semaphore=0;
-       cv.notify_all();
-
-       break;
+	
+       i++;
+       if(i==count) break;
     }
 }
 

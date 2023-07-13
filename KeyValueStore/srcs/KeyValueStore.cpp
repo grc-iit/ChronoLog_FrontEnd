@@ -37,6 +37,10 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
     }
     int pos = ka->get_inverted_list_index(attr_name);
 
+    std::vector<int> keys;
+    std::vector<uint64_t> ts;
+
+   create_integertestinput(numprocs,myrank,0,keys,ts);
     
     if(pos==-1) 
     {
@@ -45,10 +49,6 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
     }
 
     pos = ka->get_inverted_list_index(attr_name);
-
-    std::vector<int> keys;
-    std::vector<uint64_t> ts;
-    create_integertestinput(numprocs,myrank,0,keys,ts);
 
     ka->cache_invertedtable<integer_invlist>(attr_name);
     /*srandom(myrank);*/
@@ -82,7 +82,7 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
     for(int i=0;i<keys.size();i++)
     {
 
-	std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);
+      std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);
     }
 
     t2 = std::chrono::high_resolution_clock::now();
