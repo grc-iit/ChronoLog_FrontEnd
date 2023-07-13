@@ -82,7 +82,7 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
     for(int i=0;i<keys.size();i++)
     {
 
-      std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);
+      //std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);
     }
 
     t2 = std::chrono::high_resolution_clock::now();
@@ -111,7 +111,27 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 
     if(myrank==0) std::cout <<" put : "<<max_time1<<" seconds"<<" get : "<<max_time2<<" seconds"<<" flush : "<<max_time3<<" seconds"<<" get throughput = "<<total_keys/max_time2<<" reqs/sec"<<std::endl;
 
-    ka->delete_inverted_list<integer_invlist>(pos);
+    int send_v = 1;
+    std::vector<int> recv_v(numprocs);
+    std::fill(recv_v.begin(),recv_v.end(),0);
+
+    MPI_Request *reqs = (MPI_Request*)std::malloc(2*numprocs*sizeof(MPI_Request));
+
+    int nreqs = 0;
+
+    for(int i=0;i<numprocs;i++)
+    {
+	MPI_Isend(&send_v,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreqs]);
+	nreqs++;
+	MPI_Irecv(&recv_v[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreqs]);
+	nreqs++;
+    }
+
+    MPI_Waitall(nreqs,reqs,MPI_STATUS_IGNORE);
+
+    std::free(reqs);
+
+    //ka->delete_inverted_list<integer_invlist>(pos);
 }
 
 void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_name)

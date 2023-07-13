@@ -1,5 +1,7 @@
 #include "KeyValueStoreIO.h"
+#include "KeyValueStoreAccessor.h"
 #include "invertedlist.h"
+
 
 void KeyValueStoreIO::io_function(struct thread_arg *t)
 {
@@ -44,7 +46,7 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
        int nprocs_sync = 0;
        for(int i=0;i<consensus.size();i++)
 	       nprocs_sync += consensus[i];
-       //if(nprocs_sync==nservers)
+       if(nprocs_sync==nservers)
        {
 	   uint32_t prev, next;
 	   bool b = false;
@@ -61,27 +63,34 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 
 	   while(synchronization_word.load()!=mask);
 
-	   std::vector<struct request *> sync_reqs;
+	   std::vector<struct sync_request *> sync_reqs;
 	   while(!sync_queue->empty())
 	   {
-		struct request *r = nullptr;
+		struct sync_request *r = nullptr;
 		if(sync_queue->pop(r))
 		{
 		   sync_reqs.push_back(r);
 		}
 		break;
 	   }
-	
+
+	   for(int i=0;i<sync_reqs.size();i++)
+	   {
+	      integer_invlist* invlist = (integer_invlist*)(sync_reqs[i]->funcptr);
+
+	      invlist->flush_table_file(0);
+	   }
+
 	   do
 	   {
 	      prev = synchronization_word.load();
 	      next = prev & ~mask;
 	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
-
+	   break;
        }
 	
        i++;
-       if(i==count) break;
+       //if(i==count) break;
     }
 }
 

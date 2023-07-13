@@ -20,6 +20,7 @@ class KeyValueStore
 	    KeyValueStoreIO *io_layer; 
 	    KeyValueStoreAccessorRepository *tables;
 	    int io_count;
+	    int tag;
     public:
 	    KeyValueStore(int np,int r) : numprocs(np), myrank(r)
 	   {
@@ -27,6 +28,7 @@ class KeyValueStore
    	        H5VLis_connector_registered_by_name("async");
 		io_count=0;
 		int base_port = 2000;
+		tag = 20000;
 		ds = new data_server_client(numprocs,myrank,base_port);
 		mds = new KeyValueStoreMDS(numprocs,myrank);
 		tl::engine *t_server = ds->get_thallium_server();

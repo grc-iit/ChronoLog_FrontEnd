@@ -46,6 +46,15 @@ struct request
   bool flush;
 };
 
+struct sync_request
+{
+   void *funcptr;
+   int keytype;
+   int offset;
+   bool flush;
+   bool fill;
+};
+
 struct response
 {
   std::string name;
@@ -102,7 +111,7 @@ class KeyValueStoreIO
 	   int serverid;
 	   boost::lockfree::queue<struct request*> *req_queue;
 	   boost::lockfree::queue<struct response*> *resp_queue;
-	   boost::lockfree::queue<struct request*> *sync_queue;
+	   boost::lockfree::queue<struct sync_request*> *sync_queue;
 	   tl::engine *thallium_server;
            tl::engine *thallium_shm_server;
            tl::engine *thallium_client;
@@ -130,7 +139,7 @@ class KeyValueStoreIO
 		synchronization_word.store(0);
 		req_queue = new boost::lockfree::queue<struct request*> (128);
 		resp_queue = new boost::lockfree::queue<struct response*> (128);
-		sync_queue = new boost::lockfree::queue<struct request*> (128);
+		sync_queue = new boost::lockfree::queue<struct sync_request*> (128);
 
 		 t_args.resize(num_io_threads);
 	 	 for(int i=0;i<num_io_threads;i++) t_args[i].tid = i;	 
@@ -224,9 +233,6 @@ class KeyValueStoreIO
 
 	       std::function<void(const tl::request &,struct response &)> putResponseFunc(
                std::bind(&KeyValueStoreIO::ThalliumLocalPutResponse,this,std::placeholders::_1,std::placeholders::_2));
-
-	       std::function<void(const tl::request &,struct request &)> putSyncRequestFunc(
-               std::bind(&KeyValueStoreIO::ThalliumLocalPutSyncRequest,this,std::placeholders::_1,std::placeholders::_2));
                
 	       thallium_server->define("RemotePutIORequest",putRequestFunc);
                thallium_shm_server->define("RemotePutIORequest",putRequestFunc);
@@ -234,23 +240,11 @@ class KeyValueStoreIO
                thallium_server->define("RemotePutIOResponse",putResponseFunc);
                thallium_shm_server->define("RemotePutIOResponse",putResponseFunc);
 
-	       thallium_server->define("RemotePutSyncIORequest",putSyncRequestFunc);
-	       thallium_shm_server->define("RemotePutSyncIORequest",putSyncRequestFunc);
 	     }
 
-	     bool LocalPutSyncRequest(struct request &r)
+	     bool LocalPutSyncRequest(struct sync_request *r)
 	     {
-		struct request *s = new struct request();
-                s->name = r.name;
-                s->id = r.id;
-                s->keytype = r.keytype;
-                s->intkey = r.intkey;
-                s->floatkey = r.floatkey;
-                s->doublekey = r.doublekey;
-                s->sender = r.sender;
-                s->flush = r.flush;
-
-                sync_queue->push(s);
+                sync_queue->push(r);
                 return true;
 	     }
 	     bool LocalPutRequest(struct request &r)
@@ -293,11 +287,6 @@ class KeyValueStoreIO
 		req.respond(LocalPutResponse(r));
 	     }
 
-	     void ThalliumLocalPutSyncRequest(const tl::request &req,struct request &r)
-	     {
-		req.respond(LocalPutSyncRequest(r));
-	     }
-
 	     struct request *GetRequest()
 	     {
 		
@@ -312,9 +301,9 @@ class KeyValueStoreIO
 		return r;
 	     }
 
-	     struct request *GetSyncRequest()
+	     struct sync_request *GetSyncRequest()
 	     {
-		struct request *r=nullptr;
+		struct sync_request *r=nullptr;
 		bool b = sync_queue->pop(r);
 		return r;
 	     }
@@ -364,6 +353,7 @@ class KeyValueStoreIO
                 }
 	     }
 
+	     /*
 	     bool PutAll(struct request &r)
 	     {
 		bool ret = false;
@@ -386,7 +376,7 @@ class KeyValueStoreIO
 
 		}
 		return ret;
-	     }
+	     }*/
 
 
 	     void get_common_requests(std::vector<struct request*>&);

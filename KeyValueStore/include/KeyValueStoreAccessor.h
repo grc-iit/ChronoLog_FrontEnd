@@ -1,6 +1,7 @@
 #ifndef __KeyValueStoreAccessor_H_
 #define __KeyValueStoreAccessor_H_
 
+#include "KeyValueStoreMetadata.h"
 #include "invertedlist.h"
 #include "external_sort.h"
 #include "util_t.h"
