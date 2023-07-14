@@ -156,7 +156,15 @@ class KeyValueStoreIO
 
 	     void end_io()
 	     {
+		struct sync_request *r = new sync_request();
+		r->keytype = -1;
+		r->funcptr = nullptr;
+
+		sync_queue->push(r);
+
 		for(int i=0;i<num_io_threads;i++) io_threads[i].join();
+
+		
 	     }
 	     void server_client_addrs(tl::engine *t_server,tl::engine *t_client,tl::engine *t_server_shm, tl::engine *t_client_shm,std::vector<std::string> &ips,std::vector<std::string> &shm_addrs,std::vector<tl::endpoint> &saddrs)
             {

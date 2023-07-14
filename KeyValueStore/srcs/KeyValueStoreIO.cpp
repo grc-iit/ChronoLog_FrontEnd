@@ -26,6 +26,8 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 
        op_type[1] = (sync_queue->empty()==true) ? 0 : 1;
 
+       bool end_io = false;
+
        if(op_type[0])
        {
 
@@ -107,6 +109,11 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 		   invlist->flush_table_file(sync_reqs[i]->offset);
 		}
 	      }
+	      else if(sync_reqs[i]->funcptr==nullptr)
+	      {
+		end_io = true;
+		break;
+	      }
 	   }
 
 	   do
@@ -114,13 +121,13 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 	      prev = synchronization_word.load();
 	      next = prev & ~mask;
 	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
-	   break;
 
 	   for(int i=0;i<sync_reqs.size();i++) delete sync_reqs[i];
+
+	   if(end_io) break;
        }
 	
        i++;
-       //if(i==count) break;
     }
 }
 

@@ -39,14 +39,20 @@ int main(int argc,char **argv)
 
    k->addKeyValueStoreInvList(sname,names[1]);  
 
-   k->create_keyvalues(sname,names[1],100000);
+   std::vector<int> keys;
+   std::vector<uint64_t> ts;
+
+   k->get_testworkload(keys,ts);
+
+   k->spawn_kvstream<integer_invlist,int>(sname,names[1],keys,ts);
+
 
    k->end_io_session();
 
 
    MPI_Barrier(MPI_COMM_WORLD);
 
-   delete k;
+   //delete k;
 
    MPI_Finalize();
 

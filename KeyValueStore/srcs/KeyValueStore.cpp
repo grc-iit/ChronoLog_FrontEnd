@@ -24,35 +24,9 @@ bool KeyValueStore::findKeyValueStoreEntry(std::string &s,KeyValueStoreMetadata 
    return ret;
 }
 
+/*
 void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int numreq)
 {
-    KeyValueStoreAccessor* ka = tables->get_accessor(s);
-
-    if(ka==nullptr)
-    {
-	KeyValueStoreMetadata m;
-	if(!findKeyValueStoreEntry(s,m)) return;
-	if(!tables->add_accessor(s,m)) return;
-	ka = tables->get_accessor(s);
-    }
-    int pos = ka->get_inverted_list_index(attr_name);
-
-    std::vector<int> keys;
-    std::vector<uint64_t> ts;
-
-   create_integertestinput(numprocs,myrank,0,keys,ts);
-    
-    if(pos==-1) 
-    {
-      tables->create_invertedlist(s,attr_name,io_count);
-      io_count++;
-    }
-
-    pos = ka->get_inverted_list_index(attr_name);
-
-    ka->cache_invertedtable<integer_invlist>(attr_name);
-    /*srandom(myrank);*/
-
     auto t1 = std::chrono::high_resolution_clock::now();
 
     for(int i=0;i<keys.size();i++)
@@ -131,8 +105,30 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
 
     std::free(reqs);
 
-    //ka->delete_inverted_list<integer_invlist>(pos);
+}*/
+
+void KeyValueStore::get_testworkload(std::vector<int>&keys,std::vector<uint64_t>&ts)
+{
+
+   create_integertestinput(numprocs,myrank,0,keys,ts);
 }
+/*
+template<typename T,typename N>
+void KeyValueStore::RunKeyValueStoreFunctions(KeyValueStoreAccessor *ka,struct kstream_args<N> *k)
+{
+   ka->cache_invertedtable<T>(k->attr_name);
+
+   int pos = ka->get_inverted_list_index(k->attr_name);
+
+
+    for(int i=0;i<k->keys.size();i++)
+    {
+        N key = k->keys[i];
+        uint64_t ts_k = k->ts[i];
+
+        ka->insert_entry<T,N>(pos,key,ts_k);
+    }
+}*/
 
 void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_name)
 {
