@@ -70,5 +70,22 @@ void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name)
     if(pos==-1) return;
 
     T *invlist = reinterpret_cast<T*>(lists[pos].second);
-    invlist->flush_table_file(offset);
+
+    struct sync_request *r = new struct sync_request();
+    std::string type = md.get_type(attr_name);
+    int keytype = 0;
+    if(type.compare("int")==0) keytype = 0;
+    else if(type.compare("unsignedlong")==0) keytype=1;
+    else if(type.compare("float")==0) keytype=2;
+    else if(type.compare("double")==0) keytype=3;
+
+
+
+    r->funcptr = (void*)invlist;
+    r->offset = offset;
+    r->keytype = keytype;
+    r->flush = true;
+
+    bool ret = kio->LocalPutSyncRequest(r);
+
 }

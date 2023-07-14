@@ -57,7 +57,6 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 	   {
 		prev = synchronization_word.load();
 		b = false;
-		//if(prev != 0) break;
 		next = prev | mask;
 	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
 
@@ -76,9 +75,38 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 
 	   for(int i=0;i<sync_reqs.size();i++)
 	   {
-	      integer_invlist* invlist = (integer_invlist*)(sync_reqs[i]->funcptr);
-
-	      invlist->flush_table_file(0);
+	      if(sync_reqs[i]->keytype==0)
+	      {
+		      if(sync_reqs[i]->flush==true) 
+		      {
+			  integer_invlist* invlist = reinterpret_cast<integer_invlist*>(sync_reqs[i]->funcptr);
+			  invlist->flush_table_file(sync_reqs[i]->offset);
+		      }
+	      }
+	      else if(sync_reqs[i]->keytype==1)
+	      {
+		   if(sync_reqs[i]->flush==true) 
+		   {
+			unsigned_long_invlist* invlist = reinterpret_cast<unsigned_long_invlist*>(sync_reqs[i]->funcptr);
+			invlist->flush_table_file(sync_reqs[i]->offset);
+		   }
+	      }
+	      else if(sync_reqs[i]->keytype==2)
+	      {
+		if(sync_reqs[i]->flush==true) 
+		{
+		   float_invlist* invlist = reinterpret_cast<float_invlist*>(sync_reqs[i]->funcptr);
+		   invlist->flush_table_file(sync_reqs[i]->offset);
+		}
+	      }
+	      else if(sync_reqs[i]->keytype==3)
+	      {
+		if(sync_reqs[i]->flush==true) 
+		{
+		   double_invlist* invlist = reinterpret_cast<double_invlist*>(sync_reqs[i]->funcptr);
+		   invlist->flush_table_file(sync_reqs[i]->offset);
+		}
+	      }
 	   }
 
 	   do
@@ -87,6 +115,8 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 	      next = prev & ~mask;
 	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
 	   break;
+
+	   for(int i=0;i<sync_reqs.size();i++) delete sync_reqs[i];
        }
 	
        i++;

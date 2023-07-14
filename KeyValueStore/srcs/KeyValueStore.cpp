@@ -82,7 +82,7 @@ void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int n
     for(int i=0;i<keys.size();i++)
     {
 
-      //std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);
+      std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);
     }
 
     t2 = std::chrono::high_resolution_clock::now();
