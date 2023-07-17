@@ -49,6 +49,8 @@ struct request
 struct sync_request
 {
    void *funcptr;
+   std::string name;
+   std::string attr_name; 
    int keytype;
    int offset;
    bool flush;
@@ -157,6 +159,8 @@ class KeyValueStoreIO
 	     void end_io()
 	     {
 		struct sync_request *r = new sync_request();
+		r->name = "ZZZZ";
+		r->attr_name = "ZZZZ";
 		r->keytype = -1;
 		r->funcptr = nullptr;
 
@@ -361,33 +365,7 @@ class KeyValueStoreIO
                 }
 	     }
 
-	     /*
-	     bool PutAll(struct request &r)
-	     {
-		bool ret = false;
-		for(int i=0;i<nservers;i++)
-		{
-		  int destid = i;
-		  if(ipaddrs[destid].compare(myipaddr)==0)
-                 {
-                    tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
-                    tl::remote_procedure rp = thallium_shm_client->define("RemotePutSyncIORequest");
-                    bool b = rp.on(ep)(r);
-		    ret = ret & b;
-                 }
-                 else
-                 {
-                    tl::remote_procedure rp = thallium_client->define("RemotePutSyncIORequest");
-                    bool b = rp.on(serveraddrs[destid])(r);
-		    ret = ret & b;
-                 }
-
-		}
-		return ret;
-	     }*/
-
-
-	     void get_common_requests(std::vector<struct request*>&);
+	     void get_common_requests(std::vector<struct sync_request*>&,std::vector<struct sync_request*>&);
 	     void io_function(struct thread_arg *);
 
 	    ~KeyValueStoreIO()

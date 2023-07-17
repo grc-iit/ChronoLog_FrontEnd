@@ -79,9 +79,9 @@ void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name)
     else if(type.compare("float")==0) keytype=2;
     else if(type.compare("double")==0) keytype=3;
 
-
-
     r->funcptr = (void*)invlist;
+    r->name = md.db_name();
+    r->attr_name = attr_name; 
     r->offset = offset;
     r->keytype = keytype;
     r->flush = true;

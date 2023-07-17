@@ -3,6 +3,15 @@
 #include "invertedlist.h"
 
 
+bool req_compare(struct sync_request *r1,struct sync_request *r2)
+{
+     std::string s1 = r1->name+r1->attr_name;
+     std::string s2 = r2->name+r2->attr_name;
+
+     if(s1.compare(s2) <= 0) return true;
+     else return false;
+}
+
 void KeyValueStoreIO::io_function(struct thread_arg *t)
 {
 
@@ -12,9 +21,6 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
     std::vector<int> consensus;
 
     consensus.resize(nservers);
-
-    int count = 100000;
-    int i = 0;
 
     while(true)
     {
@@ -72,75 +78,80 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 		{
 		   sync_reqs.push_back(r);
 		}
-		break;
 	   }
 
-	   for(int i=0;i<sync_reqs.size();i++)
+	   std::vector<struct sync_request*> common_reqs;
+           get_common_requests(sync_reqs,common_reqs);	   
+
+	   for(int i=0;i<common_reqs.size();i++)
 	   {
-	      if(sync_reqs[i]->keytype==0)
+	      if(common_reqs[i]->keytype==0)
 	      {
-		      if(sync_reqs[i]->flush==true) 
+		      if(common_reqs[i]->flush==true) 
 		      {
-			  integer_invlist* invlist = reinterpret_cast<integer_invlist*>(sync_reqs[i]->funcptr);
-			  invlist->flush_table_file(sync_reqs[i]->offset);
+			  integer_invlist* invlist = reinterpret_cast<integer_invlist*>(common_reqs[i]->funcptr);
+			  invlist->flush_table_file(common_reqs[i]->offset);
 		      }
 	      }
-	      else if(sync_reqs[i]->keytype==1)
+	      else if(common_reqs[i]->keytype==1)
 	      {
-		   if(sync_reqs[i]->flush==true) 
+		   if(common_reqs[i]->flush==true) 
 		   {
-			unsigned_long_invlist* invlist = reinterpret_cast<unsigned_long_invlist*>(sync_reqs[i]->funcptr);
-			invlist->flush_table_file(sync_reqs[i]->offset);
+			unsigned_long_invlist* invlist = reinterpret_cast<unsigned_long_invlist*>(common_reqs[i]->funcptr);
+			invlist->flush_table_file(common_reqs[i]->offset);
 		   }
 	      }
-	      else if(sync_reqs[i]->keytype==2)
+	      else if(common_reqs[i]->keytype==2)
 	      {
-		if(sync_reqs[i]->flush==true) 
+		if(common_reqs[i]->flush==true) 
 		{
-		   float_invlist* invlist = reinterpret_cast<float_invlist*>(sync_reqs[i]->funcptr);
-		   invlist->flush_table_file(sync_reqs[i]->offset);
+		   float_invlist* invlist = reinterpret_cast<float_invlist*>(common_reqs[i]->funcptr);
+		   invlist->flush_table_file(common_reqs[i]->offset);
 		}
 	      }
-	      else if(sync_reqs[i]->keytype==3)
+	      else if(common_reqs[i]->keytype==3)
 	      {
-		if(sync_reqs[i]->flush==true) 
+		if(common_reqs[i]->flush==true) 
 		{
-		   double_invlist* invlist = reinterpret_cast<double_invlist*>(sync_reqs[i]->funcptr);
-		   invlist->flush_table_file(sync_reqs[i]->offset);
+		   double_invlist* invlist = reinterpret_cast<double_invlist*>(common_reqs[i]->funcptr);
+		   invlist->flush_table_file(common_reqs[i]->offset);
 		}
 	      }
-	      else if(sync_reqs[i]->funcptr==nullptr)
+	      else if(common_reqs[i]->funcptr==nullptr)
 	      {
 		end_io = true;
-		break;
 	      }
 	   }
 
+	   for(int i=0;i<common_reqs.size();i++) delete common_reqs[i];
+	   for(int i=0;i<sync_reqs.size();i++) sync_queue->push(sync_reqs[i]);
+	   
 	   do
 	   {
 	      prev = synchronization_word.load();
 	      next = prev & ~mask;
 	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
 
-	   for(int i=0;i<sync_reqs.size();i++) delete sync_reqs[i];
-
 	   if(end_io) break;
        }
 	
-       i++;
     }
 }
 
-void KeyValueStoreIO::get_common_requests(std::vector<struct request*> &sync_reqs)
+void KeyValueStoreIO::get_common_requests(std::vector<struct sync_request*> &sync_reqs,std::vector<struct sync_request*> &common_reqs)
 {
 
 	   int numreqs = sync_reqs.size();
+	   std::vector<int> send_count(nservers);
 	   std::vector<int> req_count(nservers);
+	   std::fill(send_count.begin(),send_count.end(),0);
 	   std::fill(req_count.begin(),req_count.end(),0);
+	   send_count[serverid] = numreqs;
 
-	   MPI_Alltoall(&numreqs,1,MPI_INT,req_count.data(),1,MPI_INT,MPI_COMM_WORLD);
-
+	   MPI_Allreduce(send_count.data(),req_count.data(),nservers,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+	   
 	   std::vector<int> send_lens(sync_reqs.size());
+	   
 	   for(int i=0;i<sync_reqs.size();i++)
 	   {
 		send_lens[i] = sync_reqs[i]->name.length()+sync_reqs[i]->attr_name.length();
@@ -148,23 +159,24 @@ void KeyValueStoreIO::get_common_requests(std::vector<struct request*> &sync_req
 
 	   int total_req = 0;
 	   for(int i=0;i<nservers;i++) total_req += req_count[i];
-	   
+
 	   std::vector<int> recv_lens;
 	   recv_lens.resize(total_req);
 
-	   int send_count = sync_reqs.size();
+	   int sendcount = sync_reqs.size();
 	   std::vector<int> displ(nservers);
 	    
 	   displ[0] = 0;
 	   for(int i=1;i<nservers;i++) displ[i] = displ[i-1]+req_count[i-1];
 
-	   MPI_Allgatherv(send_lens.data(),send_count,MPI_INT,recv_lens.data(),req_count.data(),displ.data(),MPI_INT,MPI_COMM_WORLD);
+	   MPI_Allgatherv(send_lens.data(),sendcount,MPI_INT,recv_lens.data(),req_count.data(),displ.data(),MPI_INT,MPI_COMM_WORLD);
            std::string send_name = sync_reqs[0]->name+sync_reqs[0]->attr_name;
+
 
 	   for(int i=1;i<sync_reqs.size();i++)
 	   {	
 		send_name += sync_reqs[i]->name+sync_reqs[i]->attr_name; 
-	   } 
+	   }
 
 	   int total_length = 0;
 	   for(int i=0;i<recv_lens.size();i++)
@@ -188,7 +200,6 @@ void KeyValueStoreIO::get_common_requests(std::vector<struct request*> &sync_req
 
 
 	   MPI_Allgatherv(send_name.data(),l,MPI_CHAR,recv_names.data(),recv_counts.data(),recv_displ.data(),MPI_CHAR,MPI_COMM_WORLD);
-
 	   std::vector<std::vector<std::string>> recv_reqs(nservers);
 
 	   for(int i=0;i<nservers;i++)
@@ -202,9 +213,7 @@ void KeyValueStoreIO::get_common_requests(std::vector<struct request*> &sync_req
 		   recv_reqs[i].push_back(s);
 		}
 	   }
-	   
-	   std::vector<std::string> common_reqs;
-
+	  
 	   std::unordered_map<std::string,int> stringcount;
 
 	   for(int i=0;i<nservers;i++)
@@ -217,19 +226,29 @@ void KeyValueStoreIO::get_common_requests(std::vector<struct request*> &sync_req
 		   {
 			std::pair<std::string,int> p;
 			p.first.assign(s);
-			p.second = 0;
+			p.second = 1;
 			stringcount.insert(p);
 		   }	
 		   else r->second = r->second+1;
 		}
 	   }
-	
 
-	   for(auto r = stringcount.begin(); r != stringcount.end(); ++r)
+	   std::vector<struct sync_request*> pending_reqs;
+
+           for(int i=0;i<sync_reqs.size();i++)
 	   {
-		if(r->second==nservers) common_reqs.push_back(r->first);
-	   } 
+		std::string s = sync_reqs[i]->name+sync_reqs[i]->attr_name;
+		auto r = stringcount.find(s);
+		if(r->second == nservers) common_reqs.push_back(sync_reqs[i]);	
+		else pending_reqs.push_back(sync_reqs[i]);
+	   }	   
 
-	   std::sort(common_reqs.begin(),common_reqs.end());
+	   sync_reqs.clear();
+	   sync_reqs.assign(pending_reqs.begin(),pending_reqs.end());
+
+	   std::sort(common_reqs.begin(),common_reqs.end(),req_compare);
+
+	   if(serverid==0)
+		 for(int i=0;i<common_reqs.size();i++) std::cout <<" i = "<<i<<" req name = "<<common_reqs[i]->name<<" req attr name = "<<common_reqs[i]->attr_name<<std::endl;
 
 }

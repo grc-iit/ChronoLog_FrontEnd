@@ -519,6 +519,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
  if(!file_exists) return;
 
+ if(myrank==0) std::cout <<" filename = "<<filename<<" attr = "<<attributename<<std::endl;
+
  hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
  hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
  H5Pset_fapl_mpio(fapl,MPI_COMM_WORLD, MPI_INFO_NULL);

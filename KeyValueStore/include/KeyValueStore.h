@@ -71,12 +71,14 @@ class KeyValueStore
 	   void addKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   bool findKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void removeKeyValueStoreInvList(std::string &s,std::string &attr_name);
+	   
 	   template<typename T,typename N>
            void RunKeyValueStoreFunctions(KeyValueStoreAccessor* ka,struct kstream_args<N> *k)
 	   {
 		ka->cache_invertedtable<T>(k->attr_name);
 
    		int pos = ka->get_inverted_list_index(k->attr_name);
+
     		for(int i=0;i<k->keys.size();i++)
     		{
         		N key = k->keys[i];
@@ -86,10 +88,31 @@ class KeyValueStore
 
 		 for(int i=0;i<k->keys.size();i++)
     		 {
-      		   std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
+      		   //std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
     		 }
 
 		 ka->flush_invertedlist<T>(k->attr_name);
+		 
+		 MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+		 int nreq = 0;
+
+		 int send_v = 1;
+		 std::vector<int> recvv(numprocs);
+		 std::fill(recvv.begin(),recvv.end(),0);
+
+		 int tag_m = tag+k->tid;
+
+		 for(int i=0;i<numprocs;i++)
+		 {
+		    MPI_Isend(&send_v,1,MPI_INT,i,tag_m,MPI_COMM_WORLD,&reqs[nreq]);
+		    nreq++;
+		    MPI_Irecv(&recvv[i],1,MPI_INT,i,tag_m,MPI_COMM_WORLD,&reqs[nreq]);
+		    nreq++;
+		 }
+
+		 MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+		 std::free(reqs);
 	   }
 	   template<typename T,typename N>
 	   void create_keyvalues(struct kstream_args<N> *k)
@@ -120,7 +143,7 @@ class KeyValueStore
    	       RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }
 
-           void get_testworkload(std::vector<int>&,std::vector<uint64_t>&);
+           void get_testworkload(std::vector<int>&,std::vector<uint64_t>&,int);
 
 	   template<typename T,typename N>
 	   void spawn_kvstream(std::string &s,std::string &a,std::vector<N> &keys,std::vector<uint64_t> &ts)

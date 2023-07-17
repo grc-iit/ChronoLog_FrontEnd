@@ -24,111 +24,11 @@ bool KeyValueStore::findKeyValueStoreEntry(std::string &s,KeyValueStoreMetadata 
    return ret;
 }
 
-/*
-void KeyValueStore::create_keyvalues(std::string &s,std::string &attr_name,int numreq)
-{
-    auto t1 = std::chrono::high_resolution_clock::now();
-
-    for(int i=0;i<keys.size();i++)
-    {
-	//int key = (int)random()%RAND_MAX;
-
-	 int key = keys[i];
-	 uint64_t ts_k = ts[i];
-
-	//uint64_t ts = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-
-	//usleep(20000);
-
-	ka->insert_entry<integer_invlist,int>(pos,key,ts_k);
-    }
-
-    auto t2 = std::chrono::high_resolution_clock::now();
-
-    double time1 = std::chrono::duration<double>(t2-t1).count();
-
-    double max_time1 = 0;
-
-    //MPI_Allreduce(&time1,&max_time1,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-
-    t1 = std::chrono::high_resolution_clock::now();
-
-    for(int i=0;i<keys.size();i++)
-    {
-
-      std::vector<uint64_t> values = ka->get_entry<integer_invlist,int>(pos,keys[i]);
-    }
-
-    t2 = std::chrono::high_resolution_clock::now();
-
-    double time2 = std::chrono::duration<double>(t2-t1).count();
-
-    double max_time2 = 0;
-
-    //MPI_Allreduce(&time2,&max_time2,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-
-    t1 = std::chrono::high_resolution_clock::now();
-
-    ka->flush_invertedlist<integer_invlist>(attr_name);
-  
-    t2 = std::chrono::high_resolution_clock::now();
-
-    double time3 = std::chrono::duration<double>(t2-t1).count();
-
-    int total_keys = 0;
-    int mykeys = keys.size();
-    //MPI_Allreduce(&mykeys,&total_keys,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-
-    double max_time3;
-
-    //MPI_Allreduce(&time3,&max_time3,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-
-    if(myrank==0) std::cout <<" put : "<<max_time1<<" seconds"<<" get : "<<max_time2<<" seconds"<<" flush : "<<max_time3<<" seconds"<<" get throughput = "<<total_keys/max_time2<<" reqs/sec"<<std::endl;
-
-    int send_v = 1;
-    std::vector<int> recv_v(numprocs);
-    std::fill(recv_v.begin(),recv_v.end(),0);
-
-    MPI_Request *reqs = (MPI_Request*)std::malloc(2*numprocs*sizeof(MPI_Request));
-
-    int nreqs = 0;
-
-    for(int i=0;i<numprocs;i++)
-    {
-	MPI_Isend(&send_v,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreqs]);
-	nreqs++;
-	MPI_Irecv(&recv_v[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreqs]);
-	nreqs++;
-    }
-
-    MPI_Waitall(nreqs,reqs,MPI_STATUS_IGNORE);
-
-    std::free(reqs);
-
-}*/
-
-void KeyValueStore::get_testworkload(std::vector<int>&keys,std::vector<uint64_t>&ts)
+void KeyValueStore::get_testworkload(std::vector<int>&keys,std::vector<uint64_t>&ts,int offset)
 {
 
-   create_integertestinput(numprocs,myrank,0,keys,ts);
+   create_integertestinput(numprocs,myrank,offset,keys,ts);
 }
-/*
-template<typename T,typename N>
-void KeyValueStore::RunKeyValueStoreFunctions(KeyValueStoreAccessor *ka,struct kstream_args<N> *k)
-{
-   ka->cache_invertedtable<T>(k->attr_name);
-
-   int pos = ka->get_inverted_list_index(k->attr_name);
-
-
-    for(int i=0;i<k->keys.size();i++)
-    {
-        N key = k->keys[i];
-        uint64_t ts_k = k->ts[i];
-
-        ka->insert_entry<T,N>(pos,key,ts_k);
-    }
-}*/
 
 void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_name)
 {

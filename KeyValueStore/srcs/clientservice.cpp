@@ -37,22 +37,39 @@ int main(int argc,char **argv)
 
    k->createKeyValueStoreEntry(sname,m);
 
-   k->addKeyValueStoreInvList(sname,names[1]);  
+   k->addKeyValueStoreInvList(sname,names[0]);  
+   k->addKeyValueStoreInvList(sname,names[1]);
+   k->addKeyValueStoreInvList(sname,names[2]);
+   k->addKeyValueStoreInvList(sname,names[3]);
 
-   std::vector<int> keys;
-   std::vector<uint64_t> ts;
+   std::vector<int> keys1;
+   std::vector<uint64_t> ts1;
 
-   k->get_testworkload(keys,ts);
+   k->get_testworkload(keys1,ts1,0);
 
-   k->spawn_kvstream<integer_invlist,int>(sname,names[1],keys,ts);
+   std::vector<int> keys2;
+   std::vector<uint64_t> ts2;
+   k->get_testworkload(keys2,ts2,4);
 
+   std::vector<int> keys3;
+   std::vector<uint64_t> ts3;
+   k->get_testworkload(keys3,ts3,8);
+
+   std::vector<int> keys4;
+   std::vector<uint64_t> ts4;
+   k->get_testworkload(keys4,ts4,12);
+
+   k->spawn_kvstream<integer_invlist,int>(sname,names[0],keys1,ts1);
+   k->spawn_kvstream<integer_invlist,int>(sname,names[1],keys2,ts2);
+   k->spawn_kvstream<integer_invlist,int>(sname,names[2],keys3,ts3);
+   k->spawn_kvstream<integer_invlist,int>(sname,names[3],keys4,ts4);
 
    k->end_io_session();
 
 
    MPI_Barrier(MPI_COMM_WORLD);
 
-   //delete k;
+   delete k;
 
    MPI_Finalize();
 
