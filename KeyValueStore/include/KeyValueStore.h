@@ -88,7 +88,7 @@ class KeyValueStore
 
 		 for(int i=0;i<k->keys.size();i++)
     		 {
-      		   std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
+      		   //std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
     		 }
 
 		 ka->flush_invertedlist<T>(k->attr_name);
@@ -143,7 +143,7 @@ class KeyValueStore
    	       RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }
 
-           void get_testworkload(std::vector<int>&,std::vector<uint64_t>&,int);
+           void get_testworkload(std::string &,std::vector<int>&,std::vector<uint64_t>&,int);
 
 	   template<typename T,typename N>
 	   void spawn_kvstream(std::string &s,std::string &a,std::vector<N> &keys,std::vector<uint64_t> &ts)

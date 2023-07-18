@@ -24,10 +24,10 @@ bool KeyValueStore::findKeyValueStoreEntry(std::string &s,KeyValueStoreMetadata 
    return ret;
 }
 
-void KeyValueStore::get_testworkload(std::vector<int>&keys,std::vector<uint64_t>&ts,int offset)
+void KeyValueStore::get_testworkload(std::string &s,std::vector<int>&keys,std::vector<uint64_t>&ts,int offset)
 {
 
-   create_integertestinput(numprocs,myrank,offset,keys,ts);
+   create_integertestinput(s,numprocs,myrank,offset,keys,ts);
 }
 
 void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_name)

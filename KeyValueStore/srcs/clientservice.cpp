@@ -15,7 +15,10 @@ int main(int argc,char **argv)
 
    KeyValueStore *k = new KeyValueStore(size,rank);
 
-   std::string sname = "table0";
+   std::string sname1 = "table0";
+   std::string sname2 = "table1";
+   std::string sname3 = "table2";
+   std::string sname4 = "table3";
    int n = 4;
    std::vector<std::string> types;
    types.push_back("int");
@@ -33,36 +36,42 @@ int main(int argc,char **argv)
    lens.push_back(sizeof(int));
    lens.push_back(sizeof(int));
    int len = names.size()*sizeof(int);
-   KeyValueStoreMetadata m(sname,n,types,names,lens,len);
+   KeyValueStoreMetadata m1(sname1,n,types,names,lens,len);
+   KeyValueStoreMetadata m2(sname2,n,types,names,lens,len);
+   KeyValueStoreMetadata m3(sname3,n,types,names,lens,len);
+   KeyValueStoreMetadata m4(sname4,n,types,names,lens,len);
 
-   k->createKeyValueStoreEntry(sname,m);
+   k->createKeyValueStoreEntry(sname1,m1);
+   k->createKeyValueStoreEntry(sname2,m2);
+   k->createKeyValueStoreEntry(sname3,m3);
+   k->createKeyValueStoreEntry(sname4,m4);
 
-   k->addKeyValueStoreInvList(sname,names[0]);  
-   k->addKeyValueStoreInvList(sname,names[1]);
-   k->addKeyValueStoreInvList(sname,names[2]);
-   k->addKeyValueStoreInvList(sname,names[3]);
+   k->addKeyValueStoreInvList(sname1,names[0]);  
+   k->addKeyValueStoreInvList(sname2,names[0]);
+   k->addKeyValueStoreInvList(sname3,names[0]);
+   k->addKeyValueStoreInvList(sname4,names[0]);
 
    std::vector<int> keys1;
    std::vector<uint64_t> ts1;
 
-   k->get_testworkload(keys1,ts1,0);
+   k->get_testworkload(sname1,keys1,ts1,0);
 
    std::vector<int> keys2;
    std::vector<uint64_t> ts2;
-   k->get_testworkload(keys2,ts2,4);
+   k->get_testworkload(sname2,keys2,ts2,0);
 
    std::vector<int> keys3;
    std::vector<uint64_t> ts3;
-   k->get_testworkload(keys3,ts3,8);
+   k->get_testworkload(sname3,keys3,ts3,0);
 
    std::vector<int> keys4;
    std::vector<uint64_t> ts4;
-   k->get_testworkload(keys4,ts4,12);
+   k->get_testworkload(sname4,keys4,ts4,0);
 
-   k->spawn_kvstream<integer_invlist,int>(sname,names[0],keys1,ts1);
-   k->spawn_kvstream<integer_invlist,int>(sname,names[1],keys2,ts2);
-   k->spawn_kvstream<integer_invlist,int>(sname,names[2],keys3,ts3);
-   k->spawn_kvstream<integer_invlist,int>(sname,names[3],keys4,ts4);
+   k->spawn_kvstream<integer_invlist,int>(sname1,names[0],keys1,ts1);
+   k->spawn_kvstream<integer_invlist,int>(sname2,names[0],keys2,ts2);
+   k->spawn_kvstream<integer_invlist,int>(sname3,names[0],keys3,ts3);
+   k->spawn_kvstream<integer_invlist,int>(sname4,names[0],keys4,ts4);
 
    k->end_io_session();
 
