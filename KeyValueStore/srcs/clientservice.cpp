@@ -56,7 +56,7 @@ int main(int argc,char **argv)
 
    k->get_testworkload(sname1,keys1,ts1,0);
 
-   std::vector<int> keys2;
+   /*std::vector<int> keys2;
    std::vector<uint64_t> ts2;
    k->get_testworkload(sname2,keys2,ts2,0);
 
@@ -67,12 +67,12 @@ int main(int argc,char **argv)
    std::vector<int> keys4;
    std::vector<uint64_t> ts4;
    k->get_testworkload(sname4,keys4,ts4,0);
-
+*/
    k->spawn_kvstream<integer_invlist,int>(sname1,names[0],keys1,ts1);
-   k->spawn_kvstream<integer_invlist,int>(sname2,names[0],keys2,ts2);
+   /*k->spawn_kvstream<integer_invlist,int>(sname2,names[0],keys2,ts2);
    k->spawn_kvstream<integer_invlist,int>(sname3,names[0],keys3,ts3);
    k->spawn_kvstream<integer_invlist,int>(sname4,names[0],keys4,ts4);
-
+*/
    k->end_io_session();
 
 

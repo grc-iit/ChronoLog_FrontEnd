@@ -71,7 +71,40 @@ class KeyValueStore
 	   void addKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   bool findKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void removeKeyValueStoreInvList(std::string &s,std::string &attr_name);
-	   
+	  
+	   template<typename T,typename N>
+	   void PutGetPerf(struct kstream_args<N>*k)
+	   {
+		KeyValueStoreAccessor* ka = tables->get_accessor(k->tname);
+		int pos = ka->get_inverted_list_index(k->attr_name);
+		int nthreads = 4;
+		int totalkeys = k->keys.size();
+		int mywork = totalkeys/nthreads;
+		int rem = totalkeys%nthreads;
+
+		int start=0,end=0;
+		for(int i=0;i<k->tid;i++)
+		{
+			if(i < rem) start += mywork+1;
+			else start += mywork;
+		}
+		
+		if(k->tid < rem) end = start+mywork+1;
+		else end = start+mywork;
+
+		for(int i=start;i<end;i++)
+                {
+                        N key = k->keys[i];
+                        uint64_t ts_k = k->ts[i];
+                        ka->insert_entry<T,N>(pos,key,ts_k);
+                }
+
+                 for(int i=start;i<end;i++)
+                 {
+                   std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
+                 }
+	   }
+
 	   template<typename T,typename N>
            void RunKeyValueStoreFunctions(KeyValueStoreAccessor* ka,struct kstream_args<N> *k)
 	   {
@@ -79,7 +112,33 @@ class KeyValueStore
 
    		int pos = ka->get_inverted_list_index(k->attr_name);
 
-    		for(int i=0;i<k->keys.size();i++)
+		std::function<void(struct kstream_args<N> *)>
+                PutGetWorkload(std::bind(&KeyValueStore::PutGetPerf<T,N>,this, std::placeholders::_1));
+
+		int nthreads = 4;
+		std::vector<struct kstream_args<N>> k_args_w(nthreads);
+
+		for(int i=0;i<nthreads;i++)
+		{
+		    k_args_w[i].tname = k->tname;
+                    k_args_w[i].attr_name = k->attr_name;
+                    k_args_w[i].tid = i;
+                    k_args_w[i].keys.assign(k->keys.begin(),k->keys.end());
+                    k_args_w[i].ts.assign(k->ts.begin(),k->ts.end());
+
+		}
+
+		std::vector<std::thread> workers(nthreads);
+
+		for(int i=0;i<nthreads;i++)
+		{
+		   std::thread t{PutGetWorkload,&k_args_w[i]};
+		   workers[i] = std::move(t);
+		}
+
+		for(int i=0;i<nthreads;i++) workers[i].join();
+
+    		/*for(int i=0;i<k->keys.size();i++)
     		{
         		N key = k->keys[i];
         		uint64_t ts_k = k->ts[i];
@@ -89,7 +148,7 @@ class KeyValueStore
 		 for(int i=0;i<k->keys.size();i++)
     		 {
       		   //std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
-    		 }
+    		 }*/
 
 		 ka->flush_invertedlist<T>(k->attr_name);
 		 
