@@ -33,6 +33,7 @@
 #include <arpa/inet.h>
 #include <cassert>
 #include "KeyValueStoreIO.h"
+#include <mutex>
 
 namespace tl=thallium;
 
@@ -52,6 +53,7 @@ class KeyValueStoreAccessor
 	    std::unordered_map<std::string,int> secondary_attributes;
 	    KeyValueStoreIO *kio;
 	    data_server_client *d;
+	    std::mutex accessor_mutex;
 
    public :
 	  KeyValueStoreAccessor(int np,int p,KeyValueStoreMetadata &m,KeyValueStoreIO *io,data_server_client *ds)
@@ -67,6 +69,12 @@ class KeyValueStoreAccessor
 	  {
 		return md;
 	  }
+
+	  std::string get_attribute_type(std::string &attr_name)
+	  {
+		return md.get_type(attr_name);
+	  }
+
 	  int create_invertedlist(std::string &attr_name,int c)
 	  {
 		std::string name = md.db_name();
@@ -135,6 +143,7 @@ class KeyValueStoreAccessor
 	  template <typename T,typename N>
           bool Get(N &key,char *value);
 	  void sort_on_secondary_key(std::string &attr_name);
+	  
 	  ~KeyValueStoreAccessor()
 	  {
 		for(int i=0;i<lists.size();i++)

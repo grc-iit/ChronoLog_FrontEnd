@@ -79,6 +79,7 @@ class hdf5_invlist
 	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io,int c) : numprocs(n), myrank(p), io_count(c)
 	   {
 	     tag = 20000;
+	     tag += io_count;
 	     totalsize = tsize;
 	     ntables = np;
 	     int size = nearest_power_two(totalsize);
@@ -185,6 +186,9 @@ class hdf5_invlist
 	   {
 	        if(invlist != nullptr) 
 	        {
+		  /*std::vector<uint64_t> ts;
+		  invlist->bm->get_map(ts);
+		  std::cout <<" rank = "<<myrank<<" attribute_name = "<<attributename<<" numvalues = "<<ts.size()<<std::endl;*/
 	          delete invlist->bm;
 		  delete invlist->ml;
 		  delete invlist;

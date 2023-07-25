@@ -80,6 +80,6 @@ struct doublehashfunc
 };
 
 int nearest_power_two(int n);
-void create_integertestinput(int,int,int,std::vector<int> &keys,std::vector<uint64_t> &ts);
+void create_integertestinput(std::string&,int,int,int,std::vector<int> &keys,std::vector<uint64_t> &ts);
 
 #endif

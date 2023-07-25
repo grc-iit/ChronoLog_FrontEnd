@@ -8,9 +8,10 @@ int nearest_power_two(int n)
    return c;
 }
 
-void create_integertestinput(int numprocs,int myrank,int offset,std::vector<int> &keys,std::vector<uint64_t> &timestamps)
+void create_integertestinput(std::string &name,int numprocs,int myrank,int offset,std::vector<int> &keys,std::vector<uint64_t> &timestamps)
 {
-   std::string filename = "filetable0.h5";
+   std::string filename = "file";
+   filename += name+".h5";
    hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
    H5Pset_fapl_mpio(fapl,MPI_COMM_WORLD, MPI_INFO_NULL);

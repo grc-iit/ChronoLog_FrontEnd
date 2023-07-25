@@ -28,6 +28,9 @@ class KeyValueStoreAccessorRepository
 	      }
 	      ~KeyValueStoreAccessorRepository()
 	      {
+		std::vector<KeyValueStoreAccessor*> accessors;
+		accessor_maps->get_map(accessors);
+		for(int i=0;i<accessors.size();i++) delete accessors[i];
 		delete accessor_maps;
 		delete t_pool;
 	      }

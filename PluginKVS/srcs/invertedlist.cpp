@@ -159,6 +159,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	       H5Tclose(s1);
 	       H5Pclose(xfer_plist);
 	       H5Pclose(fapl);
+     	       io_t->reset_sync(io_count);
 	       return e;
 	   }
 
@@ -321,7 +322,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	H5Dclose(dataset_mt);
 	H5Dclose(dataset_t);
 
-     } 
+     }
 
      H5Tclose(s1);
      H5Tclose(s2);
@@ -348,6 +349,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 
    if(file_exists)
    {
+     while(!io_t->announce_sync(io_count));
+     
      hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
      hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
 
@@ -382,8 +385,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 	int total_keys = 0;
 	for(int i=0;i<maxsize;i++) total_keys += cached_keyindex_mt[2*i];
 
-	std::cout <<" total_keys = "<<total_keys<<std::endl;
-
 	cached_keyindex.clear();
 	cached_keyindex.resize(total_keys);
 	hsize_t blocksize = total_keys;
@@ -405,6 +406,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
      H5Fclose(fid);
      H5Pclose(fapl);
      H5Pclose(xfer_plist);
+     io_t->reset_sync(io_count);
    }
 
 }
@@ -518,6 +520,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  fname += filename+".h5";
 
  if(!file_exists) return;
+
+ if(myrank==0) std::cout <<" filename = "<<filename<<" attr = "<<attributename<<std::endl;
 
  hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
  hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
