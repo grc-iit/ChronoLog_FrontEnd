@@ -30,6 +30,19 @@ void KeyValueStore::get_testworkload(std::string &s,std::vector<int>&keys,std::v
    create_integertestinput(s,numprocs,myrank,offset,keys,ts);
 }
 
+void KeyValueStore::get_ycsb_timeseries_workload(std::string &s,std::vector<float> &keys,std::vector<uint64_t> &ts,std::vector<int>&op)
+{
+
+   create_timeseries_testinput(s,numprocs,myrank,keys,ts,op);
+
+}
+
+void KeyValueStore::get_dataworld_workload(std::string &s,std::vector<uint64_t> &keys,std::vector<uint64_t> &ts,std::vector<int> &op)
+{
+
+    create_dataworld_testinput(s,numprocs,myrank,keys,ts,op);
+}
+
 void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_name)
 {
       if(!tables->find_accessor(s))
