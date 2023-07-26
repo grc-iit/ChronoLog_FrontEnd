@@ -12,6 +12,7 @@
 
 namespace tl=thallium;
 
+
 template<class KeyT,class ValueT, class HashFcn=std::hash<KeyT>,class EqualFcn=std::equal_to<KeyT>>
 struct invnode
 {
@@ -24,6 +25,13 @@ struct KeyIndex
 {
   KeyT key;
   uint64_t index;
+};
+
+struct keydata
+{
+  uint64_t ts;
+  char data[8];
+
 };
 
 template<class KeyT>
@@ -256,7 +264,7 @@ class hdf5_invlist
 		}
 	   }
 
-	   std::vector<struct event> get_events(KeyT&,std::vector<ValueT> &,int);
+	   std::vector<struct keydata> get_events(KeyT&,std::vector<ValueT> &,int);
 	   void create_async_io_request(KeyT &,std::vector<ValueT>&);
 	   void create_sync_io_request();
 	   bool put_entry(KeyT&,ValueT&);
@@ -265,7 +273,7 @@ class hdf5_invlist
 	   void flush_table_file(int);
 	   int partition_no(KeyT &k);	
            void cache_latest_table();	   
-	   void add_entries_to_tables(std::string&,std::vector<struct event>*,uint64_t,int); 
+	   void add_entries_to_tables(std::string&,std::vector<struct keydata>*,uint64_t,int); 
 	   void get_entries_from_tables(std::vector<struct KeyIndex<KeyT>> &,int&,int&,uint64_t);
 	   std::vector<struct KeyIndex<KeyT>> merge_keyoffsets(std::vector<struct KeyIndex<KeyT>>&,std::vector<struct KeyIndex<KeyT>>&,std::vector<int>&);
 };

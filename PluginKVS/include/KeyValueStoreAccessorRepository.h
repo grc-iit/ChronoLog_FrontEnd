@@ -62,7 +62,7 @@ class KeyValueStoreAccessorRepository
 		   accessor_maps->get(s,&ka);
 
 		   if(ka==nullptr) return false;
-		   
+		  
 		   int ret = ka->create_invertedlist(a,c);
 
 		   if(ret == -1) return false;

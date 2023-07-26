@@ -19,6 +19,7 @@ struct kstream_args
   std::string attr_name;
   std::vector<N> keys;
   std::vector<uint64_t> ts;
+  std::vector<int> op;
   int tid;
 };
 
@@ -33,7 +34,7 @@ class KeyValueStore
 	    KeyValueStoreAccessorRepository *tables;
 	    int io_count;
 	    int tag;
-	    std::vector<struct kstream_args<int>> k_args;
+	    std::vector<struct kstream_args<float>> k_args;
 	    std::vector<std::thread> kstreams;
 	    std::atomic<int> nstreams;
 
@@ -112,7 +113,7 @@ class KeyValueStore
 
    		int pos = ka->get_inverted_list_index(k->attr_name);
 
-		std::function<void(struct kstream_args<N> *)>
+		/*std::function<void(struct kstream_args<N> *)>
                 PutGetWorkload(std::bind(&KeyValueStore::PutGetPerf<T,N>,this, std::placeholders::_1));
 
 		int nthreads = 4;
@@ -136,21 +137,21 @@ class KeyValueStore
 		   workers[i] = std::move(t);
 		}
 
-		for(int i=0;i<nthreads;i++) workers[i].join();
+		for(int i=0;i<nthreads;i++) workers[i].join();*/
 
-    		/*for(int i=0;i<k->keys.size();i++)
+    		for(int i=0;i<k->keys.size();i++)
     		{
         		N key = k->keys[i];
         		uint64_t ts_k = k->ts[i];
         		ka->insert_entry<T,N>(pos,key,ts_k);
     		}
 
-		 for(int i=0;i<k->keys.size();i++)
+		 /*for(int i=0;i<k->keys.size();i++)
     		 {
-      		   //std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
+      		   std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
     		 }*/
 
-		 ka->flush_invertedlist<T>(k->attr_name);
+		 //ka->flush_invertedlist<T>(k->attr_name);
 		 
 		 MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 		 int nreq = 0;
@@ -188,7 +189,7 @@ class KeyValueStore
                    ka = tables->get_accessor(s);
                 }
 
-               int pos = ka->get_inverted_list_index(attr_name);
+              int pos = ka->get_inverted_list_index(attr_name);
 
                if(pos==-1)
                {
@@ -207,7 +208,7 @@ class KeyValueStore
            void get_dataworld_workload(std::string&,std::vector<uint64_t>&,std::vector<uint64_t>&,std::vector<int>&);
 
 	   template<typename T,typename N>
-	   void spawn_kvstream(std::string &s,std::string &a,std::vector<N> &keys,std::vector<uint64_t> &ts)
+	   void spawn_kvstream(std::string &s,std::string &a,std::vector<N> &keys,std::vector<uint64_t> &ts,std::vector<int> &op)
 	   {
 
 		int prev = nstreams.load();
@@ -216,14 +217,16 @@ class KeyValueStore
 		k_args[prev].tid = prev;
 		k_args[prev].keys.assign(keys.begin(),keys.end());
 		k_args[prev].ts.assign(ts.begin(),ts.end());
+		k_args[prev].op.assign(op.begin(),op.end());
 
-		keys.clear(); ts.clear();
+		keys.clear(); ts.clear(); op.clear();
 
 		std::function<void(struct kstream_args<N> *)> 
 		KVStream(std::bind(&KeyValueStore::create_keyvalues<T,N>,this, std::placeholders::_1));
 
 		nstreams.fetch_add(1);
 
+		
 	 	std::thread t{KVStream,&k_args[prev]};	
 		kstreams[prev] = std::move(t);
 

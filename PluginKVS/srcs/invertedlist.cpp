@@ -51,7 +51,7 @@ int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entry(KeyT& k,std::vector<Va
 	else 
 	    values = GetEntry(k,pid);
 
-	std::vector<struct event> events = get_events(k,values,pid);	
+	std::vector<struct keydata> events = get_events(k,values,pid);	
 	//ret = create_async_io_request(k); 
 	return ret;
 }
@@ -92,7 +92,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_async_io_request(KeyT &k
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
-std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events(KeyT &k,std::vector<ValueT> &values,int pid)
+std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events(KeyT &k,std::vector<ValueT> &values,int pid)
 {
    std::string fname = "file";
    fname += filename+".h5";
@@ -111,11 +111,11 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
      std::string s_string = attributename+"attr";
 
      hsize_t adims[1];
-     adims[0] = VALUESIZE;
+     adims[0] = 8;
      hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
-     hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
-     H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
-     H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
+     hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct keydata));
+     H5Tinsert(s2,"key",HOFFSET(struct keydata,ts),H5T_NATIVE_UINT64);
+     H5Tinsert(s2,"value",HOFFSET(struct keydata,data),s1);
 
      if(cached_keyindex_mt.size()>0 && cached_keyindex.size()>0 && pid==myrank)
      {
@@ -143,7 +143,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	   {
                hsize_t blocksize = 1;
 	       hid_t mem_dataspace = H5Screate_simple(1,&blocksize,NULL);
-	       std::vector<struct event> e(1);	
+	       std::vector<struct keydata> e(1);	
 
 	       int ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset_r,NULL,&blocksize,NULL);
 	       ret = H5Dread(dataset_t,s2, mem_dataspace, file_dataspace, xfer_plist,e.data());
@@ -220,7 +220,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 
 	    ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset_r,NULL,&blocksize,NULL);
             hid_t mem_dataspace = H5Screate_simple(1,&blocksize, NULL);
-	    std::vector<struct event> *buffer = new std::vector<struct event> ();
+	    std::vector<struct keydata> *buffer = new std::vector<struct keydata> ();
 	    buffer->resize(blocksize);
             ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,buffer->data());
 
@@ -229,7 +229,9 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 	    for(int i=0;i<buffer->size();i++)
 	    {
 		if((*buffer)[i].ts==values[0])
+		{
 		   break;
+		}
 	    }
 
 	    delete buffer;
@@ -303,7 +305,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 
 	if(offset_r != UINT64_MAX)
 	{
-	   std::vector<struct event> e(1);		
+	   std::vector<struct keydata> e(1);		
 	   blocksize = 1;
 	   ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset_r,NULL,&blocksize,NULL);
 	   hid_t mem_dataspace_e = H5Screate_simple(1,&blocksize,NULL);
@@ -336,7 +338,7 @@ std::vector<struct event> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events
 
 
 
-   std::vector<struct event> events;
+   std::vector<struct keydata> events;
    return events;
 
 }
@@ -543,11 +545,11 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  hid_t fid = H5Fopen(fname.c_str(),H5F_ACC_RDWR,fapl);
 
  hsize_t adims[1];
- adims[0] = VALUESIZE;
+ adims[0] = 8;
  hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
- hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
- H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
- H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
+ hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct keydata));
+ H5Tinsert(s2,"key",HOFFSET(struct keydata,ts),H5T_NATIVE_UINT64);
+ H5Tinsert(s2,"value",HOFFSET(struct keydata,data),s1);
  hsize_t attr_size[1];
  attr_size[0] = MAXBLOCKS*4+4;
  const char *attrname[1];
@@ -628,7 +630,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
  hid_t file_dataspace = H5Dget_space(dataset1);
 
- std::vector<struct event> *buffer = new std::vector<struct event> ();
+ std::vector<struct keydata> *buffer = new std::vector<struct keydata> ();
 
  block_id = -1;
 
@@ -999,7 +1001,7 @@ std::vector<struct KeyIndex<KeyT>> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::m
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
-void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::string &s,std::vector<struct event> *buffer,uint64_t f_offset,int offset)
+void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::add_entries_to_tables(std::string &s,std::vector<struct keydata> *buffer,uint64_t f_offset,int offset)
 {
   std::vector<int> send_count,recv_count;
 
