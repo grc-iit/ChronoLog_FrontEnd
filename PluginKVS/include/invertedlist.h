@@ -148,7 +148,7 @@ class hdf5_invlist
 	     invlist->ml = new memory_pool<KeyT,ValueT,hashfcn,equalfcn> (100);
 	     invlist->bm = new BlockMap<KeyT,ValueT,hashfcn,equalfcn>(size,invlist->ml,emptykey);
 	     kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct KeyIndex<KeyT>));
-    	     H5Tinsert(kv1,"key",HOFFSET(struct KeyIndex<KeyT>,key),H5T_NATIVE_INT);
+    	     H5Tinsert(kv1,"key",HOFFSET(struct KeyIndex<KeyT>,key),H5T_NATIVE_FLOAT);
     	     H5Tinsert(kv1,"index",HOFFSET(struct KeyIndex<KeyT>,index),H5T_NATIVE_UINT64);
 	   }
 

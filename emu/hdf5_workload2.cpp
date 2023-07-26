@@ -11,12 +11,19 @@
 #include <chrono>
 #include <ctime>
 #include <mpi.h>
+#include <algorithm>
 
 struct keydata
 {
   uint64_t ts;
   char data[8];
 };
+
+bool comparekeydata(struct keydata& k1,struct keydata &k2)
+{
+	return (k1.ts < k2.ts);
+
+}
 
 int main(int argc,char **argv)
 {
@@ -67,7 +74,6 @@ int main(int argc,char **argv)
        std::string valuestr;
        ess >> valuestr;
        float value = std::stof(valuestr,nullptr);
-
        ts.push_back(tsu);
        values.push_back(value);
      }
@@ -85,7 +91,18 @@ int main(int argc,char **argv)
 
   std::vector<std::pair<uint64_t,uint64_t>> ranges;
   std::vector<int> numrecords;
-  
+
+  for(int i=0;i<ts.size();i++)
+  {
+	struct keydata k;
+	k.ts = ts[i];
+	double v = (double)values[i];
+        std::memcpy(&k.data,&v,sizeof(double));
+	data_p->push_back(k);
+  }
+
+  std::sort(data_p->begin(),data_p->end(),comparekeydata);
+
   int c = -1;
   int n = 0;
   uint64_t minkey = 0;
@@ -93,19 +110,15 @@ int main(int argc,char **argv)
 
   for(int i=0;i<ts.size();i++)
   {
-        struct keydata k;
-        k.ts = ts[i];
-        double v = (double)values[i];
-	std::memcpy(&k.data,&v,sizeof(double));
-        data_p->push_back(k);
 	if(n==0)
         {
             c++;
-            minkey = ts[i];n++;
+            minkey = (*data_p)[i].ts;
+	    n++;
         }
         else if(n > 0 && n%8192==0)
         {
-            maxkey = ts[i]; n=0;
+            maxkey = (*data_p)[i].ts; n=0;
             std::pair<uint64_t,uint64_t> p;
             p.first = minkey; p.second = maxkey;
             ranges.push_back(p);
@@ -116,13 +129,12 @@ int main(int argc,char **argv)
 
   if(n%8192 != 0)
   {
-    maxkey = ts[ts.size()-1];
+    maxkey = (*data_p)[ts.size()-1].ts;
     std::pair<uint64_t,uint64_t> p;
     p.first = minkey; p.second = maxkey;
     ranges.push_back(p);
     numrecords.push_back(n);
   }
-
 
   int valuesize = sizeof(double);
 

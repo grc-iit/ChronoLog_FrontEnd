@@ -142,23 +142,34 @@ void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,s
      std::string str2 = "YCSBV=";
      for(int i=0;i<lines.size();i++)
      {
-       int pos1 = lines[i].find(str1.c_str())+str1.length();
-       std::string substr1 = lines[i].substr(pos1);
-       std::stringstream ss(substr1);
-       std::string tss;
-       ss >> tss;
-       uint64_t tsu = std::stoul(tss,nullptr,0);
+       if(op[i]==0)
+       {
+         int pos1 = lines[i].find(str1.c_str())+str1.length();
+         std::string substr1 = lines[i].substr(pos1);
+         std::stringstream ss(substr1);
+         std::string tss;
+         ss >> tss;
+         uint64_t tsu = std::stoul(tss,nullptr,0);
 
-       int pos2 = substr1.find(str2.c_str())+str2.length();
-       std::string substr2 = substr1.substr(pos2);
+         int pos2 = substr1.find(str2.c_str())+str2.length();
+         std::string substr2 = substr1.substr(pos2);
 
-       std::stringstream ess(substr2);
-       std::string valuestr;
-       ess >> valuestr;
-       float value = std::stof(valuestr,nullptr);
+         std::stringstream ess(substr2);
+         std::string valuestr;
+         ess >> valuestr;
+         float value = std::stof(valuestr,nullptr);
 
-       ts.push_back(tsu);
-       keys.push_back(value);
+         ts.push_back(tsu);
+         keys.push_back(value);
+       }
+       else
+       {
+	  uint64_t tsu = UINT64_MAX;
+	  float value = 0;
+	  ts.push_back(tsu);
+	  keys.push_back(value);
+	
+       }
      }
 
      ist.close();
