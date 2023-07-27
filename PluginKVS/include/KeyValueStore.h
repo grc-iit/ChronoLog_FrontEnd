@@ -139,7 +139,7 @@ class KeyValueStore
 
 		for(int i=0;i<nthreads;i++) workers[i].join();*/
 
-    		for(int i=0;i<k->keys.size();i++)
+    		/*for(int i=0;i<k->keys.size();i++)
     		{
 		        if(k->op[i]==0)
 			{
@@ -147,15 +147,17 @@ class KeyValueStore
         		  uint64_t ts_k = k->ts[i];
         		  ka->insert_entry<T,N>(pos,key,ts_k);
 			}
-    		}
+    		}*/
 
-		 /*if(myrank==0)
-		 for(int i=0;i<10;i++)
+		 for(int i=0;i<k->keys.size();i++)
     		 {
-      		   std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
-    		 }*/
+		   if(k->op[i]==0 && i%100==0)
+		   {
+      		      std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
+		   }
+    		 }
 
-		 ka->flush_invertedlist<T>(k->attr_name);
+		 //ka->flush_invertedlist<T>(k->attr_name);
 		 
 		 MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 		 int nreq = 0;
