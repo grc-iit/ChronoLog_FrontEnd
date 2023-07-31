@@ -13,8 +13,12 @@
 #include <type_traits>
 #include <string>
 #include "memoryallocation.h"
+#include <boost/thread/shared_mutex.hpp>
 #include <boost/thread/mutex.hpp>
-#include <boost/thread/lock_types.hpp>
+#include <boost/cstdint.hpp>
+#include <boost/config.hpp>
+#include <boost/atomic.hpp>
+//#include <boost/thread/lock_types.hpp>
 
 #define NOT_IN_TABLE UINT64_MAX
 #define EXISTS 1
@@ -28,7 +32,7 @@ template <
 struct f_node
 {
     uint64_t num_nodes;
-    boost::mutex mutex_t;
+    boost::shared_mutex mutex_t;
     struct node<KeyT,ValueT,HashFcn,EqualFcn> *head;
 };
 
@@ -85,7 +89,7 @@ class BlockMap
 	{
 	    uint64_t pos = KeyToIndex(k);
 
-	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	    boost::unique_lock<boost::shared_mutex> lk((*table)[pos].mutex_t);
 
 	    node_type *p = (*table)[pos].head;
 	    node_type *n = (*table)[pos].head->next;
@@ -124,7 +128,7 @@ class BlockMap
 	{
 	    uint64_t pos = KeyToIndex(k);
 
-	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	    boost::shared_lock<boost::shared_mutex> lk((*table)[pos].mutex_t);
 
 	    node_type *n = (*table)[pos].head->next;
 	    bool found = false;
@@ -145,7 +149,7 @@ class BlockMap
 	{
 	   uint64_t pos = KeyToIndex(k);
 
-	   boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	   boost::unique_lock<boost::shared_mutex> lk((*table)[pos].mutex_t);
 	   node_type *n = (*table)[pos].head->next;
 
 	   bool found = false;
@@ -169,7 +173,7 @@ class BlockMap
 
 	    uint64_t pos = KeyToIndex(k);
 
-	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	    boost::shared_lock<boost::shared_mutex> lk((*table)[pos].mutex_t);
 
 	    node_type *n = (*table)[pos].head->next;
 
@@ -194,7 +198,7 @@ class BlockMap
 
 	   uint64_t pos = KeyToIndex(k);
 
-	   boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	   boost::shared_lock<boost::shared_mutex> lk((*table)[pos].mutex_t);
 
 	   node_type *n = (*table)[pos].head->next;
 
@@ -220,7 +224,7 @@ class BlockMap
 	    bool found = false;
 	    uint64_t pos = KeyToIndex(k);
 
-	    boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	    boost::unique_lock<boost::shared_mutex> lk((*table)[pos].mutex_t);
 
 	    node_type *n = (*table)[pos].head->next;
 
@@ -243,7 +247,7 @@ class BlockMap
 	{
 	  bool found = false;
 	  uint64_t pos = KeyToIndex(k);
-	  boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	  boost::unique_lock<boost::shared_mutex> lk((*table)[pos].mutex_t);
 
 	  node_type *p = (*table)[pos].head;
 	  node_type *n = (*table)[pos].head->next;
@@ -276,7 +280,7 @@ class BlockMap
 	{
 	   uint64_t pos = KeyToIndex(k);
 
-	   boost::unique_lock<boost::mutex> lk((*table)[pos].mutex_t);
+	   boost::unique_lock<boost::shared_mutex> lk((*table)[pos].mutex_t);
 
 	   node_type *p = (*table)[pos].head;
 	   node_type *n = (*table)[pos].head->next;
@@ -329,7 +333,7 @@ class BlockMap
 	{
 	  for(int i=0;i<maxSize;i++)
 	  {
-             boost::unique_lock<boost::mutex> lk((*table)[i].mutex_t);
+             boost::unique_lock<boost::shared_mutex> lk((*table)[i].mutex_t);
 
 	     node_type *n = (*table)[i].head->next;
 	     while(n != nullptr)
@@ -352,7 +356,7 @@ class BlockMap
 
 	    for(int i=0;i<maxSize;i++)
 	    {
-		boost::unique_lock<boost::mutex> lk((*table)[i].mutex_t);
+		boost::unique_lock<boost::shared_mutex> lk((*table)[i].mutex_t);
 		node_type *n = (*table)[i].head->next;
 		node_type *p = (*table)[i].head;
 	
@@ -384,7 +388,7 @@ class BlockMap
 	   int num_entries = 0;
 	   for(int i=0;i<maxSize;i++)
 	   {
-	     boost::unique_lock<boost::mutex> lk((*table)[i].mutex_t);
+	     boost::shared_lock<boost::shared_mutex> lk((*table)[i].mutex_t);
 
 	     node_type *n = (*table)[i].head->next;
 
@@ -406,7 +410,7 @@ class BlockMap
 	   int num_entries=0;
 	   for(int i=0;i<maxSize;i++)
 	   {
-		boost::unique_lock<boost::mutex> lk((*table)[i].mutex_t);
+		boost::shared_lock<boost::shared_mutex> lk((*table)[i].mutex_t);
 
 		node_type *n = (*table)[i].head->next;
 
