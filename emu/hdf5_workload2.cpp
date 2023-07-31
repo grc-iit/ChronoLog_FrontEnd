@@ -1,7 +1,7 @@
 #include <vector>
 #include <iostream>
 #include <sstream>
-#include <hdf5.h>
+#include "hdf5.h"
 #include "h5_async_lib.h"
 #include <string>
 #include <cfloat>
@@ -12,6 +12,14 @@
 #include <ctime>
 #include <mpi.h>
 #include <algorithm>
+#include <cfloat>
+#include <cmath>
+
+template<typename T>
+struct keyd
+{
+   T data;
+};
 
 struct keydata
 {
@@ -19,17 +27,12 @@ struct keydata
   char data[8];
 };
 
-bool comparekeydata(struct keydata& k1,struct keydata &k2)
-{
-	return (k1.ts < k2.ts);
-
-}
 
 int main(int argc,char **argv)
 {
-   std::string filename = "timeseriesrun.log";
+   std::string filename = "timeseries_ycsb.log";
 
-   std::string hfile = "timeseriesrun_ycsb.h5";
+   std::string hfile = "timeseries_ycsb.h5";
 
    int prov;
 
@@ -38,6 +41,8 @@ int main(int argc,char **argv)
    std::ifstream ist(filename.c_str(),std::ios_base::in);
 
    std::vector<std::string> lines;
+
+   int valuesize = sizeof(double);
 
    std::vector<uint64_t> ts;
    std::vector<float> values;
@@ -101,6 +106,8 @@ int main(int argc,char **argv)
 	data_p->push_back(k);
   }
 
+  auto comparekeydata = [](struct keydata &k1,struct keydata &k2) {return k1.ts < k2.ts;};
+
   std::sort(data_p->begin(),data_p->end(),comparekeydata);
 
   int c = -1;
@@ -108,35 +115,22 @@ int main(int argc,char **argv)
   uint64_t minkey = 0;
   uint64_t maxkey = 0;
 
-  for(int i=0;i<ts.size();i++)
+  int nblocks = std::ceil(ts.size()/8192);
+
+  int block_id = 0;
+  for(int i=0;i<ts.size();)
   {
-	if(n==0)
-        {
-            c++;
-            minkey = (*data_p)[i].ts;
-	    n++;
-        }
-        else if(n > 0 && n%8192==0)
-        {
-            maxkey = (*data_p)[i].ts; n=0;
-            std::pair<uint64_t,uint64_t> p;
-            p.first = minkey; p.second = maxkey;
-            ranges.push_back(p);
-            numrecords.push_back(8192);
-        }
-        else n++;
+	minkey = (*data_p)[i].ts;
+        int end = std::min(i+8192,(int)ts.size());
+	maxkey = (*data_p)[end-1].ts;
+	numrecords.push_back(end-i);
+	std::pair<uint64_t,uint64_t> p;
+	p.first = minkey;
+	p.second = maxkey;
+	ranges.push_back(p);
+	i+=8192;
   }
 
-  if(n%8192 != 0)
-  {
-    maxkey = (*data_p)[ts.size()-1].ts;
-    std::pair<uint64_t,uint64_t> p;
-    p.first = minkey; p.second = maxkey;
-    ranges.push_back(p);
-    numrecords.push_back(n);
-  }
-
-  int valuesize = sizeof(double);
 
    const char *attr_name[1];
    hsize_t adims[1];
@@ -166,7 +160,7 @@ int main(int argc,char **argv)
    {
      attr_data[pos+i*4] = ranges[i].first;
      attr_data[pos+i*4+1] = ranges[i].second;
-     attr_data[pos+i*4+2] = (uint64_t)i;
+     attr_data[pos+i*4+2] = (uint64_t)(i+1);
      attr_data[pos+i*4+3] = (uint64_t)numrecords[i];
    }
 

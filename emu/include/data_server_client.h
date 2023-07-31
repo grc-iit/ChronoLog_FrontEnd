@@ -28,6 +28,7 @@
 #include <arpa/inet.h>
 #include <mpi.h>
 #include "distributed_map.h"
+#include <fstream>
 
 namespace tl = thallium;
 
@@ -48,12 +49,14 @@ class data_server_client
       std::string myipaddr;
       std::string myhostname;
       int base_port;
+      std::string serveraddrsfile;
 
    public:
 
       data_server_client(int n,int p,int b) : nservers(n), serverid(p), base_port(b)
       {
 
+	serveraddrsfile = "emulatoraddrs";
 	char processor_name[1024];
         int len = 0;
         MPI_Get_processor_name(processor_name, &len);
@@ -129,6 +132,8 @@ class data_server_client
         thallium_client = new tl::engine("ofi+sockets",THALLIUM_CLIENT_MODE,true,4);
         thallium_shm_client = new tl::engine("na+sm",THALLIUM_CLIENT_MODE,true,4);
 
+	std::vector<std::string> serverstrings;
+
 	for(int i=0;i<nservers;i++)
         {
                 int portno = base_port;
@@ -137,9 +142,26 @@ class data_server_client
                 serveraddr_1 += ":";
                 int spos = std::distance(ipaddrs.begin(),std::find(ipaddrs.begin(),ipaddrs.end(),ipaddrs[i]));
                 serveraddr_1 += std::to_string(portno+i-spos);
+		serverstrings.push_back(serveraddr_1);
                 tl::endpoint ep = thallium_client->lookup(serveraddr_1.c_str());
                 serveraddrs.push_back(ep);
         }
+
+	if(serverid==0)
+	{
+            std::ofstream filest(serveraddrsfile.c_str(),std::ios_base::out);
+	    filest << std::to_string(nservers) << std::endl; 
+	    for(int i=0;i<nservers;i++)
+		filest << shmaddrs[i] << std::endl;	
+
+	    for(int i=0;i<nservers;i++)
+		filest << ipaddrs[i] << std::endl;
+
+	    for(int i=0;i<nservers;i++)
+		filest << serverstrings[i] << std::endl;
+
+	    filest.close();
+	}
 
 	MPI_Barrier(MPI_COMM_WORLD);
 

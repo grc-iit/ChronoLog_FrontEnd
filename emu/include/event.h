@@ -22,6 +22,12 @@ struct event
 	memcpy(data,e1.data,VALUESIZE);
 	return *this; 
    }
+   std::string pack_event()
+   {
+	std::string p = std::to_string(ts);
+	p += std::string(data);
+	return p;
+   }
 };
 
 struct atomic_buffer
@@ -30,5 +36,7 @@ struct atomic_buffer
    std::atomic<int> buffer_size;
    std::vector<struct event> *buffer;
 };
+
+
 
 #endif

@@ -55,7 +55,7 @@ void query_engine::query_point(std::string &s,uint64_t ts)
 
 void query_engine::sort_response(std::string &s,int id,std::vector<struct event> *buf,uint64_t &maxkey)
 {
-     int index1,index2;
+     /*int index1,index2;
      index1 = create_buffer(s,index2);
 
      boost::upgrade_lock<boost::shared_mutex> lk(sbuffers[index1]->m);
@@ -68,7 +68,7 @@ void query_engine::sort_response(std::string &s,int id,std::vector<struct event>
 	ds->sort_data(index2,tag,sbuffers[index1]->buffer->size(),minkey,maxkey);
 	buf->assign(sbuffers[index1]->buffer->begin(),sbuffers[index1]->buffer->end());
 	sbuffers[index1]->buffer->clear();
-     }
+     }*/
 }
 
 bool query_engine::end_file_read(bool end_read,int id)
@@ -105,7 +105,7 @@ bool query_engine::end_file_read(bool end_read,int id)
 }
 void query_engine::get_range(std::vector<struct event> *buf1,std::vector<struct event> *buf2,std::vector<struct event> *buf3,uint64_t minkeys[3],uint64_t maxkeys[3],int id)
 {
-    int tag = 10000+id;
+    /*int tag = 10000+id;
     MPI_Request *reqs = (MPI_Request*)std::malloc(3*numprocs*sizeof(MPI_Request));
 
     std::vector<uint64_t> send_ts; send_ts.resize(6);
@@ -157,7 +157,7 @@ void query_engine::get_range(std::vector<struct event> *buf1,std::vector<struct 
 	if(maxkeys[2] < recv_ts[6*i+5]) maxkeys[2] = recv_ts[6*i+5];
     }
 
-     std::free(reqs);
+     std::free(reqs);*/
 }
 
 void query_engine::service_query(struct thread_arg_q* t) 
@@ -198,11 +198,11 @@ void query_engine::service_query(struct thread_arg_q* t)
    	      s.minkey = r->minkey;
    	      s.maxkey = r->maxkey;
    	      s.sender = myrank;
-   	      s.response = e;
+   	      s.response = e.pack_event();
    	      s.complete = true;
   		
 	      std::cout <<" ts = "<<e.ts<<std::endl; 
-	      Q->PutResponse(s,pid); 
+	      //Q->PutResponse(s,pid); 
 	     
 	      /*std::vector<struct event> *buf1 = new std::vector<struct event> ();
 	      std::vector<struct event> *buf2 = new std::vector<struct event> ();

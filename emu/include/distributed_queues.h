@@ -33,37 +33,6 @@
 
 namespace tl=thallium;
 
-
-template<typename A>
-void serialize(A &ar,struct query_req &e)
-{
-        ar & e.name;
-        ar & e.minkey;
-	ar & e.maxkey;
-	ar & e.id;
-	ar & e.sender;
-	ar & e.from_nvme;
-	ar & e.sorted;
-	ar & e.collective;
-	ar & e.single_point;
-	ar & e.output_file;
-	ar & e.op;
-}
-
-template<typename A>
-void serialize(A &ar,struct query_resp &e)
-{
-   ar & e.id;
-   ar & e.response_id;
-   ar & e.minkey;
-   ar & e.maxkey;
-   ar & e.sender;
-   ar & e.response.ts;
-   ar & e.response.data;
-   ar & e.output_file;
-   ar & e.complete;
-}
-
 class distributed_queues
 {
 
@@ -77,6 +46,9 @@ class distributed_queues
            std::vector<tl::endpoint> serveraddrs;
            std::vector<std::string> ipaddrs;
            std::vector<std::string> shmaddrs;
+	   std::vector<std::string> remoteshmaddrs;
+	   std::vector<std::string> remoteipaddrs;
+	   std::vector<std::string> remoteserveraddrs;
            std::string myipaddr;
            std::string myhostname;
 	   uint32_t nservers;
@@ -100,6 +72,13 @@ class distributed_queues
                serveraddrs.assign(saddrs.begin(),saddrs.end());
           }
 
+	   void remote_addrs(std::vector<std::string> &shmaddrs_r,std::vector<std::string> &ipaddrs_r,std::vector<std::string> &serveraddrs_r)
+	   {
+		remoteshmaddrs.assign(shmaddrs_r.begin(),shmaddrs_r.end());
+		remoteipaddrs.assign(ipaddrs_r.begin(),ipaddrs_r.end());
+		remoteserveraddrs.assign(serveraddrs_r.begin(),serveraddrs_r.end());
+	   }
+
 	   void bind_functions()
 	   {
 	     std::function<void(const tl::request &, struct query_req &r)> PutRequestFunc(
@@ -108,11 +87,11 @@ class distributed_queues
 	     std::function<void(const tl::request &,struct query_resp &r)> PutResponseFunc(
 	     std::bind(&distributed_queues::ThalliumLocalPutResponse,this,std::placeholders::_1, std::placeholders::_2));
 
-	     thallium_server->define("RemotePutRequest",PutRequestFunc);
-	     thallium_shm_server->define("RemotePutRequest",PutRequestFunc);
+	     thallium_server->define("EmulatorRemotePutRequest",PutRequestFunc);
+	     thallium_shm_server->define("EmulatorRemotePutRequest",PutRequestFunc);
 
-	     thallium_server->define("RemotePutResponse",PutResponseFunc);
-	     thallium_shm_server->define("RemotePutResponse",PutResponseFunc);
+	     thallium_server->define("EmulatorRemotePutResponse",PutResponseFunc);
+	     thallium_shm_server->define("EmulatorRemotePutResponse",PutResponseFunc);
 	   }
 
 	   bool LocalPutRequest(struct query_req &r)
@@ -213,12 +192,12 @@ class distributed_queues
                   if(ipaddrs[destid].compare(myipaddr)==0)
                   {
                      tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
-                     tl::remote_procedure rp = thallium_shm_client->define("RemotePutRequest");
+                     tl::remote_procedure rp = thallium_shm_client->define("EmulatorRemotePutRequest");
                      b = rp.on(ep)(r);
                   }
                   else
                   {
-                     tl::remote_procedure rp = thallium_client->define("RemotePutRequest");
+                     tl::remote_procedure rp = thallium_client->define("EmulatorRemotePutRequest");
                      b = rp.on(serveraddrs[destid])(r);
                   }
                }
@@ -231,12 +210,12 @@ class distributed_queues
 		if(ipaddrs[server_id].compare(myipaddr)==0)
 		{
 		  tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[server_id]);
-		  tl::remote_procedure rp = thallium_shm_client->define("RemotePutRequest");
+		  tl::remote_procedure rp = thallium_shm_client->define("EmulatorRemotePutRequest");
 		  b = rp.on(ep)(r);
 		}
 		else
 		{
-		   tl::remote_procedure rp = thallium_client->define("RemotePutRequest");
+		   tl::remote_procedure rp = thallium_client->define("EmulatorRemotePutRequest");
 		   b = rp.on(serveraddrs[server_id])(r);
 		}
 		return b;
@@ -247,12 +226,12 @@ class distributed_queues
 		if(ipaddrs[server_id].compare(myipaddr)==0)
 		{
 		   tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[server_id]);
-		   tl::remote_procedure rp = thallium_shm_client->define("RemotePutResponse");
+		   tl::remote_procedure rp = thallium_shm_client->define("EmulatorRemotePutResponse");
 		   b = rp.on(ep)(r);
 		}
 		else
 		{
-		   tl::remote_procedure rp = thallium_client->define("RemotePutResponse");
+		   tl::remote_procedure rp = thallium_client->define("EmulatorRemotePutResponse");
 		   b = rp.on(serveraddrs[server_id])(r);
 		}
 		return b;

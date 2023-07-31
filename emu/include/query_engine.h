@@ -7,6 +7,7 @@
 #include "query_parser.h"
 #include "rw.h"
 #include "external_sort.h"
+#include <fstream>
 
 struct thread_arg_q
 {
@@ -33,6 +34,9 @@ class query_engine
 	std::vector<struct atomic_buffer*> sbuffers;
 	std::mutex m1;
 	std::unordered_map<int,struct query_response*> response_table; 
+	std::vector<std::string> remoteshmaddrs;
+	std::vector<std::string> remoteipaddrs;
+	std::vector<std::string> remoteserveraddrs;
 
    public:
 	query_engine(int n,int r,data_server_client *c,read_write_process *w) : numprocs(n), myrank(r), dsc(c), rwp(w)
@@ -68,6 +72,45 @@ class query_engine
 	   }
 
 	}
+
+	void get_remote_addrs(std::string &filename)
+	{
+	    std::ifstream filest(filename.c_str(),std::ios_base::in);
+	
+	    std::vector<std::string> lines;
+	    if(filest.is_open())
+	    {
+		std::string line;
+		while(getline(filest,line))
+		{	
+		   lines.push_back(line);
+		   line.clear();
+		}
+
+		int nremoteservers = std::stoi(lines[0]);
+		int n = 1;
+		for(int i=0;i<nremoteservers;i++)
+		{
+		   remoteshmaddrs.push_back(lines[n]);
+	   	   n++;	   
+		}
+
+		for(int i=0;i<nremoteservers;i++)
+		{
+		   remoteipaddrs.push_back(lines[n]);
+		   n++;
+		}
+		
+		for(int i=0;i<nremoteservers;i++)
+		{
+		   remoteserveraddrs.push_back(lines[n]);
+		   n++;
+		}
+	        filest.close();
+	    }
+
+	}
+
 	~query_engine()
 	{
 	    delete Q;

@@ -139,7 +139,9 @@ class KeyValueStore
 
 		for(int i=0;i<nthreads;i++) workers[i].join();*/
 
-    		/*for(int i=0;i<k->keys.size();i++)
+		auto t1 = std::chrono::high_resolution_clock::now();
+
+    		for(int i=0;i<k->keys.size();i++)
     		{
 		        if(k->op[i]==0)
 			{
@@ -147,7 +149,13 @@ class KeyValueStore
         		  uint64_t ts_k = k->ts[i];
         		  ka->insert_entry<T,N>(pos,key,ts_k);
 			}
-    		}*/
+    		}
+
+		auto t2 = std::chrono::high_resolution_clock::now();
+
+		double pt = std::chrono::duration<double>(t2-t1).count();
+
+		t1 = std::chrono::high_resolution_clock::now();
 
 		 for(int i=0;i<k->keys.size();i++)
     		 {
@@ -157,26 +165,48 @@ class KeyValueStore
 		   }
     		 }
 
-		 //ka->flush_invertedlist<T>(k->attr_name);
+		 t2 = std::chrono::high_resolution_clock::now();
+
+		 double gt = std::chrono::duration<double>(t2-t1).count();
+
+		 t1 = std::chrono::high_resolution_clock::now();
+
+		 ka->flush_invertedlist<T>(k->attr_name);
+
+		 t2 = std::chrono::high_resolution_clock::now();
+
+		 double ft = std::chrono::duration<double>(t2-t1).count();
 		 
 		 MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 		 int nreq = 0;
 
-		 int send_v = 1;
-		 std::vector<int> recvv(numprocs);
+		 std::vector<double> send_v(3);
+		 send_v[0] = pt; send_v[1] = gt; send_v[2] = ft;
+		 std::vector<double> recvv(3*numprocs);
 		 std::fill(recvv.begin(),recvv.end(),0);
 
 		 int tag_m = tag+k->tid;
 
 		 for(int i=0;i<numprocs;i++)
 		 {
-		    MPI_Isend(&send_v,1,MPI_INT,i,tag_m,MPI_COMM_WORLD,&reqs[nreq]);
+		    MPI_Isend(send_v.data(),3,MPI_DOUBLE,i,tag_m,MPI_COMM_WORLD,&reqs[nreq]);
 		    nreq++;
-		    MPI_Irecv(&recvv[i],1,MPI_INT,i,tag_m,MPI_COMM_WORLD,&reqs[nreq]);
+		    MPI_Irecv(&recvv[3*i],3,MPI_DOUBLE,i,tag_m,MPI_COMM_WORLD,&reqs[nreq]);
 		    nreq++;
 		 }
 
 		 MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+		 double max_time_1 = 0, max_time_2 = 0, max_time_3 = 0;
+
+		 for(int i=0;i<numprocs;i++)
+		 {	
+		    if(recvv[3*i] > max_time_1) max_time_1 = recvv[3*i];
+		    if(recvv[3*i+1] > max_time_2) max_time_2 = recvv[3*i+1];
+		    if(recvv[3*i+2] > max_time_3) max_time_3 = recvv[3*i+2];
+		 }
+
+		 if(myrank==0) std::cout <<" ptime = "<<max_time_1<<" gtime = "<<max_time_2<<" ftime = "<<max_time_3<<std::endl;
 
 		 std::free(reqs);
 	   }
