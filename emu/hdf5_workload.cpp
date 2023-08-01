@@ -12,11 +12,10 @@
 #include <ctime>
 #include <mpi.h>
 
-#define STRUCTEV(n)\
-struct keydata\
-{\
-   uint64_t ts; \
-   char data[n];\
+struct keydata
+{
+   uint64_t ts; 
+   char *data;
 };
 
 int main(int argc,char **argv)
@@ -141,9 +140,8 @@ int main(int argc,char **argv)
   int bytes_per_attribute = 8;
   int valuesize = numattributes*bytes_per_attribute;
 
-  STRUCTEV(80);
-
-  std::vector<struct keydata> *data_p = new std::vector<struct keydata> ();
+  int keydatasize = sizeof(uint64_t)+valuesize*sizeof(char);
+  char *data_p = (char*)malloc(keydatasize*ts.size());
 
   uint64_t minkey = 0;
   uint64_t maxkey = 0;
@@ -151,14 +149,8 @@ int main(int argc,char **argv)
   int n = 0;
   for(int i=0;i<ts.size();i++)
   {	
-	struct keydata k;
-	k.ts = ts[i];
-	for(int j=0;j<values[i].size();j++)
-	{
-	     uint64_t v = values[i][j];
-	     std::memcpy(&(k.data[j*8]),&v,sizeof(uint64_t));
-	}
-	data_p->push_back(k);
+	*(uint64_t*)(&data_p[i*keydatasize]) = ts[i];
+	std::memcpy(&data_p[i*keydatasize+sizeof(uint64_t)],reinterpret_cast<char*>(values[i].data()),valuesize);
 	if(n==0) 
 	{
             c++;
@@ -188,9 +180,12 @@ int main(int argc,char **argv)
   hsize_t adims[1];
   adims[0] = (hsize_t)valuesize;
   hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
-  hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct keydata));
+  hid_t s2 = H5Tcreate(H5T_COMPOUND,keydatasize);
+  hid_t cstr_id = H5Tcopy(H5T_C_S1);
+  H5Tset_size(cstr_id, H5T_VARIABLE);
+
   H5Tinsert(s2,"key",HOFFSET(struct keydata,ts),H5T_NATIVE_UINT64);
-  H5Tinsert(s2,"value",HOFFSET(struct keydata,data),s1);
+  H5Tinsert(s2, "value", HOFFSET(struct keydata,data),s1);
 
   hsize_t attr_size[1];
   attr_size[0] = MAXBLOCKS*4+4;
@@ -234,18 +229,19 @@ int main(int argc,char **argv)
   hsize_t offset_w = 0;
 
   ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset_w,NULL,&total_records,NULL);
-  ret = H5Dwrite(dataset1,s2,mem_dataspace,file_dataspace,async_dxpl,data_p->data());
+  ret = H5Dwrite(dataset1,s2,mem_dataspace,file_dataspace,async_dxpl,data_p);
 
   hid_t attr_id[1];
   attr_id[0] = H5Acreate(dataset1, attr_name[0], H5T_NATIVE_UINT64, attr_space[0], H5P_DEFAULT, H5P_DEFAULT);
   ret = H5Awrite(attr_id[0], H5T_NATIVE_UINT64, attr_data.data());
   ret = H5Aclose(attr_id[0]);
 
-
-  delete data_p;
+  free(data_p);
+  //delete data_p;
   H5Pclose(dataset_pl);
   H5Sclose(attr_space[0]);
   H5Tclose(s2);
+  H5Tclose(cstr_id);
   H5Tclose(s1);
   H5Sclose(file_dataspace);
   H5Sclose(mem_dataspace);

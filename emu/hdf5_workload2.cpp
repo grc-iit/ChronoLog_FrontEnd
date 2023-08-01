@@ -15,16 +15,16 @@
 #include <cfloat>
 #include <cmath>
 
-template<typename T>
-struct keyd
-{
-   T data;
-};
-
 struct keydata
 {
   uint64_t ts;
-  char data[8];
+  char *data;
+};
+
+struct keyindex
+{
+  uint64_t ts;
+  int pos;
 };
 
 
@@ -92,23 +92,33 @@ int main(int argc,char **argv)
   H5Pset_fapl_mpio(async_fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
   H5Pset_dxpl_mpio(async_dxpl, H5FD_MPIO_COLLECTIVE);
 
-  std::vector<struct keydata> *data_p = new std::vector<struct keydata> ();
+  int keyvaluesize = sizeof(uint64_t)+valuesize;
+  std::vector<struct keyindex> *data_i = new std::vector<struct keyindex> ();
+  std::vector<char> *data_p = new std::vector<char> ();
+
+  data_p->resize(ts.size()*keyvaluesize);
 
   std::vector<std::pair<uint64_t,uint64_t>> ranges;
   std::vector<int> numrecords;
 
   for(int i=0;i<ts.size();i++)
   {
-	struct keydata k;
+	struct keyindex k;
 	k.ts = ts[i];
-	double v = (double)values[i];
-        std::memcpy(&k.data,&v,sizeof(double));
-	data_p->push_back(k);
+	k.pos = i;
+	data_i->push_back(k);
   }
 
-  auto comparekeydata = [](struct keydata &k1,struct keydata &k2) {return k1.ts < k2.ts;};
+  auto comparekeydata = [](struct keyindex &k1,struct keyindex &k2) {return k1.ts < k2.ts;};
 
-  std::sort(data_p->begin(),data_p->end(),comparekeydata);
+  std::sort(data_i->begin(),data_i->end(),comparekeydata);
+
+  for(int i=0;i<ts.size();i++)
+  {
+    int pos = (*data_i)[i].pos;
+    *(uint64_t*)(&(*data_p)[i*keyvaluesize]) = ts[pos];
+    *(double*)(&(*data_p)[i*keyvaluesize+sizeof(uint64_t)]) = (double)values[pos];
+  }
 
   int c = -1;
   int n = 0;
@@ -120,9 +130,9 @@ int main(int argc,char **argv)
   int block_id = 0;
   for(int i=0;i<ts.size();)
   {
-	minkey = (*data_p)[i].ts;
+	minkey = (*data_i)[i].ts;
         int end = std::min(i+8192,(int)ts.size());
-	maxkey = (*data_p)[end-1].ts;
+	maxkey = (*data_i)[end-1].ts;
 	numrecords.push_back(end-i);
 	std::pair<uint64_t,uint64_t> p;
 	p.first = minkey;
@@ -131,12 +141,11 @@ int main(int argc,char **argv)
 	i+=8192;
   }
 
-
    const char *attr_name[1];
    hsize_t adims[1];
    adims[0] = (hsize_t)valuesize;
    hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
-   hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct keydata));
+   hid_t s2 = H5Tcreate(H5T_COMPOUND,keyvaluesize);
    H5Tinsert(s2,"key",HOFFSET(struct keydata,ts),H5T_NATIVE_UINT64);
    H5Tinsert(s2,"value",HOFFSET(struct keydata,data),s1);
 
@@ -189,6 +198,7 @@ int main(int argc,char **argv)
    ret = H5Aclose(attr_id[0]);
 
    delete data_p;
+   delete data_i;
    H5Tclose(s2);
    H5Tclose(s1);
    H5Sclose(attr_space[0]);
