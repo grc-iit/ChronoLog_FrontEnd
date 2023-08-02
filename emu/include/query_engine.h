@@ -6,7 +6,7 @@
 #include "distributed_queues.h"
 #include "query_parser.h"
 #include "rw.h"
-#include "external_sort.h"
+//#include "external_sort.h"
 #include <fstream>
 
 struct thread_arg_q
@@ -24,7 +24,7 @@ class query_engine
         dsort *ds;	
 	read_write_process *rwp;
 	data_server_client *dsc;
-	hdf5_sort *hs;
+	//hdf5_sort *hs;
  	std::vector<struct thread_arg_q> t_args;
 	std::vector<std::thread> workers;
 	int numthreads;
@@ -43,7 +43,7 @@ class query_engine
 	{
 
     	   Q = new distributed_queues(numprocs,myrank);
-	   hs = new hdf5_sort(n,r);
+	   //hs = new hdf5_sort(n,r);
 	   tl::engine *t_server = dsc->get_thallium_server();
            tl::engine *t_server_shm = dsc->get_thallium_shm_server();
            tl::engine *t_client = dsc->get_thallium_client();
@@ -115,7 +115,7 @@ class query_engine
 	{
 	    delete Q;
 	    delete S;
-	    delete hs;
+	    //delete hs;
 	}
 
 	void end_sessions()

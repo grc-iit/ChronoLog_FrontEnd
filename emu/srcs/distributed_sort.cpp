@@ -173,9 +173,6 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    for(int i=1;i<numprocs;i++)
 	send_displ[i] = send_displ[i-1]+send_counts[i-1];
 
-   std::vector<struct event> send_buffer;
-   std::vector<struct event> recv_buffer;
-
    std::fill(recv_displ.begin(),recv_displ.end(),0);
 
    nreq = 0;
@@ -212,16 +209,34 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    total_records = 0;
    for(int i=0;i<numprocs;i++) total_records += recv_sizes[i];
 
+   int datasize = VALUESIZE;
+   
+   std::vector<struct event> send_buffer,recv_buffer;
+
+   std::vector<uint64_t> send_buffer_u,recv_buffer_u;
+   std::vector<char> send_buffer_c,recv_buffer_c;
+
+   send_buffer_u.resize(size);
+   send_buffer_c.resize(size*datasize);
+
+   recv_buffer_u.resize(total_recv_size);
+   recv_buffer_c.resize(total_recv_size*datasize);
+
    send_buffer.resize(size);
    recv_buffer.resize(total_recv_size);
 
-   int datasize = VALUESIZE;
    for(int i=0;i<size;i++)
    {
 	int dest = event_dest[i];
+	send_buffer_u[send_displ[dest]] = (*events[index])[i].ts;
+	int p = datasize*send_displ[dest];
+	for(int j=0;j<datasize;j++) send_buffer_c[p+j] = (*events[index])[i].data[j];
 	send_buffer[send_displ[dest]] = (*events[index])[i];
 	send_displ[dest]++;
    }
+
+   for(int i=0;i<recv_buffer.size();i++)
+	   recv_buffer[i].data.resize(datasize);
 
    std::fill(send_displ.begin(),send_displ.end(),0);
 
@@ -236,19 +251,38 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    {
 	if(send_counts[i]>0)
 	{
-	  MPI_Isend(&send_buffer[send_displ[i]],send_counts[i],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	  MPI_Isend(&send_buffer_u[send_displ[i]],send_counts[i],MPI_UINT64_T,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
 	  nreq++;
 	}
 
-   }
-
-   for(int i=0;i<numprocs;i++)
-   {
 	if(recv_counts[i]>0)
 	{
-	  MPI_Irecv(&recv_buffer[recv_displ[i]],recv_counts[i],key_value,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	  MPI_Irecv(&recv_buffer_u[recv_displ[i]],recv_counts[i],MPI_UINT64_T,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
 	  nreq++;
 	}
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+   nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+	if(send_counts[i]>0)
+	{
+	   int send_displ_c = send_displ[i]*datasize;
+	   int send_count_c = send_counts[i]*datasize;
+	   MPI_Isend(&send_buffer_c[send_displ_c],send_count_c,MPI_CHAR,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	}
+
+	if(recv_counts[i]>0)
+	{
+	   int recv_displ_c = recv_displ[i]*datasize;
+	   int recv_count_c = recv_counts[i]*datasize;
+	   MPI_Irecv(&recv_buffer_c[recv_displ_c],recv_count_c,MPI_CHAR,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	}
+
    }
 
    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
@@ -259,12 +293,17 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    {
 	   for(int j=0;j<recv_counts[i];j++)
 	   {
-		struct event e = recv_buffer[recv_displ[i]+j];
+		struct event e;
+	        e.ts = recv_buffer_u[recv_displ[i]+j];
+		e.data.resize(datasize);
+		int cdispl = recv_displ[i]+j;
+		cdispl *= datasize;
+		std::memcpy(e.data.data(),&recv_buffer_c[cdispl],datasize);
 		events[index]->push_back(e);
 	   }
    }
    std::sort(events[index]->begin(),events[index]->end(),compare_fn);
-   
+
    uint64_t min_ts, max_ts;
 
    min_ts = UINT64_MAX; max_ts = 0;
@@ -300,6 +339,7 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
 	if(recv_ts[i] < min_v) min_v = recv_ts[i];
 	if(recv_ts[i+1] > max_v) max_v = recv_ts[i+1];
     }
+
    }
 
    MPI_Type_free(&key_value);

@@ -57,8 +57,10 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
 
     MyEventVect *ev = nvme_ebufs[index];
 
+    ev->resize(numevents);
+
     for(int i=0;i<numevents;i++)
-      ev->push_back((*inp)[i]);
+      (*ev)[i] = (*inp)[i];
 
     nvme_files[index]->flush();
 
@@ -351,9 +353,11 @@ void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::strin
 
      MyEventVect *ev = nvme_ebufs[index];
 
+     data_array->resize(ev->size());
+
      for(int i=0;i<ev->size();i++)
      {
-         data_array->push_back((*ev)[i]);
+         (*data_array)[i] = (*ev)[i];
      }
 
      bc = total_blocks[index];

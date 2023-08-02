@@ -43,14 +43,15 @@ void query_engine::query_point(std::string &s,uint64_t ts)
 
    std::cout <<" pid = "<<pid<<std::endl;
 
-   if(pid != -1) r.from_nvme = false;
-
-   pid = rwp->get_nvme_proc(index,ts);
-
-   std::cout <<" rank = "<<myrank<<" pid = "<<pid<<std::endl;
-
-   if(pid==-1) pid = 4;
-   Q->PutRequest(r,pid);
+   if(rwp->get_nvme_proc(index,ts)!=-1)
+   {
+	Q->PutRequest(r,pid);
+   }
+   else
+   {
+      r.from_nvme = true;
+      Q->PutRequest(r,pid);
+   }
 }
 
 void query_engine::sort_response(std::string &s,int id,std::vector<struct event> *buf,uint64_t &maxkey)
@@ -304,9 +305,9 @@ void query_engine::service_query(struct thread_arg_q* t)
 void query_engine::sort_file(std::string &s)
 {
 
-      std::string attrname = "attr"+std::to_string(0);
+    /*  std::string attrname = "attr"+std::to_string(0);
       std::string attr_type = "integer";
       std::string outputfile = hs->sort_on_secondary_key<int>(s,attrname,0,0,UINT64_MAX,attr_type);
 
-      hs->merge_tree<int>(s,0);
+      hs->merge_tree<int>(s,0);*/
 }

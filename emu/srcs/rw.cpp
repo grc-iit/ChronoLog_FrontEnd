@@ -335,9 +335,13 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	int ps = -1;
 	m1.lock();
 	auto r = std::find(file_names.begin(),file_names.end(),filename);
+	if(r != file_names.end())
 	ps = std::distance(file_names.begin(),r);
         m1.unlock();
-	(*file_interval)[ps].second.store(maxkeys[i]);
+	if(ps !=-1)
+	{
+	  (*file_interval)[ps].second.store(maxkeys[i]);
+	}
 
 	if(clear_nvme) 
 	{
@@ -760,11 +764,13 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
   size_t num;
   hbool_t op_failed = false;
 
+  int datasize = sizeof(uint64_t)+VALUESIZE;
+
   const char *attr_name[1];
   hsize_t adims[1];
   adims[0] = (hsize_t)VALUESIZE;
   hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
-  hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
+  hid_t s2 = H5Tcreate(H5T_COMPOUND,datasize);
   H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
   H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
 
@@ -781,6 +787,9 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
   std::vector<hid_t> filespaces;
   std::vector<hid_t> memspaces;
   std::vector<hid_t> lists;
+
+  std::vector<std::vector<struct timestampdata>*> data_i;
+  data_i.resize(sts.size());
 
   for(int i=0;i<sts.size();i++)
   {
@@ -808,14 +817,24 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 
 	hsize_t block_w = 0;
 
+	data_i[i] = new std::vector<struct timestampdata> ();
+	data_i[i]->resize(data_array[i]->size());
+
+	for(int j=0;j<data_arrays[i]->size();j++)
+	{
+	   (*data_i[i])[j].ts = (*data_array[i])[j].ts;
+	   (*data_i[i])[j].data = (*data_array[i])[j].data.data();
+	}
+
 	for(int j=0;j<bcounts[i];j++)
 	{
 
            hsize_t block_count = blockcounts[i][j][myrank];
            hid_t mem_dataspace = H5Screate_simple(1,&block_count, NULL);
            memspaces.push_back(mem_dataspace);
-           struct event *data_p = data_arrays[i]->data()+block_w;  
-	   
+	  
+           struct timestampdata *data_p = data_i[i]->data()+block_w;  
+	  
            hsize_t boffset_p = boffset;
 	   for(int k=0;k<myrank;k++)
 		   boffset_p += blockcounts[i][j][k];
@@ -877,14 +896,18 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	{
            H5Sclose(memspaces[prefix+j]);
 	}
+        delete data_i[i];	
 	std::string filename = "file"+sts[i]+".h5";
 	int ps = -1;
 	m1.lock();
         file_names.insert(filename);
 	ps = std::distance(file_names.begin(),std::find(file_names.begin(),file_names.end(),filename));
 	m1.unlock();
-	(*file_interval)[ps].first.store(minkeys[i]);
-	(*file_interval)[ps].second.store(maxkeys[i]);
+	if(ps!=-1)
+	{
+	  (*file_interval)[ps].first.store(minkeys[i]);
+	  (*file_interval)[ps].second.store(maxkeys[i]);
+	}
 	if(clear_nvme) 
 	{
 	   int nm_index = nm->buffer_index(sts[i]);
@@ -896,7 +919,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	delete data_arrays[i];
 	prefix += bcounts[i];
     }
-
+   
     H5Sclose(attr_space[0]);
     H5Tclose(s2);
     H5Tclose(s1);
@@ -948,7 +971,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 void read_write_process::data_stream(struct thread_arg_w *t)
 {
    int niter = iters_per_batch;
-   for(int i=0;i<4;i++)
+   for(int i=0;i<1;i++)
    {
         create_events(t->num_events,t->name,1);
 	sort_events(t->name);
@@ -1065,7 +1088,6 @@ void read_write_process::io_polling(struct thread_arg_w *t)
       num_streams.store(0);
       std::atomic_thread_fence(std::memory_order_seq_cst);
       pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
-
       snames.clear();
       data.clear();
       total_records.clear();

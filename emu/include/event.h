@@ -15,17 +15,17 @@ using namespace boost;
 struct event
 {
    uint64_t ts;
-   char data[VALUESIZE];
+   std::vector<char> data;
    event& operator=(const struct event&e1)
    {
 	ts = e1.ts;
-	memcpy(data,e1.data,VALUESIZE);
+	data.assign(e1.data.begin(),e1.data.end());
 	return *this; 
    }
    std::string pack_event()
    {
 	std::string p = std::to_string(ts);
-	p += std::string(data);
+	p += std::string(data.data());
 	return p;
    }
 };
@@ -37,6 +37,11 @@ struct atomic_buffer
    std::vector<struct event> *buffer;
 };
 
+struct timestampdata
+{
+  uint64_t ts;
+  char *data;
 
+};
 
 #endif

@@ -54,6 +54,7 @@ bool databuffers::add_event(event &e,int index)
       {
 	      int bc = 0;
 	      int numuints = std::ceil(VALUESIZE/sizeof(uint64_t));
+	      e.data.resize(VALUESIZE);
 	      for(int j=0;j<numuints;j++)
 	      {
 		std::size_t seed=0;     

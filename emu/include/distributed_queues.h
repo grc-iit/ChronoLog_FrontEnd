@@ -87,11 +87,17 @@ class distributed_queues
 	     std::function<void(const tl::request &,struct query_resp &r)> PutResponseFunc(
 	     std::bind(&distributed_queues::ThalliumLocalPutResponse,this,std::placeholders::_1, std::placeholders::_2));
 
+	     std::function<void(const tl::request &,std::vector<std::string>&s)> PutRemoteAddresses(
+	     std::bind(&distributed_queues::ThalliumRemoteAddresses,this,std::placeholders::_1,std::placeholders::_2));
+
 	     thallium_server->define("EmulatorRemotePutRequest",PutRequestFunc);
 	     thallium_shm_server->define("EmulatorRemotePutRequest",PutRequestFunc);
 
 	     thallium_server->define("EmulatorRemotePutResponse",PutResponseFunc);
 	     thallium_shm_server->define("EmulatorRemotePutResponse",PutResponseFunc);
+
+	     thallium_server->define("EmulatorPutRemoteAddresses",PutRemoteAddresses);
+	     thallium_shm_server->define("EmulatorPutRemoteAddresses",PutRemoteAddresses);
 	   }
 
 	   bool LocalPutRequest(struct query_req &r)
@@ -123,6 +129,29 @@ class distributed_queues
    		r_n->output_file = r.output_file;
    		r_n->complete = r.complete;
 		return local_resp_queue->push(r_n);
+	   }
+
+	   bool RemoteAddresses(std::vector<std::string> &lines)
+	   {
+		int nremoteservers = std::stoi(lines[0]);
+		remoteshmaddrs.clear();
+		int n=1;
+		for(int i=0;i<nremoteservers;i++)
+		{
+		   remoteshmaddrs.push_back(lines[n]);
+		   n++;
+		}
+		for(int i=0;i<nremoteservers;i++)
+		{
+		   remoteipaddrs.push_back(lines[n]);
+		   n++;
+		}
+		for(int i=0;i<nremoteservers;i++)
+		{	
+		   remoteserveraddrs.push_back(lines[n]);
+		   n++;
+		}
+		return true;
 	   }
 
 	   struct query_req* GetRequest()
@@ -181,6 +210,12 @@ class distributed_queues
 	   void ThalliumLocalPutResponse(const tl::request &req, struct query_resp &r)
 	   {
 		req.respond(LocalPutResponse(r));
+	   }
+
+	   void ThalliumRemoteAddresses(const tl::request &req,std::vector<std::string>&s)
+	   {
+
+		req.respond(RemoteAddresses(s));
 	   }
 
 	   bool PutRequestAll(struct query_req &r)

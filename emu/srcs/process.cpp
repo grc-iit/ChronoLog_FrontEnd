@@ -4,7 +4,7 @@
 void emu_process::spawn_post_processing()
 {
 
-	MPI_Comm everyone;
+	/*MPI_Comm everyone;
 	int psize;
 	MPI_Comm_size(MPI_COMM_WORLD,&psize);
 	std::string slave_program = "/home/asasidharan/FrontEnd/build/emu/post_processing";
@@ -16,6 +16,6 @@ void emu_process::spawn_post_processing()
 
 	   int csize;
 	   MPI_Comm_size(everyone,&csize);
-	}
+	}*/
 
 }
