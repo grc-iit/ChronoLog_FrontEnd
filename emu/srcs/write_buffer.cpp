@@ -10,6 +10,7 @@ atomic_buffer* databuffers::create_write_buffer(int maxsize)
      struct atomic_buffer *a = new struct atomic_buffer();
      a->buffer_size.store(0);
      a->buffer = new std::vector<struct event> (maxsize);
+     a->datamem = new std::vector<char> (maxsize*VALUESIZE);
      m1.lock();
      atomicbuffers.push_back(a);
      m1.unlock();
@@ -22,6 +23,7 @@ void databuffers::clear_write_buffer(int index)
         dmap->LocalClearMap(index);
         atomicbuffers[index]->buffer_size.store(0);
         atomicbuffers[index]->buffer->clear();
+	atomicbuffers[index]->datamem->clear();
 }
   
 void databuffers::clear_write_buffer_no_lock(int index)
@@ -29,6 +31,7 @@ void databuffers::clear_write_buffer_no_lock(int index)
         dmap->LocalClearMap(index);
         atomicbuffers[index]->buffer_size.store(0);
         atomicbuffers[index]->buffer->clear();
+	atomicbuffers[index]->datamem->clear();
 }
 
 void databuffers::set_valid_range(int index,uint64_t &n1,uint64_t &n2)
@@ -54,7 +57,7 @@ bool databuffers::add_event(event &e,int index)
       {
 	      int bc = 0;
 	      int numuints = std::ceil(VALUESIZE/sizeof(uint64_t));
-	      e.data.resize(VALUESIZE);
+	      char data[VALUESIZE];
 	      for(int j=0;j<numuints;j++)
 	      {
 		std::size_t seed=0;     
@@ -67,7 +70,7 @@ bool databuffers::add_event(event &e,int index)
 		   uint64_t v = mask & seed;
 		   char c = (char)v;
 		   seed = seed >> 8;
-		   e.data[bc] = c;
+		   data[bc] = c;
 		   bc++;
 		   if(bc==VALUESIZE) 
 		   {
@@ -78,7 +81,10 @@ bool databuffers::add_event(event &e,int index)
 	      }
 	     
               int ps = atomicbuffers[index]->buffer_size.load();
-              (*atomicbuffers[index]->buffer)[ps] = e;
+              (*atomicbuffers[index]->buffer)[ps].ts = e.ts;
+	      char *dest = &((*atomicbuffers[index]->datamem)[ps*VALUESIZE]);
+	      (*atomicbuffers[index]->buffer)[ps].data = dest;
+	      std::memcpy(dest,data,VALUESIZE);
               atomicbuffers[index]->buffer_size.fetch_add(1);
               event_count++;
       }

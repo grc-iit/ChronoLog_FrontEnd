@@ -71,7 +71,7 @@ void read_write_process::sort_events(std::string &s)
       int nm_index = nm->buffer_index(s);
       while(nm->get_buffer(nm_index,nm_index,1)==false);
       boost::upgrade_lock<boost::shared_mutex> lk1(myevents[index]->m);
-      ds->get_unsorted_data(myevents[index]->buffer,index);
+      ds->get_unsorted_data(myevents[index]->buffer,myevents[index]->datamem,index);
       uint64_t min_v,max_v;
       int numevents = myevents[index]->buffer_size.load();
       myevents[index]->buffer_size.store(0);
@@ -196,7 +196,7 @@ void read_write_process::spawn_write_streams(std::vector<std::string> &snames,st
 
 }
 
-void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::vector<struct event>*>&data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>>&blockcounts)
+void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>>&blockcounts)
 {
     hid_t       fid;
     hid_t       acc_tpl;
@@ -283,7 +283,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	for(int k=0;k<numprocs;k++)
 		blocktotal += blockcounts[i][j][k];
 
-	struct event *data_p = data_arrays[i]->data()+offset_p;
+	struct event *data_p = data_arrays[i].first->data()+offset_p;
 
         hsize_t one = 1;
         //offsets[i] += attrs[0];
@@ -348,10 +348,11 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   nm->erase_from_nvme(sts[i],data_arrays[i]->size(),bcounts[i]);
+	   nm->erase_from_nvme(sts[i],data_arrays[i].first->size(),bcounts[i]);
 	   nm->release_buffer(nm_index);
 	}
-	delete data_arrays[i];
+	delete data_arrays[i].first;
+	delete data_arrays[i].second;
 	prefix += bcounts[i];
     }
 
@@ -690,7 +691,7 @@ bool read_write_process::preaddata(const char *filename,std::string &name,uint64
     return true;
 }
 
-std::vector<struct event>* read_write_process::create_data_spaces(std::string &s,hsize_t &poffset,hsize_t &trecords,uint64_t &minkey,uint64_t &maxkey,bool from_nvme,int &nblocks,std::vector<std::vector<int>> &blockcounts)
+std::pair<std::vector<struct event>*,std::vector<char>*> read_write_process::create_data_spaces(std::string &s,hsize_t &poffset,hsize_t &trecords,uint64_t &minkey,uint64_t &maxkey,bool from_nvme,int &nblocks,std::vector<std::vector<int>> &blockcounts)
 {
 
    std::vector<int> num_events_recorded_l,num_events_recorded;
@@ -700,14 +701,15 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
    std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
    std::vector<struct event> *data_array = new std::vector<struct event> ();
-   
+   std::vector<char> *datamem = new std::vector<char> ();
+
    if(from_nvme)
    {
      int index;
      int tag_p = 100;
      int nm_index = nm->buffer_index(s);
      while(nm->get_buffer(nm_index,tag_p,3)==false);
-     nm->fetch_buffer(data_array,s,index,tag_p,nblocks,blockcounts);
+     nm->fetch_buffer(data_array,datamem,s,index,tag_p,nblocks,blockcounts);
      //nm->erase_from_nvme(s,data_array->size(),nblocks);
      nm->release_buffer(nm_index);
    }
@@ -749,10 +751,13 @@ std::vector<struct event>* read_write_process::create_data_spaces(std::string &s
 
    if(myrank==0) std::cout <<" total_records = "<<total_records<<" minkey = "<<minkey<<" maxkey = "<<maxkey<<std::endl;
 
-   return data_array;
+   std::pair<std::vector<struct event>*,std::vector<char>*> p;
+   p.first = data_array;
+   p.second = datamem;
+   return p;
 }
 
-void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<hsize_t>&total_records,std::vector<hsize_t> &offsets,std::vector<std::vector<struct event>*> &data_arrays,std::vector<uint64_t>& minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
+void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<hsize_t>&total_records,std::vector<hsize_t> &offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>> &data_arrays,std::vector<uint64_t>& minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
 {
 
   hid_t async_fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -788,9 +793,6 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
   std::vector<hid_t> memspaces;
   std::vector<hid_t> lists;
 
-  std::vector<std::vector<struct timestampdata>*> data_i;
-  data_i.resize(sts.size());
-
   for(int i=0;i<sts.size();i++)
   {
 
@@ -817,14 +819,6 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 
 	hsize_t block_w = 0;
 
-	data_i[i] = new std::vector<struct timestampdata> ();
-	data_i[i]->resize(data_array[i]->size());
-
-	for(int j=0;j<data_arrays[i]->size();j++)
-	{
-	   (*data_i[i])[j].ts = (*data_array[i])[j].ts;
-	   (*data_i[i])[j].data = (*data_array[i])[j].data.data();
-	}
 
 	for(int j=0;j<bcounts[i];j++)
 	{
@@ -833,7 +827,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
            hid_t mem_dataspace = H5Screate_simple(1,&block_count, NULL);
            memspaces.push_back(mem_dataspace);
 	  
-           struct timestampdata *data_p = data_i[i]->data()+block_w;  
+           struct event *data_p = data_arrays[i].first->data()+block_w;  
 	  
            hsize_t boffset_p = boffset;
 	   for(int k=0;k<myrank;k++)
@@ -896,7 +890,6 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	{
            H5Sclose(memspaces[prefix+j]);
 	}
-        delete data_i[i];	
 	std::string filename = "file"+sts[i]+".h5";
 	int ps = -1;
 	m1.lock();
@@ -913,10 +906,11 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   nm->erase_from_nvme(sts[i],data_arrays[i]->size(),bcounts[i]);
+	   nm->erase_from_nvme(sts[i],data_arrays[i].first->size(),bcounts[i]);
 	   nm->release_buffer(nm_index);
 	}
-	delete data_arrays[i];
+	delete data_arrays[i].first;
+	delete data_arrays[i].second;
 	prefix += bcounts[i];
     }
    
@@ -928,13 +922,13 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 
 }
 
-void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::vector<struct event>*>& data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int> &bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
+void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>& data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int> &bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
 {
 
    std::vector<std::string> sts_n, sts_e;
    std::vector<hsize_t> trec_n, trec_e;
    std::vector<hsize_t> off_n, off_e;
-   std::vector<std::vector<struct event>*> darray_n, darray_e;
+   std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>> darray_n, darray_e;
    std::vector<uint64_t> minkeys_n, minkeys_e;
    std::vector<uint64_t> maxkeys_n, maxkeys_e;
 
@@ -971,7 +965,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 void read_write_process::data_stream(struct thread_arg_w *t)
 {
    int niter = iters_per_batch;
-   for(int i=0;i<1;i++)
+   for(int i=0;i<4;i++)
    {
         create_events(t->num_events,t->name,1);
 	sort_events(t->name);
@@ -987,7 +981,7 @@ void read_write_process::io_polling_seq(struct thread_arg_w *t)
 void read_write_process::io_polling(struct thread_arg_w *t)
 {
     std::vector<std::string> snames;
-    std::vector<std::vector<struct event>*> data;
+    std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>> data;
     std::vector<hsize_t> total_records, offsets,numrecords;
     std::vector<uint64_t> minkeys, maxkeys;
     std::vector<int> bcounts;
@@ -1065,17 +1059,17 @@ void read_write_process::io_polling(struct thread_arg_w *t)
            {
               hsize_t trecords, offset, numrecords;
 	      uint64_t min_key,max_key;
-              std::vector<struct event> *data_r = nullptr;
 	      int nblocks;
 	      std::vector<std::vector<int>> blockc;
-              data_r = create_data_spaces(r->name,offset,trecords,min_key,max_key,true,nblocks,blockc);
+	      std::pair<std::vector<struct event>*,std::vector<char>*> data_rp = 
+	      create_data_spaces(r->name,offset,trecords,min_key,max_key,true,nblocks,blockc);
               snames.push_back(r->name);
               total_records.push_back(trecords);
               offsets.push_back(offset);
 	      minkeys.push_back(min_key);
 	      maxkeys.push_back(max_key);
            //t->numrecords.push_back(numrecords);
-              data.push_back(data_r);
+              data.push_back(data_rp);
 	      bcounts.push_back(nblocks);
  	      blockcounts.push_back(blockc);
 	      clear_nvme = true;
@@ -1087,7 +1081,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
       num_streams.store(0);
       std::atomic_thread_fence(std::memory_order_seq_cst);
-      pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
+      //pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
       snames.clear();
       data.clear();
       total_records.clear();

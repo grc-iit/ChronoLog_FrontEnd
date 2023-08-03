@@ -15,17 +15,11 @@ using namespace boost;
 struct event
 {
    uint64_t ts;
-   std::vector<char> data;
-   event& operator=(const struct event&e1)
-   {
-	ts = e1.ts;
-	data.assign(e1.data.begin(),e1.data.end());
-	return *this; 
-   }
-   std::string pack_event()
+   char *data;
+   std::string pack_event(int length)
    {
 	std::string p = std::to_string(ts);
-	p += std::string(data.data());
+	p += std::string(data,length);
 	return p;
    }
 };
@@ -35,13 +29,6 @@ struct atomic_buffer
    boost::shared_mutex m;
    std::atomic<int> buffer_size;
    std::vector<struct event> *buffer;
+   std::vector<char> *datamem;
 };
-
-struct timestampdata
-{
-  uint64_t ts;
-  char *data;
-
-};
-
 #endif

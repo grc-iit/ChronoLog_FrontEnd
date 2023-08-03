@@ -12,14 +12,19 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
           int maxsize = 65536*VALUESIZE;
           managed_mapped_file *mf = new managed_mapped_file(create_only,fname.c_str(),maxsize);
           const allocator_event_t allocator_e(mf->get_segment_manager());
+	  const allocator_char_t allocator_c(mf->get_segment_manager());
           std::string vecname = fname+"MyEventVector";
+	  std::string vecdname = fname+"MyEventDataVector";
           MyEventVect *ev = mf->construct<MyEventVect> (vecname.c_str()) (allocator_e);
+	  MyEventDataVect *ed = mf->construct<MyEventDataVect> (vecdname.c_str()) (allocator_c); 
           boost::shared_mutex *m = new boost::shared_mutex();
           file_locks.push_back(m);
           nvme_ebufs.push_back(ev);
+	  nvme_dbufs.push_back(ed);
           nvme_files.push_back(mf);
           file_names.push_back(fname);
           buffer_names.push_back(vecname);
+	  bufferd_names.push_back(vecdname);
           std::pair<std::string,std::pair<int,event_metadata>> p2;
 	  p2.first.assign(fname);
 	  boost::mutex *mock = new boost::mutex();
@@ -56,11 +61,17 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
     //boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
 
     MyEventVect *ev = nvme_ebufs[index];
+    MyEventDataVect *ed = nvme_dbufs[index];
 
     ev->resize(numevents);
+    ed->resize(numevents*VALUESIZE);
 
     for(int i=0;i<numevents;i++)
-      (*ev)[i] = (*inp)[i];
+    {
+      (*ev)[i].ts = (*inp)[i].ts;
+      std::memcpy(&((*ed)[i*VALUESIZE]),&((*inp)[i].data),VALUESIZE);
+      (*ev)[i].data = &((*ed)[i*VALUESIZE]);
+    }
 
     nvme_files[index]->flush();
 
@@ -114,8 +125,10 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
       //boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
 
       MyEventVect *ev = nvme_ebufs[index];
+      MyEventDataVect *ed = nvme_dbufs[index];
 
       ev->erase(ev->begin(),ev->begin()+numevents);
+      ed->erase(ed->begin(),ed->begin()+numevents*VALUESIZE);
 
       nvme_files[index]->flush();
 
@@ -325,7 +338,9 @@ void nvme_buffers::find_event(int index,uint64_t ts,struct event &e)
    {
 	if((*ev)[i].ts==ts)
 	{
-	   e = (*ev)[i]; break;
+	   e.ts = (*ev)[i].ts;
+	   std::memcpy(e.data,(*ev)[i].data,VALUESIZE); 
+
 	}
    }
 
@@ -335,7 +350,7 @@ void nvme_buffers::find_event(int index,uint64_t ts,struct event &e)
 
 }
 
-void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::string &s,int &index, int &tag,int &bc,std::vector<std::vector<int>> &blockcounts)
+void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::vector<char> *data_mem,std::string &s,int &index, int &tag,int &bc,std::vector<std::vector<int>> &blockcounts)
 {
 
      std::string fname = prefix+s;
@@ -354,10 +369,14 @@ void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::strin
      MyEventVect *ev = nvme_ebufs[index];
 
      data_array->resize(ev->size());
+     data_mem->resize(ev->size()*VALUESIZE);
+     
 
      for(int i=0;i<ev->size();i++)
      {
-         (*data_array)[i] = (*ev)[i];
+         (*data_array)[i].ts = (*ev)[i].ts;
+	 (*data_array)[i].data = data_mem->data()+i*VALUESIZE;
+	 std::memcpy((*data_array)[i].data,(*ev)[i].data,VALUESIZE);
      }
 
      bc = total_blocks[index];

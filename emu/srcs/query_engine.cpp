@@ -199,7 +199,7 @@ void query_engine::service_query(struct thread_arg_q* t)
    	      s.minkey = r->minkey;
    	      s.maxkey = r->maxkey;
    	      s.sender = myrank;
-   	      s.response = e.pack_event();
+   	      //s.response = e.pack_event();
    	      s.complete = true;
   		
 	      std::cout <<" ts = "<<e.ts<<std::endl; 

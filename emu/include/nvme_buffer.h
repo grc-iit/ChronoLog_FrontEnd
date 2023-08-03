@@ -21,8 +21,9 @@ using namespace boost::interprocess;
 #if defined(BOOST_INTERPROCESS_MAPPED_FILES)
 
 typedef allocator<struct event,managed_mapped_file::segment_manager> allocator_event_t;
+typedef allocator<char,managed_mapped_file::segment_manager> allocator_char_t;
 typedef boost::interprocess::vector<struct event,allocator_event_t> MyEventVect;
-
+typedef boost::interprocess::vector<char,allocator_char_t> MyEventDataVect;
 
 class nvme_buffers
 {
@@ -32,8 +33,10 @@ class nvme_buffers
 	int myrank;
 	std::unordered_map<std::string,std::pair<int,event_metadata>> nvme_fnames;
 	std::vector<std::string> buffer_names;
+	std::vector<std::string> bufferd_names;
 	std::vector<std::string> file_names;
 	std::vector<MyEventVect*> nvme_ebufs;
+	std::vector<MyEventDataVect*> nvme_dbufs;
 	std::vector<managed_mapped_file*> nvme_files;
 	std::vector<boost::shared_mutex*> file_locks;
         std::string prefix;
@@ -54,7 +57,8 @@ class nvme_buffers
 	{
 	   for(int i=0;i<nvme_files.size();i++)
 	   {
-	      	nvme_files[i]->destroy<MyEventVect>(buffer_names[i].c_str());		
+	      	nvme_files[i]->destroy<MyEventVect>(buffer_names[i].c_str());	
+	        nvme_files[i]->destroy<MyEventDataVect>(bufferd_names[i].c_str());	
 		nvme_files[i]->flush();
 		delete file_locks[i];
 	   }
@@ -78,7 +82,7 @@ class nvme_buffers
 	void release_buffer(int);
 	void remove_blocks(int,int);
 	void erase_from_nvme(std::string &s, int numevents,int);
-	void fetch_buffer(std::vector<struct event> *,std::string &s,int &,int &,int &,std::vector<std::vector<int>>&);
+	void fetch_buffer(std::vector<struct event> *,std::vector<char>*,std::string &s,int &,int &,int &,std::vector<std::vector<int>>&);
 
 };
 

@@ -12,6 +12,7 @@ class dsort
 
    private: 
 	   std::vector<std::vector<struct event>*> events;
+	   std::vector<std::vector<char>*> data;
 	   int numprocs;
 	   int myrank;
  
@@ -28,11 +29,14 @@ class dsort
 	   {
 		std::vector<struct event> *ev = nullptr;
 		events.push_back(ev);
+		std::vector<char> *ed = nullptr;
+		data.push_back(ed);
 		return events.size()-1;
 	   }
-	   void get_unsorted_data(std::vector<struct event> *inp,int index)
+	   void get_unsorted_data(std::vector<struct event> *inp,std::vector<char> *inp_d,int index)
 	   {
 	       events[index] = inp;
+	       data[index] = inp_d;
 	   }
 
 	   void sort_data(int,int,int,uint64_t&,uint64_t&);
