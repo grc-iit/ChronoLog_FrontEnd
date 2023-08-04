@@ -220,11 +220,13 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     size_t num;
     hbool_t op_failed = false;
 
+    int keyvaluesize = sizeof(uint64_t)+VALUESIZE*sizeof(char);
+
     adims[0] = (hsize_t)VALUESIZE;
     hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
-    hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct event));
+    hid_t s2 = H5Tcreate(H5T_COMPOUND,keyvaluesize);
     H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
-    H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
+    H5Tinsert(s2,"data",HOFFSET(struct event,data),s1);
 
     hsize_t attr_size[1];
     attr_size[0] = MAXBLOCKS*4+4;
@@ -283,7 +285,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	for(int k=0;k<numprocs;k++)
 		blocktotal += blockcounts[i][j][k];
 
-	struct event *data_p = data_arrays[i].first->data()+offset_p;
+	char *data_p = data_arrays[i].second->data()+offset_p*keyvaluesize;
 
         hsize_t one = 1;
         //offsets[i] += attrs[0];
@@ -348,10 +350,10 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   nm->erase_from_nvme(sts[i],data_arrays[i].first->size(),bcounts[i]);
+	   nm->erase_from_nvme(sts[i],data_arrays[i].second->size()/keyvaluesize,bcounts[i]);
 	   nm->release_buffer(nm_index);
 	}
-	delete data_arrays[i].first;
+	//delete data_arrays[i].first;
 	delete data_arrays[i].second;
 	prefix += bcounts[i];
     }
@@ -700,7 +702,7 @@ std::pair<std::vector<struct event>*,std::vector<char>*> read_write_process::cre
    std::fill(num_events_recorded_l.begin(),num_events_recorded_l.end(),0);
    std::fill(num_events_recorded.begin(),num_events_recorded.end(),0);
 
-   std::vector<struct event> *data_array = new std::vector<struct event> ();
+   int keyvaluesize = sizeof(uint64_t)+VALUESIZE*sizeof(char);
    std::vector<char> *datamem = new std::vector<char> ();
 
    if(from_nvme)
@@ -709,7 +711,7 @@ std::pair<std::vector<struct event>*,std::vector<char>*> read_write_process::cre
      int tag_p = 100;
      int nm_index = nm->buffer_index(s);
      while(nm->get_buffer(nm_index,tag_p,3)==false);
-     nm->fetch_buffer(data_array,datamem,s,index,tag_p,nblocks,blockcounts);
+     nm->fetch_buffer(datamem,s,index,tag_p,nblocks,blockcounts);
      //nm->erase_from_nvme(s,data_array->size(),nblocks);
      nm->release_buffer(nm_index);
    }
@@ -718,7 +720,7 @@ std::pair<std::vector<struct event>*,std::vector<char>*> read_write_process::cre
    
    }
 
-   num_events_recorded_l[myrank] = data_array->size();
+   num_events_recorded_l[myrank] = datamem->size()/keyvaluesize;
 
    MPI_Allreduce(num_events_recorded_l.data(),num_events_recorded.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
    
@@ -739,8 +741,12 @@ std::pair<std::vector<struct event>*,std::vector<char>*> read_write_process::cre
 
    uint64_t min_key, max_key;
 
-   if(myrank==0) min_key = (*data_array)[0].ts;
-   if(myrank==numprocs-1) max_key = (*data_array)[data_array->size()-1].ts;
+   if(myrank==0) min_key = *(uint64_t*)(&((*datamem)[0]));
+   if(myrank==numprocs-1) 
+   {
+      int p = (num_events_recorded[myrank]-1)*keyvaluesize;
+      max_key = *(uint64_t*)(&((*datamem)[p]));
+   }
 
    MPI_Bcast(&min_key,1,MPI_UINT64_T,0,MPI_COMM_WORLD);
 
@@ -752,7 +758,7 @@ std::pair<std::vector<struct event>*,std::vector<char>*> read_write_process::cre
    if(myrank==0) std::cout <<" total_records = "<<total_records<<" minkey = "<<minkey<<" maxkey = "<<maxkey<<std::endl;
 
    std::pair<std::vector<struct event>*,std::vector<char>*> p;
-   p.first = data_array;
+   p.first = nullptr;
    p.second = datamem;
    return p;
 }
@@ -769,16 +775,18 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
   size_t num;
   hbool_t op_failed = false;
 
-  int datasize = sizeof(uint64_t)+VALUESIZE;
+  int keyvaluesize = sizeof(uint64_t)+VALUESIZE*sizeof(char);
 
   const char *attr_name[1];
   hsize_t adims[1];
   adims[0] = (hsize_t)VALUESIZE;
   hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
-  hid_t s2 = H5Tcreate(H5T_COMPOUND,datasize);
+  hid_t s2 = H5Tcreate(H5T_COMPOUND,keyvaluesize);
   H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
-  H5Tinsert(s2,"value",HOFFSET(struct event,data),s1);
+  H5Tinsert(s2,"data",HOFFSET(struct event,data),s1);
 
+  if(myrank == 0) std::cout <<" keyvaluesize = "<<keyvaluesize<<std::endl; 
+  
   hsize_t attr_size[1];
   attr_size[0] = MAXBLOCKS*4+4;
   hid_t attr_space[1];
@@ -818,17 +826,16 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         hid_t dataset1 = H5Dcreate_async(fid, DATASETNAME1,s2,file_dataspace, H5P_DEFAULT,dataset_pl, H5P_DEFAULT,es_id);
 
 	hsize_t block_w = 0;
-
-
+	
 	for(int j=0;j<bcounts[i];j++)
 	{
 
            hsize_t block_count = blockcounts[i][j][myrank];
            hid_t mem_dataspace = H5Screate_simple(1,&block_count, NULL);
            memspaces.push_back(mem_dataspace);
-	  
-           struct event *data_p = data_arrays[i].first->data()+block_w;  
-	  
+
+  	   char *data_c = data_arrays[i].second->data()+block_w*keyvaluesize;	   
+
            hsize_t boffset_p = boffset;
 	   for(int k=0;k<myrank;k++)
 		   boffset_p += blockcounts[i][j][k];
@@ -836,7 +843,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   for(int k=0;k<numprocs;k++) blocktotal += blockcounts[i][j][k];
 
            ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&boffset_p,NULL,&block_count,NULL);
-           ret = H5Dwrite_async(dataset1,s2, mem_dataspace,file_dataspace,async_dxpl,data_p,es_id);
+           ret = H5Dwrite_async(dataset1,s2, mem_dataspace,file_dataspace,async_dxpl,data_c,es_id);
 	   boffset += blocktotal;
 	   block_w += block_count;
 	}
@@ -906,10 +913,10 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   int nm_index = nm->buffer_index(sts[i]);
 	   int tag_p = 100;
 	   while(nm->get_buffer(nm_index,tag_p,2)==false);
-	   nm->erase_from_nvme(sts[i],data_arrays[i].first->size(),bcounts[i]);
+	   nm->erase_from_nvme(sts[i],data_arrays[i].second->size()/keyvaluesize,bcounts[i]);
 	   nm->release_buffer(nm_index);
 	}
-	delete data_arrays[i].first;
+	//delete data_arrays[i].first;
 	delete data_arrays[i].second;
 	prefix += bcounts[i];
     }
@@ -1081,7 +1088,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
       num_streams.store(0);
       std::atomic_thread_fence(std::memory_order_seq_cst);
-      //pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
+      pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
       snames.clear();
       data.clear();
       total_records.clear();

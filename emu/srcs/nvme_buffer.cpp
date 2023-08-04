@@ -63,14 +63,22 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
     MyEventVect *ev = nvme_ebufs[index];
     MyEventDataVect *ed = nvme_dbufs[index];
 
-    ev->resize(numevents);
-    ed->resize(numevents*VALUESIZE);
+    int psize = ev->size();
+    int psized = ed->size();
+    ev->resize(psize+numevents);
+    ed->resize(psized+numevents*VALUESIZE);
+
+    int p = psize;
+    int pd = psized;
 
     for(int i=0;i<numevents;i++)
     {
-      (*ev)[i].ts = (*inp)[i].ts;
-      std::memcpy(&((*ed)[i*VALUESIZE]),&((*inp)[i].data),VALUESIZE);
-      (*ev)[i].data = &((*ed)[i*VALUESIZE]);
+      uint64_t ts = (*inp)[i].ts;
+      (*ev)[p].ts = ts;
+      std::memcpy((&((*ed)[pd])),(*inp)[i].data,VALUESIZE);
+      (*ev)[p].data = (&((*ed)[pd]));
+      p++;
+      pd += VALUESIZE;
     }
 
     nvme_files[index]->flush();
@@ -128,7 +136,7 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
       MyEventDataVect *ed = nvme_dbufs[index];
 
       ev->erase(ev->begin(),ev->begin()+numevents);
-      ed->erase(ed->begin(),ed->begin()+numevents*VALUESIZE);
+      ed->erase(ed->begin(),ed->begin()+(numevents*VALUESIZE));
 
       nvme_files[index]->flush();
 
@@ -350,7 +358,7 @@ void nvme_buffers::find_event(int index,uint64_t ts,struct event &e)
 
 }
 
-void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::vector<char> *data_mem,std::string &s,int &index, int &tag,int &bc,std::vector<std::vector<int>> &blockcounts)
+void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &index, int &tag,int &bc,std::vector<std::vector<int>> &blockcounts)
 {
 
      std::string fname = prefix+s;
@@ -368,15 +376,17 @@ void nvme_buffers::fetch_buffer(std::vector<struct event> *data_array,std::vecto
 
      MyEventVect *ev = nvme_ebufs[index];
 
-     data_array->resize(ev->size());
-     data_mem->resize(ev->size()*VALUESIZE);
-     
+     int keyvaluesize = sizeof(uint64_t)+VALUESIZE*sizeof(char);
 
+     data_mem->resize(ev->size()*keyvaluesize);
+     
+     int p = 0;
      for(int i=0;i<ev->size();i++)
      {
-         (*data_array)[i].ts = (*ev)[i].ts;
-	 (*data_array)[i].data = data_mem->data()+i*VALUESIZE;
-	 std::memcpy((*data_array)[i].data,(*ev)[i].data,VALUESIZE);
+         *(uint64_t*)(&((*data_mem)[p])) = (*ev)[i].ts;
+	 p+=sizeof(uint64_t);
+	 std::memcpy((&((*data_mem)[p])),(*ev)[i].data,VALUESIZE);
+	 p+=VALUESIZE;
      }
 
      bc = total_blocks[index];

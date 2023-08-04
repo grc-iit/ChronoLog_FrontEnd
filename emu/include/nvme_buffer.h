@@ -82,7 +82,7 @@ class nvme_buffers
 	void release_buffer(int);
 	void remove_blocks(int,int);
 	void erase_from_nvme(std::string &s, int numevents,int);
-	void fetch_buffer(std::vector<struct event> *,std::vector<char>*,std::string &s,int &,int &,int &,std::vector<std::vector<int>>&);
+	void fetch_buffer(std::vector<char>*,std::string &s,int &,int &,int &,std::vector<std::vector<int>>&);
 
 };
 
