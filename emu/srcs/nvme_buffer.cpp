@@ -29,6 +29,7 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
 	  p2.first.assign(fname);
 	  boost::mutex *mock = new boost::mutex();
 	  p2.second.first = file_names.size()-1;
+	  p2.second.second = em;
           nvme_fnames.insert(p2);
 	  blocks.push_back(mock);
 	  std::atomic<int> *bs = (std::atomic<int>*)std::malloc(sizeof(std::atomic<int>));
@@ -53,7 +54,9 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
     if(r == nvme_fnames.end()) return;
 
     int index = r->second.first;
-   
+    event_metadata em = (r->second).second;
+    int datasize = em.get_datasize();
+
     MyEventVect *ev = nvme_ebufs[index];
     MyEventDataVect *ed = nvme_dbufs[index];
 
@@ -63,7 +66,7 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
     try
     {
       ev->resize(psize+numevents);
-      ed->resize(psized+numevents*VALUESIZE);
+      ed->resize(psized+numevents*datasize);
     }
     catch(const std::exception &except)
     {
@@ -77,10 +80,10 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
     {
       uint64_t ts = (*inp)[i].ts;
       (*ev)[p].ts = ts;
-      std::memcpy((&((*ed)[pd])),(*inp)[i].data,VALUESIZE);
+      std::memcpy((&((*ed)[pd])),(*inp)[i].data,datasize);
       (*ev)[p].data = (&((*ed)[pd]));
       p++;
-      pd += VALUESIZE;
+      pd += datasize;
     }
 
     nvme_files[index]->flush();
@@ -93,7 +96,8 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
 
 void nvme_buffers::add_block(int index,int numevents)
 {
-   MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+   MPI_Request *reqs = new MPI_Request[2*numprocs];
+   assert (reqs != nullptr);
 
    int sendlen = numevents;
    std::vector<int> recvlens(numprocs);
@@ -115,13 +119,14 @@ void nvme_buffers::add_block(int index,int numevents)
 
    total_blocks[index]++;
 
-   std::free(reqs);
+   delete reqs;
 }
 
 void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
 {
       std::string fname = prefix+s;
       auto r = nvme_fnames.find(fname);
+      event_metadata em = (r->second).second;
 
       if(r==nvme_fnames.end()) return;
 
@@ -129,11 +134,12 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
 
       MyEventVect *ev = nvme_ebufs[index];
       MyEventDataVect *ed = nvme_dbufs[index];
+      int datasize = em.get_datasize();
 
       try
       {
         ev->erase(ev->begin(),ev->begin()+numevents);
-        ed->erase(ed->begin(),ed->begin()+(numevents*VALUESIZE));
+        ed->erase(ed->begin(),ed->begin()+(numevents*datasize));
       }
       catch(const std::exception &except)
       {
@@ -170,7 +176,8 @@ void nvme_buffers::update_interval(int index)
 {
    int nreq = 0;
 
-   MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+   MPI_Request *reqs = new MPI_Request[2*numprocs];
+   assert(reqs != nullptr);
 
    std::vector<uint64_t> send_range(2);
 
@@ -204,13 +211,14 @@ void nvme_buffers::update_interval(int index)
 	nvme_intervals[index][i].second = recv_ranges[2*i+1];
    }
 
-   std::free(reqs);
-
+   delete reqs;
 }
 
 bool nvme_buffers::get_buffer(int index,int tag,int type)
 {
-   MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
+   MPI_Request *reqs = new MPI_Request[2*numprocs];
+   assert(reqs != nullptr);
+
    int nreq = 0;
 
    int s_req = type;
@@ -270,8 +278,7 @@ bool nvme_buffers::get_buffer(int index,int tag,int type)
 
    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
-   std::free(reqs);
-
+   delete reqs;
    return true;
 
 }
@@ -365,6 +372,8 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
 
      std::string fname = prefix+s;
      auto r = nvme_fnames.find(fname);
+     event_metadata em = (r->second).second;
+     int datasize = em.get_datasize();
 
      if(r==nvme_fnames.end()) return;
 
@@ -372,7 +381,7 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
 
      MyEventVect *ev = nvme_ebufs[index];
 
-     int keyvaluesize = sizeof(uint64_t)+VALUESIZE*sizeof(char);
+     int keyvaluesize = sizeof(uint64_t)+datasize*sizeof(char);
 
      try
      {
@@ -388,8 +397,8 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
      {
          *(uint64_t*)(&((*data_mem)[p])) = (*ev)[i].ts;
 	 p+=sizeof(uint64_t);
-	 std::memcpy((&((*data_mem)[p])),(*ev)[i].data,VALUESIZE);
-	 p+=VALUESIZE;
+	 std::memcpy((&((*data_mem)[p])),(*ev)[i].data,datasize);
+	 p+=datasize;
      }
 
      bc = total_blocks[index];
