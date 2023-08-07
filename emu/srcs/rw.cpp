@@ -44,6 +44,17 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
    
     atomic_buffer *ab = dm->get_atomic_buffer(index);
 
+    ab->buffer_size.store(0);
+    try
+    {
+      ab->buffer->resize(num_events);
+      ab->datamem->resize(num_events*VALUESIZE);
+    }
+    catch(const std::exception &except)
+    {
+	std::cout <<except.what()<<std::endl;
+    }
+
     int num_dropped = 0;
 
     boost::shared_lock<boost::shared_mutex> lk(ab->m); 
@@ -313,10 +324,6 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     ret = H5Awrite_async(attr_id,H5T_NATIVE_UINT64,attrs.data(),es_id);
 
     ret = H5Aclose_async(attr_id,es_id);
-    /*
-    dset_ids.push_back(dataset1);
-    fids.push_back(fid);
-    gids.push_back(grp_id);*/
     event_ids.push_back(es_id);
     H5Dclose_async(dataset1,es_id);
     H5Gclose_async(grp_id,es_id);
@@ -353,7 +360,6 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   nm->erase_from_nvme(sts[i],data_arrays[i].second->size()/keyvaluesize,bcounts[i]);
 	   nm->release_buffer(nm_index);
 	}
-	//delete data_arrays[i].first;
 	delete data_arrays[i].second;
 	prefix += bcounts[i];
     }
@@ -785,8 +791,6 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
   H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
   H5Tinsert(s2,"data",HOFFSET(struct event,data),s1);
 
-  if(myrank == 0) std::cout <<" keyvaluesize = "<<keyvaluesize<<std::endl; 
-  
   hsize_t attr_size[1];
   attr_size[0] = MAXBLOCKS*4+4;
   hid_t attr_space[1];
@@ -875,23 +879,13 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         H5Gclose_async(grp_id,es_id);
         H5Fclose_async(fid,es_id);
         event_ids.push_back(es_id);
-	/*lists.push_back(dataset_pl);*/
-
-	//H5ESwait(es_id,H5ES_WAIT_FOREVER,&num,&op_failed);
-	//H5ESclose(es_id);
-	//H5Sclose(file_dataspace);
-	//H5Sclose(mem_dataspace);
     }
 
     int prefix = 0;
     for(int i=0;i<event_ids.size();i++)
     {
-        //int err = H5Dclose_async(dset_ids[i],event_ids[i]);
-        //H5Gclose_async(gids[i],event_ids[i]);
-        //H5Fclose_async(fids[i],event_ids[i]);
         H5ESwait(event_ids[i],H5ES_WAIT_FOREVER,&num,&op_failed);
         H5ESclose(event_ids[i]);
-        //H5Pclose(lists[i]);
 	H5Sclose(filespaces[i]);
 	for(int j=0;j<bcounts[i];j++)
 	{
@@ -916,7 +910,6 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   nm->erase_from_nvme(sts[i],data_arrays[i].second->size()/keyvaluesize,bcounts[i]);
 	   nm->release_buffer(nm_index);
 	}
-	//delete data_arrays[i].first;
 	delete data_arrays[i].second;
 	prefix += bcounts[i];
     }

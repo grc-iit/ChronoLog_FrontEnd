@@ -54,19 +54,21 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
 
     int index = r->second.first;
    
-    //int tag = index;
-
-    //get_buffer(index,tag,1);
-
-    //boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
-
     MyEventVect *ev = nvme_ebufs[index];
     MyEventDataVect *ed = nvme_dbufs[index];
 
     int psize = ev->size();
     int psized = ed->size();
-    ev->resize(psize+numevents);
-    ed->resize(psized+numevents*VALUESIZE);
+
+    try
+    {
+      ev->resize(psize+numevents);
+      ed->resize(psized+numevents*VALUESIZE);
+    }
+    catch(const std::exception &except)
+    {
+	std::cout <<except.what()<<std::endl;
+    }
 
     int p = psize;
     int pd = psized;
@@ -86,7 +88,6 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
     add_block(index,numevents);
 
     update_interval(index);
-    //buffer_state[index]->store(0);
 
 }
 
@@ -126,24 +127,25 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
 
       int index = r->second.first;
 
-      //int tag = 100+index;
-
-      //get_buffer(index,tag,2);
-
-      //boost::upgrade_lock<boost::shared_mutex> lk(*file_locks[index]);
-
       MyEventVect *ev = nvme_ebufs[index];
       MyEventDataVect *ed = nvme_dbufs[index];
 
-      ev->erase(ev->begin(),ev->begin()+numevents);
-      ed->erase(ed->begin(),ed->begin()+(numevents*VALUESIZE));
+      try
+      {
+        ev->erase(ev->begin(),ev->begin()+numevents);
+        ed->erase(ed->begin(),ed->begin()+(numevents*VALUESIZE));
+      }
+      catch(const std::exception &except)
+      {
+	std::cout <<except.what()<<std::endl;
+      }
+
 
       nvme_files[index]->flush();
 
       remove_blocks(index,nblocks);
 
       update_interval(index);
-      //buffer_state[index]->store(0);
 
 }
 
@@ -368,17 +370,18 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
 
      index = r->second.first;
 
-     //tag += index;
-
-     //get_buffer(index,tag,3);
-
-     //boost::shared_lock<boost::shared_mutex> lk(*file_locks[index]);
-
      MyEventVect *ev = nvme_ebufs[index];
 
      int keyvaluesize = sizeof(uint64_t)+VALUESIZE*sizeof(char);
 
-     data_mem->resize(ev->size()*keyvaluesize);
+     try
+     {
+       data_mem->resize(ev->size()*keyvaluesize);
+     }
+     catch(const std::exception &except)
+     {
+	std::cout << except.what()<<std::endl;
+     }
      
      int p = 0;
      for(int i=0;i<ev->size();i++)

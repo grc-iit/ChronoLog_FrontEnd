@@ -62,6 +62,7 @@ class databuffers
 	 for(int i=0;i<atomicbuffers.size();i++)
 	 {
 		 delete atomicbuffers[i]->buffer;
+		 delete atomicbuffers[i]->datamem;
 		 delete atomicbuffers[i];
 	 }
      }

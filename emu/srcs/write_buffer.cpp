@@ -9,8 +9,15 @@ atomic_buffer* databuffers::create_write_buffer(int maxsize)
      dmap->create_table(total_size,maxkey);
      struct atomic_buffer *a = new struct atomic_buffer();
      a->buffer_size.store(0);
-     a->buffer = new std::vector<struct event> (maxsize);
-     a->datamem = new std::vector<char> (maxsize*VALUESIZE);
+     try
+     {
+       a->buffer = new std::vector<struct event> (maxsize);
+       a->datamem = new std::vector<char> (maxsize*VALUESIZE);
+     }
+     catch(const std::exception &except)
+     {
+	std::cout <<except.what()<<std::endl;
+     }
      m1.lock();
      atomicbuffers.push_back(a);
      m1.unlock();
