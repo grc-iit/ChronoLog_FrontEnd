@@ -78,10 +78,21 @@ void read_write_process::sort_events(std::string &s)
 {
       m1.lock();
       auto r = write_names.find(s);
-      int index = (r->second).first;
-      event_metadata em = (r->second).second;
+      int index = -1;
+      event_metadata em;
+      if(r != write_names.end())
+      {
+        index = (r->second).first;
+        em = (r->second).second;
+      }
       m1.unlock();
       int nm_index = nm->buffer_index(s);
+
+      if(index == -1 || nm_index == -1)
+      {
+	throw std::runtime_error("write stream or nvme file does not exist");
+      }
+
       while(nm->get_buffer(nm_index,nm_index,1)==false);
       
       boost::upgrade_lock<boost::shared_mutex> lk1(myevents[index]->m);
@@ -1053,7 +1064,15 @@ void read_write_process::data_stream(struct thread_arg_w *t)
    for(int i=0;i<4;i++)
    {
         create_events(t->num_events,t->name,1);
-	sort_events(t->name);
+	try
+	{
+	   sort_events(t->name);
+	}
+	catch(const std::exception &except)
+	{
+	   std::cout <<except.what()<<std::endl;
+	   exit(-1);
+	}
    }
 
 }
