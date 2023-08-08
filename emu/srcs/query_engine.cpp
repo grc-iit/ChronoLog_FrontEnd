@@ -43,7 +43,7 @@ void query_engine::query_point(std::string &s,uint64_t ts)
 
    std::cout <<" pid = "<<pid<<std::endl;
 
-   if(rwp->get_nvme_proc(index,ts)!=-1)
+   if(rwp->get_nvme_proc(s,ts)!=-1)
    {
 	Q->PutRequest(r,pid);
    }
