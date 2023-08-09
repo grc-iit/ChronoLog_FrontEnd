@@ -210,10 +210,15 @@ public:
 	}
 	void get_events_from_map(std::string &s)
 	{
+	   int index = -1;
 	   m1.lock();
            auto r = write_names.find(s);
-	   int index = (r->second).first;
+	   if(r != write_names.end())
+	   {
+	      index = (r->second).first;
+	   }
 	   m1.unlock();
+	   if(index != -1)
 	   myevents[index] = dm->get_atomic_buffer(index);
 	}
 
@@ -282,8 +287,13 @@ public:
            int index = -1;
            m1.lock();
 	   auto r = write_names.find(s);
-	   index = (r->second).first;
+	   if(r != write_names.end())
+	   {
+	      index = (r->second).first;
+	   }
 	   m1.unlock();
+
+	   if(index == -1) return;
 
 	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 
@@ -301,9 +311,13 @@ public:
 
 	event_metadata & get_metadata(std::string &s)
 	{
+		event_metadata em;
 	        m1.lock(); 
 		auto r = write_names.find(s);
-		event_metadata em = (r->second).second;
+		if(r != write_names.end())
+		{
+		  em = (r->second).second;
+		}
 		m1.unlock();
 		return em;
 	}
@@ -381,12 +395,19 @@ public:
 
 	int num_write_events(std::string &s)
 	{
+		int index = -1;
 	        m1.lock();
 		auto r = write_names.find(s);
-		int index = (r->second).first;
+		if(r != write_names.end())
+		{
+		  index = (r->second).first;
+		}
 		m1.unlock();
-		int size = myevents[index]->buffer_size.load();
-		return size;
+		if(index != -1)
+		{
+		  return myevents[index]->buffer_size.load();
+		}
+		return 0;
 	}
 	int dropped_events()
 	{

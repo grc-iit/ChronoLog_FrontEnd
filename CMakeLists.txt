@@ -4,7 +4,7 @@ project(Emulator VERSION 1.0.0 DESCRIPTION "emulation engine")
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVALUESIZE=5000 -DMAXSTREAMS=50 -DBLOCKSIZE=4194304 -DNDISKS=4 -DMAXBLOCKS=1000 -O3 -lm -lc -ldl -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVALUESIZE=96 -DCHUNKSIZE=4194304 -DMAXSTREAMS=50 -DBLOCKSIZE=4194304 -DNDISKS=4 -DMAXBLOCKS=1000 -O3 -lm -lc -ldl -pthread")
 set(RPC_LIB_FLAGS "")
 include_directories(${CMAKE_PREFIX_PATH}/include)
 add_definitions(-w)
@@ -41,4 +41,4 @@ include_directories(${HDF5_VOL_ASYNC}/include)
 #set(LIB_FLAGS ${LIB_FLAGS} -lev -L/home/kbateman/install/lib/ -L/home/kbateman/install/lib64/ -lhiredis -lredox)
 
 add_subdirectory(emu)
-add_subdirectory(KeyValueStore)
+#add_subdirectory(PluginKVS)

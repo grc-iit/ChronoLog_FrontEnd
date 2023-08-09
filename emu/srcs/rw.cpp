@@ -35,13 +35,21 @@ void read_write_process::sync_clocks()
 void read_write_process::create_events(int num_events,std::string &s,double arrival_rate)
 {
     int datasize = 0;
+    int index = -1;
+    event_metadata em;
     m1.lock();
     auto r = write_names.find(s);
-    int index = (r->second).first;
-    event_metadata em = (r->second).second;
+    if(r != write_names.end())
+    {
+      index = (r->second).first;
+      em = (r->second).second;
+    }
     m1.unlock();
+
     datasize = em.get_datasize();
-   
+  
+    assert(index != -1 && datasize >  0 && num_events > 0);
+
     atomic_buffer *ab = dm->get_atomic_buffer(index);
 
     ab->buffer_size.store(0);
@@ -276,8 +284,23 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     std::string filename = "file"+sts[i]+".h5";
     fid = H5Fopen_async(filename.c_str(), H5F_ACC_RDWR, async_fapl,es_id);
 
+    event_metadata em;
+    int index = -1;
+    m1.lock();
     auto r = write_names.find(sts[i]);
-    event_metadata em = (r->second).second;
+    if(r != write_names.end())
+    {
+       em = (r->second).second;
+       index = (r->second).first;
+    }
+    m1.unlock();
+
+    if(index==-1) 
+    {
+	throw std::runtime_error("data stream buffer does not exist");
+	return;
+    }
+
     int datasize = em.get_datasize();
     int keyvaluesize = sizeof(uint64_t)+datasize;
     metadata.push_back(em);
@@ -874,13 +897,30 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         hsize_t maxdims[1];
         maxdims[0] = (hsize_t)H5S_UNLIMITED;
 
+	int index = -1;
+	event_metadata em;
+	m1.lock();
 	auto r = write_names.find(sts[i]);
+	if(r != write_names.end())
+	{
+	   index = (r->second).first;
+	   em = (r->second).second;
+	}
+	m1.unlock();
+
+
+	if(index == -1)
+	{
+	   throw std::runtime_error("data stream buffer does not exist");
+	   return;
+	}
+
 	if(data_arrays[i].second==nullptr||total_records[i]==0)
 	{
 	    continue;
 	}
-        event_metadata em = (r->second).second;
 	int datasize = em.get_datasize();
+	chunkdims[0] = em.get_chunksize();
 	metadata.push_back(em);
 
 	hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
@@ -906,6 +946,10 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         hid_t fid = H5Fcreate_async(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, async_fapl, es_id);
         hid_t grp_id = H5Gcreate_async(fid, grp_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT, es_id);
         hid_t dataset1 = H5Dcreate_async(fid, DATASETNAME1,s2,file_dataspace, H5P_DEFAULT,dataset_pl, H5P_DEFAULT,es_id);
+
+	hsize_t dims[1];
+	dims[0] = total_records[i];
+	H5Dset_extent(dataset1, dims);
 
 	hsize_t block_w = 0;
 	
