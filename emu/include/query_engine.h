@@ -143,37 +143,6 @@ class query_engine
 	void service_query(struct thread_arg_q*);
 	bool end_file_read(bool,int);
 
-	int create_buffer(std::string &s, int &sort_id)
-	{
-	   m1.lock();
-	   auto r1 = buffer_names.find(s);
-	   int index1 = -1;
-	   int index2 = -1;
-	   if(r1 == buffer_names.end())
-	   {
-		struct atomic_buffer *n = new struct atomic_buffer();
-		n->buffer_size.store(0);
-		n->buffer = new std::vector<struct event> ();
-		sbuffers.push_back(n);
-		index2 = ds->create_sort_buffer();
-		std::pair<std::string,std::pair<int,int>> p;
-		p.first.assign(s);
-		p.second.first = sbuffers.size()-1;
-		p.second.second = index2;
-		buffer_names.insert(p);	
-		index1 = sbuffers.size()-1;
-	   }
-	   else 
-	   {
-		index1 = r1->second.first;
-		index2 = r1->second.second;
-	   }
-	   m1.unlock();
-
-	   sort_id = index2;
-	   return index1;
-
-	}
 };
 
 #endif

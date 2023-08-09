@@ -16,7 +16,6 @@ void query_engine::send_query(std::string &s)
        if(myrank==0)
        {
           Q->PutRequestAll(r);
-	  std::cout <<" query id = "<<r.id<<std::endl;
         }
 
 }
@@ -39,18 +38,38 @@ void query_engine::query_point(std::string &s,uint64_t ts)
 
    int index = rwp->get_stream_index(s);
 
-   int pid = rwp->get_event_proc(index,ts);
-
-   std::cout <<" pid = "<<pid<<std::endl;
-
-   if(rwp->get_nvme_proc(s,ts)!=-1)
+   if(index != -1)
    {
-	Q->PutRequest(r,pid);
+     int pid = rwp->get_event_proc(index,ts);
+
+     std::cout <<" index = "<<index<<" ts = "<<ts<<" pid = "<<pid<<std::endl;
+
+     if(pid != -1)
+     {
+       r.from_nvme = false;
+       Q->PutRequest(r,pid);
+     }
+     else
+    {
+	pid = rwp->get_nvme_proc(s,ts);
+	if(pid != -1)
+	{
+	   r.from_nvme = true;
+	   Q->PutRequest(r,pid);
+	}
+    }
    }
    else
    {
-      r.from_nvme = true;
-      Q->PutRequest(r,pid);
+	struct query_resp rp;
+	rp.id = r.id;
+	rp.response_id = 0; 
+        rp.minkey = ts;
+   	rp.maxkey = ts;
+   	rp.sender = myrank;
+   	rp.complete = true;	
+   	rp.error_code = NOTFOUND;
+	Q->PutResponse(rp,r.sender);
    }
 }
 
@@ -74,7 +93,7 @@ void query_engine::sort_response(std::string &s,int id,std::vector<struct event>
 
 bool query_engine::end_file_read(bool end_read,int id)
 {
-    int s_req = (end_read==true) ? 1 : 0;
+    /*int s_req = (end_read==true) ? 1 : 0;
 
     std::vector<int> r_req(numprocs);
 
@@ -102,7 +121,8 @@ bool query_engine::end_file_read(bool end_read,int id)
     }
 
     std::free(reqs);
-    return end_read_g;
+    return end_read_g;*/
+    return false;
 }
 void query_engine::get_range(std::vector<struct event> *buf1,std::vector<struct event> *buf2,std::vector<struct event> *buf3,uint64_t minkeys[3],uint64_t maxkeys[3],int id)
 {
@@ -186,24 +206,37 @@ void query_engine::service_query(struct thread_arg_q* t)
 	    
 	      int pid = -1;
 
-	      struct event e;
-	      if(!r->from_nvme)
-	      rwp->find_event(r->name,r->minkey,e);
-	      else
-	      rwp->find_nvme_event(r->name,r->minkey,e);
-	      pid = r->sender;
+	      int index = rwp->get_stream_index(r->name);
+	      event_metadata em = rwp->get_event_metadata(r->name);
+	      if(index != -1)
+	      { 
+	        struct event e;
+		std::vector<char> data;
+		data.resize(em.get_datasize());
+		e.data = data.data();
+	        if(!r->from_nvme)
+		{
+	          rwp->find_event(r->name,r->minkey,e);
+		}
+	        else
+		{
+	          rwp->find_nvme_event(r->name,r->minkey,e);
+		}
+	          
+		pid = r->sender;
 	     
-	      struct query_resp s;
+	        struct query_resp s;
 	     
-	      s.id = r->id;
-   	      s.minkey = r->minkey;
-   	      s.maxkey = r->maxkey;
-   	      s.sender = myrank;
-   	      //s.response = e.pack_event();
-   	      s.complete = true;
+	        s.id = r->id;
+   	        s.minkey = r->minkey;
+   	        s.maxkey = r->maxkey;
+   	        s.sender = myrank;
+   	        //s.response = e.pack_event();
+   	        s.complete = true;
   		
-	      std::cout <<" ts = "<<e.ts<<std::endl; 
-	      //Q->PutResponse(s,pid); 
+	        std::cout <<" ts = "<<e.ts<<std::endl; 
+	        //Q->PutResponse(s,pid); 
+	     }
 	     
 	      /*std::vector<struct event> *buf1 = new std::vector<struct event> ();
 	      std::vector<struct event> *buf2 = new std::vector<struct event> ();

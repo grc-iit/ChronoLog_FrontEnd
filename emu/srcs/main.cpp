@@ -115,7 +115,7 @@ int main(int argc,char **argv)
 
   int num_writer_threads = 4;
 
-  int nbatches = 20;
+  int nbatches = 10;
 
   t1 = std::chrono::high_resolution_clock::now();
 
@@ -123,7 +123,7 @@ int main(int argc,char **argv)
 
   np->data_streams_s(story_names,total_events,nbatches);
 
-  //np->generate_queries(story_names);
+  np->generate_queries(story_names);
 
   
   np->end_sessions();

@@ -282,18 +282,21 @@ public:
 		nm->release_buffer(index);*/
 	}
 
-	void find_event(std::string &s,uint64_t ts,struct event &e)
+	bool find_event(std::string &s,uint64_t ts,struct event &e)
 	{
            int index = -1;
+	   event_metadata em;
            m1.lock();
 	   auto r = write_names.find(s);
 	   if(r != write_names.end())
 	   {
 	      index = (r->second).first;
+	      em = (r->second).second;
 	   }
 	   m1.unlock();
 
-	   if(index == -1) return;
+	   if(index == -1) return false;
+
 
 	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 
@@ -303,10 +306,13 @@ public:
 	   {	   
 		if((*myevents[index]->buffer)[i].ts==ts)
 		{	
-		   e = (*myevents[index]->buffer)[i];	
+		   e.ts = (*myevents[index]->buffer)[i].ts;
+	           std::memcpy(&e.data,&(*myevents[index]->buffer)[i].data,em.get_datasize());
+		   return true;	   
 		   break;
 		}
 	   }
+	   return false;
 	}
 
 	event_metadata & get_metadata(std::string &s)
