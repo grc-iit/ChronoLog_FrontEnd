@@ -17,5 +17,16 @@ Block offsets are provided to HDF5 which contains internal B-trees that convert 
 Queried data block is located in the B-tree at most log(N/B) time, where N is the number of key-value pairs and B is the HDF5 chunk size. 
 Once the chunk is found in the B-tree, data is fetched in constant number of disk operations.
 
+Changes :
+Configurable data sizes for each stream
+IO block size fixed to 4MB chunks
+Exceptions
+Terminate on fatal errors
+	- Memory allocation errors
+	- Incorrect stream initialization
+	- NVRAM file creation/mapping errors
+	
+
+
 Author
 Aparna Sasidharan
