@@ -258,9 +258,9 @@ public:
 	   int index_r = nm->get_proc(s,ts);
 	   return index_r;
 	}
-	void find_nvme_event(std::string &s,uint64_t ts, struct event &e)
+	bool find_nvme_event(std::string &s,uint64_t ts, struct event &e)
 	{
-	    nm->find_event(s,ts,e); 
+	    return nm->find_event(s,ts,e); 
 	}
 	void get_nvme_buffer(std::vector<struct event> *buffer1,std::vector<struct event> *buffer2,std::string &s,int tag)
 	{
