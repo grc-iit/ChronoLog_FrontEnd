@@ -74,7 +74,7 @@ class nvme_buffers
 
 	void create_nvme_buffer(std::string &s,event_metadata &em);
 	void copy_to_nvme(std::string &s,std::vector<struct event> *inp,int numevents);
-	bool find_event(std::string&,uint64_t,struct event&);
+	bool find_event(std::string&,uint64_t,struct event*);
 	int get_proc(std::string&,uint64_t);
 	void update_interval(int,uint64_t,uint64_t);
 	void add_block(int,int);

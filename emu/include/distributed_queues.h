@@ -98,6 +98,8 @@ class distributed_queues
 
 	     thallium_server->define("EmulatorPutRemoteAddresses",PutRemoteAddresses);
 	     thallium_shm_server->define("EmulatorPutRemoteAddresses",PutRemoteAddresses);
+	     if(serverid==2) std::cout <<" bind functions"<<std::endl;
+	     
 	   }
 
 	   bool LocalPutRequest(struct query_req &r)
@@ -242,17 +244,20 @@ class distributed_queues
 	   bool PutRequest(struct query_req &r,int server_id)
 	   {
 		bool b = false;
+
 		if(ipaddrs[server_id].compare(myipaddr)==0)
 		{
 		  tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[server_id]);
 		  tl::remote_procedure rp = thallium_shm_client->define("EmulatorRemotePutRequest");
 		  b = rp.on(ep)(r);
+
 		}
 		else
 		{
 		   tl::remote_procedure rp = thallium_client->define("EmulatorRemotePutRequest");
 		   b = rp.on(serveraddrs[server_id])(r);
 		}
+
 		return b;
 	   }
 	   bool PutResponse(struct query_resp &r,int server_id)

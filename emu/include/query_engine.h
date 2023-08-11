@@ -120,11 +120,8 @@ class query_engine
 
 	void end_sessions()
 	{
-	   if(myrank==0)
-	   {
-	      std::string s = "endsession";
-	      send_query(s);
-	   }
+	   std::string s = "endsession";
+	   send_query(s);
 
 	   for(int i=0;i<workers.size();i++) workers[i].join();
 	}

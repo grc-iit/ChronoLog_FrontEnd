@@ -258,7 +258,7 @@ public:
 	   int index_r = nm->get_proc(s,ts);
 	   return index_r;
 	}
-	bool find_nvme_event(std::string &s,uint64_t ts, struct event &e)
+	bool find_nvme_event(std::string &s,uint64_t ts, struct event *e)
 	{
 	    return nm->find_event(s,ts,e); 
 	}
@@ -282,7 +282,7 @@ public:
 		nm->release_buffer(index);*/
 	}
 
-	bool find_event(std::string &s,uint64_t ts,struct event &e)
+	bool find_event(std::string &s,uint64_t ts,struct event *e)
 	{
            int index = -1;
 	   event_metadata em;
@@ -300,14 +300,14 @@ public:
 
 	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 
-	   e.ts = UINT64_MAX;
+	   e->ts = UINT64_MAX;
 
            for(int i=0;i<myevents[index]->buffer_size.load();i++)
 	   {	   
 		if((*myevents[index]->buffer)[i].ts==ts)
 		{	
-		   e.ts = (*myevents[index]->buffer)[i].ts;
-	           std::memcpy(&e.data,&(*myevents[index]->buffer)[i].data,em.get_datasize());
+		   e->ts = (*myevents[index]->buffer)[i].ts;
+	           std::memcpy(e->data,&(*myevents[index]->buffer)[i].data,em.get_datasize());
 		   return true;	   
 		   break;
 		}
@@ -315,7 +315,7 @@ public:
 	   return false;
 	}
 
-	event_metadata & get_metadata(std::string &s)
+	event_metadata get_metadata(std::string &s)
 	{
 		event_metadata em;
 	        m1.lock(); 

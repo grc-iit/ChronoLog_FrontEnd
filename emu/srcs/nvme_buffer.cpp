@@ -360,7 +360,7 @@ int nvme_buffers::get_proc(std::string &s,uint64_t ts)
 
 }
 
-bool nvme_buffers::find_event(std::string &s,uint64_t ts,struct event &e)
+bool nvme_buffers::find_event(std::string &s,uint64_t ts,struct event *e)
 {
 
    std::string fname = prefix+s;
@@ -387,15 +387,15 @@ bool nvme_buffers::find_event(std::string &s,uint64_t ts,struct event &e)
 
    MyEventVect *ev = nvme_ebufs[index];
 
-   e.ts = UINT64_MAX;
+   e->ts = UINT64_MAX;
    int datasize = em.get_datasize();
 
    for(int i=0;i<ev->size();i++)
    {
 	if((*ev)[i].ts==ts)
 	{
-	   e.ts = (*ev)[i].ts;
-	   std::memcpy(e.data,(*ev)[i].data,datasize);
+	   e->ts = (*ev)[i].ts;
+	   std::memcpy(e->data,(*ev)[i].data,datasize);
 	   ret = true;
 	   break; 
 	}
