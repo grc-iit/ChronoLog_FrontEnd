@@ -56,14 +56,20 @@ void query_engine::query_point(std::string &s,uint64_t ts)
 	}
 	else
 	{
+           struct event *e = new struct event();
+	   e->ts = 0;
+	   char data[100];
+	   e->data = data;
 	   struct query_resp rp;
 	   rp.id = r.id;
 	   rp.response_id = 0;
 	   rp.minkey = ts;
 	   rp.sender = myrank;
 	   rp.complete = true;
+	   rp.response = pack_event(e,100);
 	   rp.error_code = NOTFOUND;
 	   Q->PutResponse(rp,r.sender);
+	   delete e;
 	}
     }
    }
@@ -77,7 +83,7 @@ void query_engine::query_point(std::string &s,uint64_t ts)
    	rp.sender = myrank;
    	rp.complete = true;	
    	rp.error_code = NOTFOUND;
-	//Q->PutResponse(rp,r.sender);
+	Q->PutResponse(rp,r.sender);
    }
 }
 
@@ -199,7 +205,6 @@ void query_engine::service_response(struct thread_arg_q *t)
 	r = Q->GetResponse();
 	if(r != nullptr)
 	{
-		std::cout <<" rank = "<<myrank<<" response name = "<<r->id<<std::endl;
 		delete r;
 	}
 
@@ -245,9 +250,11 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 	         int index = rwp->get_stream_index(r->name);
 	         event_metadata em = rwp->get_metadata(r->name);
+	         struct event *e = new struct event();
+		 e->ts = 0;
+		 e->data = nullptr;
 	         if(index != -1)
 	         { 
-	           struct event *e = new struct event();
 		   e->data = new char[em.get_datasize()];
 	          if(!r->from_nvme)
 		  {
@@ -275,10 +282,13 @@ void query_engine::service_query(struct thread_arg_q* t)
 		     s.minkey = r->minkey;
 		     s.maxkey = r->maxkey;
 		     s.sender = myrank;
+		     s.response = pack_event(e,em.get_datasize()); 
 		     s.complete = true;
 		     int dest = r->sender;
 		     Q->PutResponse(s,dest);
 		  }
+		  if(e->data != nullptr) delete e->data;
+		  delete e;
 		  delete r;
 		}
 	          

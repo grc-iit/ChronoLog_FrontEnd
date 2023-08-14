@@ -33,7 +33,7 @@
 #include "data_server_client.h"
 #include <fstream>
 
-using namespace tl=thallium;
+namespace tl=thallium;
 
 
 class Interface_Queues
@@ -134,7 +134,7 @@ class Interface_Queues
 	bool LocalPutRequest(struct query_req &r)
 	{
 	   struct query_req * rq = new struct query_req();
-	   rq->name.assign(r.begin(),r.end());
+	   rq->name.assign(r.name.begin(),r.name.end());
 	   rq->minkey = r.minkey;
 	   rq->maxkey = r.maxkey;
 	   rq->id = r.id;
@@ -191,7 +191,7 @@ class Interface_Queues
 	   bool b = false;
 	   if(remoteipaddrs[s_id].compare(myipaddr)==0)
 	   {
-		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id];
+		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
 	        tl::remote_procedure rp = thallium_shm_client->define("EmulatorRemotePutRequest");
 		b = rp.on(ep)(r);
 	   }

@@ -11,6 +11,7 @@
 #include "h5_async_lib.h"
 #include <thread>
 #include <mutex>
+#include "Interface_Queues.h"
 
 template<typename N>
 struct kstream_args
@@ -30,7 +31,8 @@ class KeyValueStore
 	    int myrank;
 	    KeyValueStoreMDS *mds;
 	    data_server_client *ds;
-	    KeyValueStoreIO *io_layer; 
+	    KeyValueStoreIO *io_layer;
+	    Interface_Queues *if_q;
 	    KeyValueStoreAccessorRepository *tables;
 	    int io_count;
 	    int tag;
@@ -58,11 +60,16 @@ class KeyValueStore
            	std::vector<std::string> shmaddrs = ds->get_shm_addrs();
            	mds->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 		mds->bind_functions();
-		MPI_Barrier(MPI_COMM_WORLD);
 		io_layer = new KeyValueStoreIO(numprocs,myrank);
 		io_layer->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 		io_layer->bind_functions();
-		tables = new KeyValueStoreAccessorRepository(numprocs,myrank,io_layer,ds);
+		if_q = new Interface_Queues(numprocs,myrank);
+		if_q->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
+		std::string remfilename = "emulatoraddrs";
+		if_q->get_remote_addrs(remfilename);
+		if_q->bind_functions();
+		MPI_Barrier(MPI_COMM_WORLD);
+		tables = new KeyValueStoreAccessorRepository(numprocs,myrank,io_layer,if_q,ds);
 		k_args.resize(MAXSTREAMS);
 	        kstreams.resize(MAXSTREAMS);
 	   }
@@ -300,6 +307,7 @@ class KeyValueStore
 		delete io_layer;
 		delete mds;
 		delete ds;
+		delete if_q;
 		H5close();
 
 	   }
