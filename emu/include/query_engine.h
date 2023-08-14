@@ -58,17 +58,28 @@ class query_engine
 	   S = new query_parser(numprocs,myrank);
 	   ds = rwp->get_sorter();
 	   end_session.store(0);
-	   numthreads = 1;
+	   numthreads = 2;
 	   t_args.resize(numthreads);
 	   workers.resize(numthreads);
 	   std::function<void(struct thread_arg_q *)> QSFunc(
            std::bind(&query_engine::service_query,this, std::placeholders::_1));
 
+	   std::function<void(struct thread_arg_q*)> QRFunc(
+	   std::bind(&query_engine::service_response,this,std::placeholders::_1));
+
 	   for(int i=0;i<numthreads;i++)
 	   {
              t_args[i].tid = i;
-	     std::thread qe{QSFunc,&t_args[i]};
-	     workers[i] = std::move(qe);
+	     if(i==0)
+	     {
+	        std::thread qe{QSFunc,&t_args[i]};
+	        workers[i] = std::move(qe);
+	     }
+	     else
+	     {
+		std::thread qr{QRFunc,&t_args[i]};
+		workers[i] = std::move(qr);
+	     }
 	   }
 
 	}
@@ -138,6 +149,7 @@ class query_engine
 	void sort_response(std::string&,int,std::vector<struct event>*,uint64_t&);
 	void get_range(std::vector<struct event>*,std::vector<struct event>*,std::vector<struct event>*,uint64_t minkeys[3],uint64_t maxkeys[3],int);
 	void service_query(struct thread_arg_q*);
+	void service_response(struct thread_arg_q*);
 	bool end_file_read(bool,int);
 
 };

@@ -38,6 +38,8 @@ void query_engine::query_point(std::string &s,uint64_t ts)
    {
      int pid = rwp->get_event_proc(index,ts);
 
+
+
      if(pid != -1)
      {
        r.from_nvme = false;
@@ -46,11 +48,22 @@ void query_engine::query_point(std::string &s,uint64_t ts)
      else
     {
 	pid = rwp->get_nvme_proc(s,ts);
-	if(pid==-1) pid=4;
-	//if(pid != -1)
+	//if(pid==-1) pid=4;
+	if(pid != -1)
 	{
 	   r.from_nvme = true;
 	   Q->PutRequest(r,pid);
+	}
+	else
+	{
+	   struct query_resp rp;
+	   rp.id = r.id;
+	   rp.response_id = 0;
+	   rp.minkey = ts;
+	   rp.sender = myrank;
+	   rp.complete = true;
+	   rp.error_code = NOTFOUND;
+	   Q->PutResponse(rp,r.sender);
 	}
     }
    }
@@ -176,6 +189,25 @@ void query_engine::get_range(std::vector<struct event> *buf1,std::vector<struct 
      std::free(reqs);*/
 }
 
+void query_engine::service_response(struct thread_arg_q *t)
+{
+
+  while(true)
+  {
+
+	struct query_resp *r = nullptr;
+	r = Q->GetResponse();
+	if(r != nullptr)
+	{
+		std::cout <<" rank = "<<myrank<<" response name = "<<r->id<<std::endl;
+		delete r;
+	}
+
+	if(Q->EmptyResponseQueue() && end_session.load()==1) break;
+  }
+
+}
+
 void query_engine::service_query(struct thread_arg_q* t) 
 {
 	int end_service = 0;
@@ -196,7 +228,11 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      {
 		     endsessions++;
 		     delete r;
-		     if(endsessions==numprocs) break;
+		     if(endsessions==numprocs) 
+		     {
+			     end_session.store(1);	     
+			     break;
+		     }
 	      }
 	      else
 	      {

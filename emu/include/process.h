@@ -141,18 +141,21 @@ public:
       void process_queries(struct thread_arg_p *t)
       {
 
-	   usleep(20000);
-	   
-	   if(myrank==2)
+	   for(int n=0;n<5;n++)
 	   {
-	     
-	     for(int i=0;i<1;i++)
-	     {
+
+	   usleep(20000*10);
+	  
+	   for(int i=0;i<10;i++)
+	   {
 	       uint64_t ts = CM->Timestamp();
 	       //QE->send_query(t->snames[0]);
 	       QE->query_point(t->snames[0],ts);
-	     }
 	   }
+
+	   usleep(20000*10*128);
+	   }
+
 	   /*usleep(10*128*20000);
 	   QE->send_query(t->snames[0]);
 	   usleep(20000*128);
