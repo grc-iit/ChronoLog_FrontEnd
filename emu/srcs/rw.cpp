@@ -32,6 +32,63 @@ void read_write_process::sync_clocks()
 
 }
 
+bool read_write_process::create_buffer(int &num_events,std::string &s)
+{
+    int datasize = 0;
+    int index = -1;
+    event_metadata em;
+    m1.lock();
+    auto r = write_names.find(s);
+    if(r != write_names.end())
+    {		
+	index = (r->second).first;
+	em = (r->second).second;
+    }
+    m1.unlock();
+    datasize = em.get_datasize();
+    assert(index != -1 && datasize > 0 && num_events > 0);
+
+    atomic_buffer *ab = dm->get_atomic_buffer(index);
+    ab->buffer_size.store(0);
+    try
+    {
+	ab->buffer->resize(num_events);
+	ab->datamem->resize(num_events*datasize);
+    }
+    catch(const std::exception &except)
+    {
+	std::cout<<except.what()<<std::endl;
+	exit(-1);
+    }
+    return true;
+}
+
+uint64_t read_write_process::add_event(std::string &s,std::string &data)
+{
+    int index = -1;
+    event_metadata em;
+
+    m1.lock();
+    auto r = write_names.find(s);
+    if(r != write_names.end())
+    {
+	index = (r->second).first;
+	em = (r->second).second;
+    }
+    m1.unlock();
+
+    int datasize = em.get_datasize();
+
+    /*
+    atomic_buffer *ab = dm->get_atomic_buffer(index);
+
+    boost::shared_lock<boost::shared_mutex> lk(ab->m);*/
+    uint64_t ts = CM->Timestamp();
+    std::cout <<" add event "<<index<<" datasize = "<<datasize<<" ts = "<<ts<<std::endl;
+    /*bool b = dm->add_event(index,ts,data,em);*/
+    return ts;
+}
+
 void read_write_process::create_events(int num_events,std::string &s,double arrival_rate)
 {
     int datasize = 0;
@@ -81,6 +138,7 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
     }
 
 }
+
 
 void read_write_process::sort_events(std::string &s)
 {

@@ -75,6 +75,14 @@ private:
       std::atomic<int> sync_clock;
       std::vector<int> num_dropped;
       std::vector<int> batch_size;
+      tl::engine *thallium_server;
+      tl::engine *thallium_shm_server;
+      tl::engine *thallium_client;
+      tl::engine *thallium_shm_client;
+      std::vector<tl::endpoint> serveraddrs;
+      std::vector<std::string> ipaddrs;
+      std::vector<std::string> shmaddrs;
+      std::string myipaddr;
       int iters_per_batch;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n,data_server_client *rc) : myrank(r), numprocs(np), numcores(n), dsc(rc)
@@ -85,16 +93,17 @@ public:
 	   CM = C;
 	   sync_clock.store(0);
 	   iters_per_batch = 4;
-	   tl::engine *t_server = dsc->get_thallium_server();
-	   tl::engine *t_server_shm = dsc->get_thallium_shm_server();
-	   tl::engine *t_client = dsc->get_thallium_client();
-	   tl::engine *t_client_shm = dsc->get_thallium_shm_client();
-	   std::vector<tl::endpoint> server_addrs = dsc->get_serveraddrs();
-	   std::vector<std::string> ipaddrs = dsc->get_ipaddrs();
-	   std::vector<std::string> shmaddrs = dsc->get_shm_addrs();
+	   thallium_server = dsc->get_thallium_server();
+	   thallium_shm_server = dsc->get_thallium_shm_server();
+	   thallium_client = dsc->get_thallium_client();
+	   thallium_shm_client = dsc->get_thallium_shm_client();
+	   serveraddrs = dsc->get_serveraddrs();
+	   ipaddrs = dsc->get_ipaddrs();
+	   shmaddrs = dsc->get_shm_addrs();
+           myipaddr = ipaddrs[myrank];
 	   dm = new databuffers(numprocs,myrank,numcores,CM);
-	   dm->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
-	   CM->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
+	   dm->server_client_addrs(thallium_server,thallium_client,thallium_shm_server,thallium_shm_client,ipaddrs,shmaddrs,serveraddrs);
+	   CM->server_client_addrs(thallium_server,thallium_client,thallium_shm_server,thallium_shm_client,ipaddrs,shmaddrs,serveraddrs);
 	   CM->bind_functions();
 	   ds = new dsort(numprocs,myrank);
 	   nm = new nvme_buffers(numprocs,myrank);
@@ -149,6 +158,18 @@ public:
 
 	}
 
+	void bind_functions()
+	{
+           std::function<void(const tl::request &,int &,std::string&)> CreateEventBuffer(
+           std::bind(&read_write_process::ThalliumCreateBuffer,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+
+	   std::function<void(const tl::request &,std::string&,std::string&)> AddEventBuffer(
+	   std::bind(&read_write_process::ThalliumAddEvent,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+           thallium_server->define("EmulatorCreateBuffer",CreateEventBuffer);
+           thallium_shm_server->define("EmulatorCreateBuffer",CreateEventBuffer);
+	   thallium_server->define("EmulatorAddEvent",AddEventBuffer);
+	   thallium_shm_server->define("EmulatorAddEvent",AddEventBuffer);
+	}
 	void end_sessions()
 	{
 		end_of_session.store(1);
@@ -419,6 +440,15 @@ public:
 	{
 	    return dm->num_dropped_events();
 	}
+	void ThalliumCreateBuffer(const tl::request &req, int &num_events,std::string &s)
+        {
+                req.respond(create_buffer(num_events,s));
+        }
+        void ThalliumAddEvent(const tl::request &req, std::string &s,std::string &data)
+	{
+	        req.respond(add_event(s,data));
+	}
+
         bool get_events_in_range_from_read_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup);
 	void create_events(int num_events,std::string &s,double);
 	void clear_write_events(int,uint64_t&,uint64_t&);
@@ -436,6 +466,8 @@ public:
 	void io_polling_seq(struct thread_arg_w*);
 	void data_stream(struct thread_arg_w*);
 	void sync_clocks();
+	bool create_buffer(int &,std::string &);
+	uint64_t add_event(std::string&,std::string&); 
 };
 
 #endif

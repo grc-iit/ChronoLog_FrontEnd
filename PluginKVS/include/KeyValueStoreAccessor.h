@@ -142,11 +142,24 @@ class KeyValueStoreAccessor
 	  template<typename T>
 	  void fill_invertedlist(int);
 	  template <typename T,typename N,typename M>
-	  bool Put(N &key, M &value);
+	  bool Put(int,std::string &,N &key, M &value);
 	  template <typename T,typename N>
           bool Get(N &key,char *value);
 	  void sort_on_secondary_key(std::string &attr_name);
-	  
+	  bool Emulator_Request()
+	  {
+	    struct query_req r;
+	    r.name = "table1";
+	    r.sender = myrank;
+	    bool b = false;
+	    if(myrank == 0)
+	    {
+	      std::cout <<" send request"<<std::endl;
+	      b = if_q->PutEmulatorRequest(r,2);
+	    }
+	    return b;
+	  }
+
 	  ~KeyValueStoreAccessor()
 	  {
 		for(int i=0;i<lists.size();i++)

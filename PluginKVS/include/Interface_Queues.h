@@ -116,8 +116,6 @@ class Interface_Queues
 		filest.close();
 	   }
 
-
-
 	}
 
 	void bind_functions()
@@ -202,6 +200,24 @@ class Interface_Queues
 		b = rp.on(ep)(r);
 	   }
 	   return b;
+	}
+
+	uint64_t PutEmulatorEvent(std::string &s,std::string &data,int s_id)
+	{
+	    uint64_t b = UINT64_MAX;
+	    if(remoteipaddrs[s_id].compare(myipaddr)==0)
+	    {
+		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
+		tl::remote_procedure rp = thallium_shm_client->define("EmulatorAddEvent");
+		b = rp.on(ep)(s,data);
+	    }
+	    else
+	    {
+		tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
+		tl::remote_procedure rp = thallium_client->define("EmulatorAddEvent");
+		b = rp.on(ep)(s,data);
+	    }
+	    return b;
 	}
 
 

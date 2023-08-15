@@ -50,37 +50,10 @@ public:
 	dsc = new data_server_client(numprocs,myrank,5555); 
 
 	rwp = new read_write_process(r,np,CM,num_cores_rw,dsc);
+	rwp->bind_functions();
 	QE = new query_engine(numprocs,myrank,dsc,rwp);
 	int nchars;
 	std::vector<char> addr_string;
-
-	if(myrank==0)
-	{
-	  char processor_name[1024];
-          int len = 0;
-          MPI_Get_processor_name(processor_name, &len);
-	  std::string myhostname;
-          myhostname.assign(processor_name);
-          char ip[16];
-          struct hostent *he = gethostbyname(myhostname.c_str());
-          auto **addr_list = (struct in_addr **) he->h_addr_list;
-          strcpy(ip, inet_ntoa(*addr_list[0]));
-	  std::string myipaddr;
-          myipaddr.assign(ip);
-	  nchars = myipaddr.length();
-	  for(int i=0;i<myipaddr.length();i++)
-		  addr_string.push_back(myipaddr[i]);
-	}
-	
-	MPI_Bcast(&nchars,1,MPI_INT,0,MPI_COMM_WORLD);
-
-	if(myrank != 0) addr_string.resize(nchars);
-
-	MPI_Bcast(addr_string.data(),nchars,MPI_CHAR,0,MPI_COMM_WORLD);
-	std::string addr_ip(addr_string.data());
-
-	int port_no = 1234;
-	server_addr = "ofi+sockets://"+addr_ip+":"+std::to_string(port_no);
 
 	t_args.resize(2);
 	/*MS = nullptr;

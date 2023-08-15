@@ -253,6 +253,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 	         struct event *e = new struct event();
 		 e->ts = 0;
 		 e->data = nullptr;
+		 std::cout <<" request name = "<<r->name<<" index = "<<index<<std::endl;
 	         if(index != -1)
 	         { 
 		   e->data = new char[em.get_datasize()];

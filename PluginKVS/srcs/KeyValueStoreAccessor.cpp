@@ -26,7 +26,6 @@ bool KeyValueStoreAccessor::delete_inverted_list(int n)
     }
     return false;
 }
-
 template<typename T,typename N>
 bool KeyValueStoreAccessor::insert_entry(int pos, N&key,uint64_t &ts)
 {
@@ -35,6 +34,22 @@ bool KeyValueStoreAccessor::insert_entry(int pos, N&key,uint64_t &ts)
    T *invlist = reinterpret_cast<T*>(lists[pos].second);
    bool b = invlist->put_entry(key,ts);
    return b;
+}
+
+template<typename T,typename N,typename M>
+bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
+{
+   if(pos >= lists.size()) return false;
+
+   
+   std::string data = std::to_string(key);
+   if(myrank==0) std::cout <<" length = "<<value.length()<<std::endl;
+   data += value;  
+      
+   uint64_t ts =  UINT64_MAX;
+   ts = if_q->PutEmulatorEvent(s,data,2);
+   std::cout <<" ts = "<<ts<<std::endl;
+   return true;
 }
 
 template<typename T,typename N>

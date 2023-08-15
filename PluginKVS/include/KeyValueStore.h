@@ -148,6 +148,7 @@ class KeyValueStore
 
 		auto t1 = std::chrono::high_resolution_clock::now();
 
+		/*
     		for(int i=0;i<k->keys.size();i++)
     		{
 		        if(k->op[i]==0)
@@ -156,7 +157,7 @@ class KeyValueStore
         		  uint64_t ts_k = k->ts[i];
         		  ka->insert_entry<T,N>(pos,key,ts_k);
 			}
-    		}
+    		}*/
 
 		auto t2 = std::chrono::high_resolution_clock::now();
 
@@ -164,13 +165,13 @@ class KeyValueStore
 
 		t1 = std::chrono::high_resolution_clock::now();
 
-		 for(int i=0;i<k->keys.size();i++)
+		 /*for(int i=0;i<k->keys.size();i++)
     		 {
 		   if(k->op[i]==0 && i%100==0)
 		   {
       		      std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
 		   }
-    		 }
+    		 }*/
 
 		 t2 = std::chrono::high_resolution_clock::now();
 
@@ -178,7 +179,7 @@ class KeyValueStore
 
 		 t1 = std::chrono::high_resolution_clock::now();
 
-		 ka->flush_invertedlist<T>(k->attr_name);
+		 //ka->flush_invertedlist<T>(k->attr_name);
 
 		 t2 = std::chrono::high_resolution_clock::now();
 
@@ -243,7 +244,15 @@ class KeyValueStore
 
                std::string type = ka->get_attribute_type(attr_name);
 
-   	       RunKeyValueStoreFunctions<T,N>(ka,k);
+		bool b = ka->Emulator_Request();
+		std::string st = "table1";
+		N key = 0.5;
+		char databuf[100];
+		std::string data;
+		data.resize(100);
+		std::cout <<" send put"<<std::endl;
+		b = ka->Put<T,N,std::string>(pos,st,key,data); 
+   	       //RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }
 
            void get_testworkload(std::string &,std::vector<int>&,std::vector<uint64_t>&,int);
