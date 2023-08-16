@@ -244,14 +244,18 @@ class KeyValueStore
 
                std::string type = ka->get_attribute_type(attr_name);
 
-		bool b = ka->Emulator_Request();
+		bool b = false; //ka->Emulator_Request();
 		std::string st = "table1";
 		N key = 0.5;
 		char databuf[100];
 		std::string data;
 		data.resize(100);
-		std::cout <<" send put"<<std::endl;
-		b = ka->Put<T,N,std::string>(pos,st,key,data); 
+
+		if_q->CreateEmulatorBuffer(256,st,myrank);
+		for(int i=0;i<256;i++)
+		{
+		   b = ka->Put<T,N,std::string>(pos,st,key,data); 
+		}
    	       //RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }
 

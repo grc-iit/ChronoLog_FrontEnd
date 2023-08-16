@@ -220,6 +220,24 @@ class Interface_Queues
 	    return b;
 	}
 
+	bool CreateEmulatorBuffer(int numevents,std::string &s,int s_id)
+	{
+	    bool b = false;
+	    if(remoteipaddrs[s_id].compare(myipaddr)==0)
+	    {
+		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
+		tl::remote_procedure rp = thallium_shm_client->define("EmulatorCreateBuffer");
+		b = rp.on(ep)(numevents,s);
+	    }
+	    else
+	    {
+		tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
+		tl::remote_procedure rp = thallium_client->define("EmulatorCreateBuffer");
+		b = rp.on(ep)(numevents,s);
+	    }
+	    return  b;
+	}
+
 
 	~Interface_Queues()
 	{

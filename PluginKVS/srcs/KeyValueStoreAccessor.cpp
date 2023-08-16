@@ -43,13 +43,17 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
 
    
    std::string data = std::to_string(key);
-   if(myrank==0) std::cout <<" length = "<<value.length()<<std::endl;
    data += value;  
       
    uint64_t ts =  UINT64_MAX;
-   ts = if_q->PutEmulatorEvent(s,data,2);
-   std::cout <<" ts = "<<ts<<std::endl;
-   return true;
+   ts = if_q->PutEmulatorEvent(s,data,myrank);
+   bool b = false;
+   if(ts != UINT64_MAX)
+   {
+	T *invlist = reinterpret_cast<T*>(lists[pos].second);
+	b = invlist->put_entry(key,ts);
+   }
+   return b;
 }
 
 template<typename T,typename N>

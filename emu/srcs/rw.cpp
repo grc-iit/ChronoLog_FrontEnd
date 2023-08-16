@@ -79,13 +79,12 @@ uint64_t read_write_process::add_event(std::string &s,std::string &data)
 
     int datasize = em.get_datasize();
 
-    /*
+    
     atomic_buffer *ab = dm->get_atomic_buffer(index);
 
-    boost::shared_lock<boost::shared_mutex> lk(ab->m);*/
+    boost::shared_lock<boost::shared_mutex> lk(ab->m);
     uint64_t ts = CM->Timestamp();
-    std::cout <<" add event "<<index<<" datasize = "<<datasize<<" ts = "<<ts<<std::endl;
-    /*bool b = dm->add_event(index,ts,data,em);*/
+    bool b = dm->add_event(index,ts,data,em);
     return ts;
 }
 
@@ -890,21 +889,19 @@ std::pair<std::vector<struct event>*,std::vector<char>*> read_write_process::cre
    poffset = offset;
    trecords = total_records;
 
-   uint64_t min_key, max_key;
+   uint64_t min_key=UINT64_MAX, max_key=0;
 
-   if(myrank==0) min_key = *(uint64_t*)(&((*datamem)[0]));
-   if(myrank==numprocs-1) 
+
+   if(num_events_recorded[myrank]>0)
    {
-      int p = (num_events_recorded[myrank]-1)*keyvaluesize;
-      max_key = *(uint64_t*)(&((*datamem)[p]));
+     min_key = *(uint64_t*)(&((*datamem)[0]));
+     int p = (num_events_recorded[myrank]-1)*keyvaluesize;
+     max_key = *(uint64_t*)(&((*datamem)[p]));
    }
 
-   MPI_Bcast(&min_key,1,MPI_UINT64_T,0,MPI_COMM_WORLD);
+   MPI_Allreduce(&min_key,&minkey,1,MPI_UINT64_T,MPI_MIN,MPI_COMM_WORLD);
 
-   MPI_Bcast(&max_key,1,MPI_UINT64_T,numprocs-1,MPI_COMM_WORLD); 
-
-   minkey = min_key;
-   maxkey = max_key;
+   MPI_Allreduce(&max_key,&maxkey,1,MPI_UINT64_T,MPI_MAX,MPI_COMM_WORLD);
 
    if(myrank==0) std::cout <<" total_records = "<<total_records<<" minkey = "<<minkey<<" maxkey = "<<maxkey<<std::endl;
 
@@ -1163,7 +1160,34 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 void read_write_process::data_stream(struct thread_arg_w *t)
 {
    int niter = iters_per_batch;
-   for(int i=0;i<4;i++)
+
+   atomic_buffer *ab = dm->get_atomic_buffer(0);
+
+   int numevents = ab->buffer_size.load();
+
+   int maxsize_per_proc = std::ceil(2048/numprocs);
+  
+   for(;;)
+   {
+      
+	if(ab->buffer_size.load()>0.8*maxsize_per_proc) break;
+
+   };
+
+   try
+   {
+	sort_events(t->name);
+   }
+   catch(const std::exception &except)
+   {
+
+	std::cout <<except.what()<<std::endl;
+	exit(-1);
+   }
+
+
+
+   /*for(int i=0;i<4;i++)
    {
         create_events(t->num_events,t->name,1);
 	try
@@ -1175,7 +1199,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 	   std::cout <<except.what()<<std::endl;
 	   exit(-1);
 	}
-   }
+   }*/
 
 }
 
@@ -1215,7 +1239,10 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      MPI_Allreduce(&sync_async,&sync_empty_all,3,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
-     if(sync_empty_all[2]==numprocs) break;
+     if(sync_empty_all[2]==numprocs) 
+     {
+	     break;
+     }
 
      if(sync_empty_all[0]==numprocs)
      {

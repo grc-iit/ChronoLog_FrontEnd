@@ -72,7 +72,7 @@ int main(int argc,char **argv)
 
   }*/
 
-  int numstories = 4;
+  int numstories = 1;
   std::vector<std::string> story_names;
   std::vector<int> total_events;
 
@@ -115,7 +115,7 @@ int main(int argc,char **argv)
 
   int num_writer_threads = 4;
 
-  int nbatches = 100;
+  int nbatches = 1;
 
   t1 = std::chrono::high_resolution_clock::now();
 
