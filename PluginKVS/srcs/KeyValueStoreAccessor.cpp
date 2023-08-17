@@ -57,6 +57,29 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
 }
 
 template<typename T,typename N>
+bool KeyValueStoreAccessor::Emulator_Request(int pos, std::string &s, N&key)
+{
+   if(pos >= lists.size()) return false;
+   std::vector<uint64_t> values;
+
+   T *invlist = reinterpret_cast<T*>(lists[pos].second);
+   int ret = invlist->get_entry(key,values);
+
+   bool b = false;
+
+   if(values.size() > 0)
+   {
+	struct query_req r;
+        r.name = s;
+	r.minkey = values[0];
+	r.maxkey = values[0];
+	r.sender = myrank;
+	b = if_q->PutEmulatorRequest(r,myrank);	
+   }
+   return b;
+}
+
+template<typename T,typename N>
 std::vector<uint64_t> KeyValueStoreAccessor::get_entry(int pos,N &key)
 {
    std::vector<uint64_t> values;

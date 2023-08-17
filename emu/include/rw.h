@@ -61,6 +61,7 @@ private:
       std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> *read_interval;
       std::vector<struct atomic_buffer*> myevents;
       std::vector<struct atomic_buffer*> readevents;
+      std::atomic<int> numrecvevents;
       dsort *ds;
       data_server_client *dsc;
       std::vector<struct thread_arg_w> t_args;
@@ -112,6 +113,7 @@ public:
 	   end_of_session.store(0);
 	   num_streams.store(0);
 	   num_io_threads = 1;
+	   numrecvevents.store(0);
 	   file_interval = new std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> (MAXSTREAMS);
 	   write_interval =  new std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> (MAXSTREAMS);
 	   read_interval = new std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> (MAXSTREAMS);
@@ -194,6 +196,8 @@ public:
 	      struct atomic_buffer *ev = nullptr;
 	      ev = dm->create_write_buffer(maxsize);
 	      myevents.push_back(ev);
+	      int n = myevents.size()-1;
+	      //numrecvevents[n].store(0);
 	      std::pair<std::string,std::pair<int,event_metadata>> p2;
 	      p2.first.assign(s);
 	      p2.second.first = myevents.size()-1;

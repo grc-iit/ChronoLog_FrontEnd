@@ -82,9 +82,14 @@ uint64_t read_write_process::add_event(std::string &s,std::string &data)
     
     atomic_buffer *ab = dm->get_atomic_buffer(index);
 
+    uint64_t ts = UINT64_MAX;
+
     boost::shared_lock<boost::shared_mutex> lk(ab->m);
-    uint64_t ts = CM->Timestamp();
-    bool b = dm->add_event(index,ts,data,em);
+    {
+      ts = CM->Timestamp();
+      bool b = dm->add_event(index,ts,data,em);
+      int p = numrecvevents.fetch_add(1);
+    }
     return ts;
 }
 
@@ -160,22 +165,23 @@ void read_write_process::sort_events(std::string &s)
 
       while(nm->get_buffer(nm_index,nm_index,1)==false);
       
-      boost::upgrade_lock<boost::shared_mutex> lk1(myevents[index]->m);
-      
-      ds->get_unsorted_data(myevents[index]->buffer,myevents[index]->datamem,index);
-      uint64_t min_v,max_v;
-      int numevents = myevents[index]->buffer_size.load();
-      myevents[index]->buffer_size.store(0);
-      ds->sort_data(index,index,numevents,min_v,max_v,em);
-      myevents[index]->buffer_size.store(myevents[index]->buffer->size());
+      boost::unique_lock<boost::shared_mutex> lk1(myevents[index]->m);
+      { 
+        ds->get_unsorted_data(myevents[index]->buffer,myevents[index]->datamem,index);
+        uint64_t min_v,max_v;
+        int numevents = myevents[index]->buffer_size.load();
+        myevents[index]->buffer_size.store(0);
+        ds->sort_data(index,index,numevents,min_v,max_v,em);
+        myevents[index]->buffer_size.store(myevents[index]->buffer->size());
 
-      uint64_t minv = std::min(min_v,(*write_interval)[index].first.load());
-      (*write_interval)[index].first.store(minv);
-      (*write_interval)[index].second.store(max_v);
+        uint64_t minv = std::min(min_v,(*write_interval)[index].first.load());
+        (*write_interval)[index].first.store(minv);
+        (*write_interval)[index].second.store(max_v);
       
-      nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
+        nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
       
-      clear_write_events(index,min_v,max_v);
+        clear_write_events(index,min_v,max_v);
+      }
       
       nm->release_buffer(nm_index);
 }
@@ -1166,23 +1172,27 @@ void read_write_process::data_stream(struct thread_arg_w *t)
    int numevents = ab->buffer_size.load();
 
    int maxsize_per_proc = std::ceil(2048/numprocs);
-  
-   for(;;)
+ 
+   niter = 1;
+
+   //for(int i=0;i<niter;i++)
    {
+      for(;;)
+      {
       
-	if(ab->buffer_size.load()>0.8*maxsize_per_proc) break;
+	if(numrecvevents.load()==256) break;
+      }
 
-   };
-
-   try
-   {
+     try
+     {
 	sort_events(t->name);
-   }
-   catch(const std::exception &except)
-   {
+     }
+     catch(const std::exception &except)
+     {
 
 	std::cout <<except.what()<<std::endl;
 	exit(-1);
+     }
    }
 
 

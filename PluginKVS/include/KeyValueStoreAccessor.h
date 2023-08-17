@@ -146,19 +146,8 @@ class KeyValueStoreAccessor
 	  template <typename T,typename N>
           bool Get(N &key,char *value);
 	  void sort_on_secondary_key(std::string &attr_name);
-	  bool Emulator_Request()
-	  {
-	    struct query_req r;
-	    r.name = "table1";
-	    r.sender = myrank;
-	    bool b = false;
-	    if(myrank == 0)
-	    {
-	      std::cout <<" send request"<<std::endl;
-	      b = if_q->PutEmulatorRequest(r,2);
-	    }
-	    return b;
-	  }
+	  template<typename T,typename N>
+	  bool Emulator_Request(int,std::string &,N &);
 
 	  ~KeyValueStoreAccessor()
 	  {

@@ -247,30 +247,35 @@ void query_engine::service_query(struct thread_arg_q* t)
 	    
 	         int pid = -1;
 
-
+		 uint64_t ts = r->minkey;
 	         int index = rwp->get_stream_index(r->name);
-	         event_metadata em = rwp->get_metadata(r->name);
-	         struct event *e = new struct event();
-		 e->ts = 0;
-		 e->data = nullptr;
-		 std::cout <<" request name = "<<r->name<<" index = "<<index<<std::endl;
-	         if(index != -1)
-	         { 
-		   e->data = new char[em.get_datasize()];
-	          if(!r->from_nvme)
-		  {
-	            b = rwp->find_event(r->name,r->minkey,e);
-		    if(!b)
-		    {
-			pid = rwp->get_nvme_proc(r->name,r->minkey);
-			if(pid != -1)
-			{
-			  r->from_nvme = true;
-			  Q->PutRequest(*r,pid);
-			}
+		 pid = rwp->get_event_proc(index,ts);
+		 if(pid == myrank)
+		 {
+	            event_metadata em = rwp->get_metadata(r->name);
+	            struct event *e = new struct event();
+		    e->ts = 0;
+		    e->data = nullptr;
+	            if(index != -1)
+	            { 
+		       e->data = new char[em.get_datasize()];
+	               if(!r->from_nvme)
+		       {
+	                  b = rwp->find_event(r->name,r->minkey,e);
+			  if(b) std::cout <<" event found ts = "<<r->minkey<<std::endl;
+		          /*if(!b)
+		          {
+			    pid = rwp->get_nvme_proc(r->name,r->minkey);
+			    if(pid != -1)
+			    {
+			      r->from_nvme = true;
+			      Q->PutRequest(*r,pid);
+			    }
+		          }*/
+		       }
 		    }
-		  }
-	          else
+
+	             /* else
 		  {
 	            b = rwp->find_nvme_event(r->name,r->minkey,e);
 		  }
@@ -287,9 +292,15 @@ void query_engine::service_query(struct thread_arg_q* t)
 		     s.complete = true;
 		     int dest = r->sender;
 		     Q->PutResponse(s,dest);
-		  }
+		  }*/
 		  if(e->data != nullptr) delete e->data;
 		  delete e;
+	         }
+	         else if(pid != -1 && index != -1)
+		 {	
+		    Q->PutRequest(*r,pid);
+
+		 }
 		  delete r;
 		}
 	          
