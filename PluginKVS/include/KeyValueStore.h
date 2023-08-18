@@ -256,9 +256,9 @@ class KeyValueStore
 		{
 		   key = random()%RAND_MAX; 
 		   b = ka->Put<T,N,std::string>(pos,st,key,data);
-		   if(myrank==0 && (int)(key/(float)4)%4==0)
+		   if(myrank==0 && i < 200 && (int)(key/(float)4)%4==0)
 		   {
-			b = ka->Emulator_Request<T,N>(pos,st,key);	
+			//b = ka->Emulator_Request<T,N>(pos,st,key);	
 		   }
 		   usleep(200000); 
 		}
@@ -318,6 +318,8 @@ class KeyValueStore
 		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
 		std::free(reqs);
+		std::string s = "endsession";
+		if_q->EndEmulatorSession(s,myrank);
 	   }
 	   ~KeyValueStore()
 	   {

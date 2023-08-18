@@ -69,6 +69,7 @@ private:
       boost::lockfree::queue<struct io_request*> *io_queue_async;
       boost::lockfree::queue<struct io_request*> *io_queue_sync;
       std::atomic<int> end_of_session;
+      std::atomic<int> end_of_io_session;
       std::atomic<int> num_streams;
       int num_io_threads;
       std::vector<struct thread_arg_w> t_args_io;
@@ -111,6 +112,7 @@ public:
 	   io_queue_async = new boost::lockfree::queue<struct io_request*> (128);
 	   io_queue_sync = new boost::lockfree::queue<struct io_request*> (128);
 	   end_of_session.store(0);
+	   end_of_io_session.store(0);
 	   num_streams.store(0);
 	   num_io_threads = 1;
 	   numrecvevents.store(0);
@@ -172,10 +174,14 @@ public:
 	   thallium_server->define("EmulatorAddEvent",AddEventBuffer);
 	   thallium_shm_server->define("EmulatorAddEvent",AddEventBuffer);
 	}
+	void end_session_flag()
+	{
+	  end_of_session.store(1);
+
+	}
 	void end_sessions()
 	{
-		end_of_session.store(1);
-
+		end_of_io_session.store(1);
 		for(int i=0;i<num_io_threads;i++) io_threads[i].join();
 
 	}

@@ -1175,13 +1175,24 @@ void read_write_process::data_stream(struct thread_arg_w *t)
  
    niter = 1;
 
-   //for(int i=0;i<niter;i++)
+   bool endloop = false;
+
+   while(end_of_session.load()==0)
    {
       for(;;)
       {
-      
-	if(numrecvevents.load()==256) break;
+    	if(end_of_session.load()==1)  
+	{
+	   endloop = true; break;
+	}
+	if(numrecvevents.load()==256) 
+	{
+		numrecvevents.store(0);
+		break;
+	}
       }
+
+      if(endloop) break;
 
      try
      {
@@ -1235,15 +1246,14 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      std::atomic_thread_fence(std::memory_order_seq_cst);
 
-     while(num_streams.load()==0 && end_of_session.load()==0 && io_queue_sync->empty());
+     while(num_streams.load()==0 && end_of_io_session.load()==0);
 
      int sync_async[3];
-     int sync_empty = io_queue_sync->empty() ? 0 : 1;
-     sync_async[0] = sync_empty;
+     sync_async[0] = 0;
      int async_empty = num_streams.load() == 0 ? 0 : 1;
      sync_async[1] = async_empty;
-     int end_sessions = end_of_session.load()==0 ? 0 : 1;
-     sync_async[2] = end_sessions;
+     int end_sessions = end_of_io_session.load()==0 ? 0 : 1;
+     sync_async[2] = io_queue_async->empty() ? end_sessions : 0;
 
      int sync_empty_all[3];
 
@@ -1253,31 +1263,6 @@ void read_write_process::io_polling(struct thread_arg_w *t)
      {
 	     break;
      }
-
-     if(sync_empty_all[0]==numprocs)
-     {
-
-	    /*while(!io_queue_sync->empty())
-	    {
-		struct io_request *r = nullptr;
-
-		io_queue_sync->pop(r);
-
-		std::string file_name = "file";
-		file_name+=r->name+".h5";
-		uint64_t minkey = 0;
-		uint64_t maxkey = UINT64_MAX;
-		uint64_t minkey_f,maxkey_f;
-		uint64_t minkey_r = UINT64_MAX;
-		uint64_t maxkey_r = 0;
-		get_nvme_buffer(r->buf1,r->buf2,r->name,tag);
-		preaddata(file_name.c_str(),r->name,minkey,maxkey,minkey_f,maxkey_f,minkey_r,maxkey_r,r->buf3);
-		int tag = 100;
-		r->completed.store(1);
-	    }*/
-
-     }
-
 
      if(sync_empty_all[1]==numprocs)
      {

@@ -262,8 +262,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 	               if(!r->from_nvme)
 		       {
 	                  b = rwp->find_event(r->name,r->minkey,e);
-			  if(b) std::cout <<" event found ts = "<<r->minkey<<std::endl;
-		          /*if(!b)
+		          if(!b)
 		          {
 			    pid = rwp->get_nvme_proc(r->name,r->minkey);
 			    if(pid != -1)
@@ -271,7 +270,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 			      r->from_nvme = true;
 			      Q->PutRequest(*r,pid);
 			    }
-		          }*/
+		          }
 		       }
 		    }
 
