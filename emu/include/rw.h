@@ -169,6 +169,25 @@ public:
 
 	   std::function<void(const tl::request &,std::string&,std::string&)> AddEventBuffer(
 	   std::bind(&read_write_process::ThalliumAddEvent,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+	   std::function<void(const tl::request &,std::string &,uint64_t&)> GetEventProc(
+	   std::bind(&read_write_process::ThalliumGetEventProc,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+	
+	   std::function<void(const tl::request &,std::string &,uint64_t&)> GetEvent(
+	   std::bind(&read_write_process::ThalliumGetEvent,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+
+	   std::function<void(const tl::request &,std::string &,uint64_t&)> GetNVMEProc(
+	   std::bind(&read_write_process::ThalliumGetNVMEProc,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+	   
+	   std::function<void(const tl::request &,std::string &,uint64_t &)>GetNVMEEvent(
+	   std::bind(&read_write_process::ThalliumGetNVMEEvent,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+	   thallium_server->define("EmulatorGetNVMEEvent",GetNVMEEvent);
+	   thallium_shm_server->define("EmulatorGetNVMEEvent",GetNVMEEvent);
+	   thallium_server->define("EmulatorGetNVMEProc",GetNVMEProc);
+	   thallium_shm_server->define("EmulatorGetNVMEProc",GetNVMEProc);
+	   thallium_server->define("EmulatorGetEvent",GetEvent);
+	   thallium_shm_server->define("EmulatorGetEvent",GetEvent);
+	   thallium_server->define("EmulatorGetEventProc",GetEventProc);
+	   thallium_shm_server->define("EmulatorGetEventProc",GetEventProc);
            thallium_server->define("EmulatorCreateBuffer",CreateEventBuffer);
            thallium_shm_server->define("EmulatorCreateBuffer",CreateEventBuffer);
 	   thallium_server->define("EmulatorAddEvent",AddEventBuffer);
@@ -279,8 +298,20 @@ public:
 
 	void sort_events(std::string &);
 
-	int get_event_proc(int index,uint64_t ts)
+	int get_event_proc(int index,uint64_t &ts)
 	{
+	    int pid = dm->GetValue(ts,index);
+	    return pid;
+	}
+	int get_event_proc(std::string &s,uint64_t &ts)
+	{
+	    int index = -1;
+	    m1.lock();
+	    auto r = write_names.find(s);
+	    if(r != write_names.end())
+	       index = (r->second).first;
+	    m1.unlock();
+	    if(index == -1) return index;
 	    int pid = dm->GetValue(ts,index);
 	    return pid;
 	}
@@ -292,6 +323,31 @@ public:
 	bool find_nvme_event(std::string &s,uint64_t ts, struct event *e)
 	{
 	    return nm->find_event(s,ts,e); 
+	}
+	std::string find_nvme_event(std::string &s,uint64_t &ts)
+	{
+	   int index = -1;
+	   event_metadata em;
+	   m1.lock();
+	   auto r = write_names.find(s);
+	   if(r != write_names.end())
+	   {
+	      index = (r->second).first;
+	      em = (r->second).second;
+	   }
+	   m1.unlock();
+	   std::string eventstring;
+
+	   if(index == -1) return  eventstring;
+
+	   struct event e;
+	   char data[em.get_datasize()];
+	   e.data = data;
+
+	   bool b = find_nvme_event(s,ts,&e);
+
+	   eventstring = pack_event(&e,em.get_datasize());
+	   return eventstring;
 	}
 	void get_nvme_buffer(std::vector<struct event> *buffer1,std::vector<struct event> *buffer2,std::string &s,int tag)
 	{
@@ -313,21 +369,8 @@ public:
 		nm->release_buffer(index);*/
 	}
 
-	bool find_event(std::string &s,uint64_t ts,struct event *e)
+	bool find_event(int index,uint64_t ts,struct event *e,int length)
 	{
-           int index = -1;
-	   event_metadata em;
-           m1.lock();
-	   auto r = write_names.find(s);
-	   if(r != write_names.end())
-	   {
-	      index = (r->second).first;
-	      em = (r->second).second;
-	   }
-	   m1.unlock();
-
-	   if(index == -1) return false;
-
 
 	   boost::shared_lock<boost::shared_mutex> lk(myevents[index]->m);
 
@@ -338,12 +381,40 @@ public:
 		if((*myevents[index]->buffer)[i].ts==ts)
 		{	
 		   e->ts = (*myevents[index]->buffer)[i].ts;
-	           std::memcpy(e->data,&(*myevents[index]->buffer)[i].data,em.get_datasize());
+	           std::memcpy(e->data,&(*myevents[index]->buffer)[i].data,length);
 		   return true;	   
 		   break;
 		}
 	   }
 	   return false;
+	}
+
+	std::string find_event(std::string &s,uint64_t &ts)
+	{
+	    int index = -1;
+	    event_metadata em;
+	    m1.lock();
+	    auto r = write_names.find(s);
+	    if(r != write_names.end())
+	    {
+		index = (r->second).first;
+		em = (r->second).second;
+	    }
+	    m1.unlock();
+
+	    std::string eventstring;
+	    if(index == -1) return eventstring;
+
+	    struct event e;
+	    char data[em.get_datasize()]; 
+	    e.ts = UINT64_MAX;
+	    e.data = data;
+	    bool b = find_event(index,ts,&e,em.get_datasize());
+	    if(b)
+	    {
+		eventstring = pack_event(&e,em.get_datasize());	
+	    }
+	    return eventstring;
 	}
 
 	event_metadata get_metadata(std::string &s)
@@ -457,6 +528,22 @@ public:
         void ThalliumAddEvent(const tl::request &req, std::string &s,std::string &data)
 	{
 	        req.respond(add_event(s,data));
+	}
+	void ThalliumGetEventProc(const tl::request &req,std::string &s,uint64_t &ts)
+	{
+		req.respond(get_event_proc(s,ts));
+	}
+        void ThalliumGetEvent(const tl::request &req,std::string &s,uint64_t &ts)
+	{
+		req.respond(find_event(s,ts));
+	}
+	void ThalliumGetNVMEProc(const tl::request &req,std::string &s,uint64_t &ts)
+	{
+		req.respond(get_nvme_proc(s,ts));
+	}
+	void ThalliumGetNVMEEvent(const tl::request &req,std::string &s,uint64_t &ts)
+	{
+		req.respond(find_nvme_event(s,ts));
 	}
 
         bool get_events_in_range_from_read_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup);

@@ -302,7 +302,7 @@ void query_engine::service_query(struct thread_arg_q* t)
 		       e->data = new char[em.get_datasize()];
 	               if(!r->from_nvme)
 		       {
-	                  b = rwp->find_event(r->name,r->minkey,e);
+	                  b = false; //rwp->find_event(r->name,r->minkey,e);
 		          if(!b)
 		          {
 			    pid = rwp->get_nvme_proc(r->name,r->minkey);
