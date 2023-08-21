@@ -195,6 +195,37 @@ void query_engine::get_range(std::vector<struct event> *buf1,std::vector<struct 
      std::free(reqs);*/
 }
 
+int query_engine::count_end_of_session()
+{
+   int send_v = 0;
+   std::vector<int> recv_v(numprocs);
+   std::fill(recv_v.begin(),recv_v.end(),0);
+
+   if(Q->EmptyRequestQueue()) send_v = 1;   
+
+   MPI_Request *reqs = new MPI_Request[2*numprocs];
+   int tag = 10000;
+
+   int nreq = 0;
+   for(int i=0;i<numprocs;i++)
+   {
+     MPI_Isend(&send_v,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+     nreq++;
+     MPI_Irecv(&recv_v[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+     nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+   std::free(reqs);
+
+   int nend = 0;
+   for(int i=0;i<recv_v.size();i++)
+      nend+=recv_v[i];
+
+   return nend;
+}
+
 void query_engine::service_response(struct thread_arg_q *t)
 {
 
@@ -208,10 +239,11 @@ void query_engine::service_response(struct thread_arg_q *t)
 		delete r;
 	}
 
-	if(Q->EmptyResponseQueue() && end_session.load()==1) break;
+	if(Q->EmptyResponseQueue() && end_request.load()==1) break;
   }
 
 }
+
 
 void query_engine::service_query(struct thread_arg_q* t) 
 {
@@ -223,6 +255,20 @@ void query_engine::service_query(struct thread_arg_q* t)
 
 	while(true)
 	{
+	   if(end_session.load()==1)
+	   {
+		int nend = count_end_of_session();
+		if(nend==numprocs) 
+		{
+		   end_request.store(1);
+		   break;
+		}
+
+	   }
+	   if(endsessions==numprocs && end_session.load()==0)
+	   {
+		end_session.store(1);
+	   } 
 	   struct query_req *r = nullptr;
 	   r=Q->GetRequest();
 	   if(r != nullptr)
@@ -233,11 +279,6 @@ void query_engine::service_query(struct thread_arg_q* t)
 	      {
 		     endsessions++;
 		     delete r;
-		     if(endsessions==numprocs) 
-		     {
-			     end_session.store(1);	     
-			     break;
-		     }
 	      }
 	      else
 	      {

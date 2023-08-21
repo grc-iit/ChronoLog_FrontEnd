@@ -1171,7 +1171,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 
    int numevents = ab->buffer_size.load();
 
-   int maxsize_per_proc = std::ceil(2048/numprocs);
+   int maxsize_per_proc = std::ceil(4096/numprocs);
  
    niter = 1;
 
@@ -1185,7 +1185,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 	{
 	   endloop = true; break;
 	}
-	if(numrecvevents.load()==256) 
+	if(numrecvevents.load()>=256) 
 	{
 		numrecvevents.store(0);
 		break;
@@ -1206,6 +1206,15 @@ void read_write_process::data_stream(struct thread_arg_w *t)
      }
    }
 
+   try
+   {
+       sort_events(t->name);
+   }
+   catch(const std::exception &except)
+   {
+	std::cout <<except.what()<<std::endl;
+	exit(-1);
+   }
 
 
    /*for(int i=0;i<4;i++)

@@ -29,6 +29,7 @@ class query_engine
 	std::vector<std::thread> workers;
 	int numthreads;
 	std::atomic<int> end_session;
+	std::atomic<int> end_request;
 	std::atomic<int> query_number;
 	std::unordered_map<std::string,std::pair<int,int>> buffer_names;
 	std::vector<struct atomic_buffer*> sbuffers;
@@ -58,6 +59,7 @@ class query_engine
 	   S = new query_parser(numprocs,myrank);
 	   ds = rwp->get_sorter();
 	   end_session.store(0);
+	   end_request.store(0);
 	   numthreads = 2;
 	   t_args.resize(numthreads);
 	   workers.resize(numthreads);
@@ -151,6 +153,7 @@ class query_engine
 	void service_query(struct thread_arg_q*);
 	void service_response(struct thread_arg_q*);
 	bool end_file_read(bool,int);
+	int count_end_of_session();
 
 };
 
