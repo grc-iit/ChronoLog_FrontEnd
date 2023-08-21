@@ -98,7 +98,6 @@ class distributed_queues
 
 	     thallium_server->define("EmulatorPutRemoteAddresses",PutRemoteAddresses);
 	     thallium_shm_server->define("EmulatorPutRemoteAddresses",PutRemoteAddresses);
-	     if(serverid==2) std::cout <<" bind functions"<<std::endl;
 	     
 	   }
 
@@ -143,11 +142,13 @@ class distributed_queues
 		   remoteshmaddrs.push_back(lines[n]);
 		   n++;
 		}
+		remoteipaddrs.clear();
 		for(int i=0;i<nremoteservers;i++)
 		{
 		   remoteipaddrs.push_back(lines[n]);
 		   n++;
 		}
+		remoteserveraddrs.clear();
 		for(int i=0;i<nremoteservers;i++)
 		{	
 		   remoteserveraddrs.push_back(lines[n]);

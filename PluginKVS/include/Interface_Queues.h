@@ -256,6 +256,36 @@ class Interface_Queues
 	   return b;
 	}
 
+	bool PutKVSAddresses(int s_id)
+	{
+	   std::vector<std::string> lines;
+	   
+	   lines.push_back(std::to_string(nservers));
+
+	   for(int i=0;i<shmaddrs.size();i++)
+		lines.push_back(shmaddrs[i]);
+	   for(int i=0;i<ipaddrs.size();i++)
+		lines.push_back(ipaddrs[i]);
+	   for(int i=0;i<serveraddrs.size();i++)
+		lines.push_back(serveraddrs[i]);
+	   bool b = false;
+	   if(remoteipaddrs[s_id].compare(myipaddr)==0)
+	   {
+	      tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
+	      tl::remote_procedure rp = thallium_shm_client->define("EmulatorPutRemoteAddresses");
+	      b = rp.on(ep)(lines);
+
+	   }
+	   else
+	   {
+	     tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
+	     tl::remote_procedure rp = thallium_client->define("EmulatorPutRemoteAddresses");
+	     b = rp.on(ep)(lines);
+	   }
+	   return b;
+
+	}
+
 	~Interface_Queues()
 	{
 	   delete request_queue;

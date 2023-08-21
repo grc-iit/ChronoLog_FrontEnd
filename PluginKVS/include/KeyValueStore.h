@@ -69,6 +69,7 @@ class KeyValueStore
 		if_q->get_remote_addrs(remfilename);
 		if_q->bind_functions();
 		MPI_Barrier(MPI_COMM_WORLD);
+		bool b = if_q->PutKVSAddresses(myrank);
 		tables = new KeyValueStoreAccessorRepository(numprocs,myrank,io_layer,if_q,ds);
 		k_args.resize(MAXSTREAMS);
 	        kstreams.resize(MAXSTREAMS);
