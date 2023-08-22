@@ -283,7 +283,22 @@ class Interface_Queues
 	     b = rp.on(ep)(lines);
 	   }
 	   return b;
+	}
 
+	std::string GetEmulatorEvent(std::string &s,uint64_t &ts,int s_id)
+	{
+	   if(remoteipaddrs[s_id].compare(myipaddr)==0)
+   	   {
+		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
+		tl::remote_procedure rp = thallium_shm_client->define("EmulatorFindEvent");
+		return rp.on(ep)(s,ts);
+	   }		   
+	   else
+	   {
+		tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
+		tl::remote_procedure rp = thallium_client->define("EmulatorFindEvent");
+		return rp.on(ep)(s,ts);
+	   }
 	}
 
 	~Interface_Queues()

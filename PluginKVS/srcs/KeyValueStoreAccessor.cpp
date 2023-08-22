@@ -57,6 +57,24 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
 }
 
 template<typename T,typename N>
+bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
+{
+   if(pos >= lists.size()) return false;
+
+   uint64_t ts = UINT64_MAX;
+   bool b = false;
+   std::vector<uint64_t> values;
+
+   T *invlist = reinterpret_cast<T*>(lists[pos].second);
+   int ret = invlist->get_entry(key,values);
+
+   std::string eventstring = if_q->GetEmulatorEvent(s,ts,myrank);
+   std::cout <<" event = "<<eventstring.length()<<std::endl;
+   return false;
+
+}
+
+template<typename T,typename N>
 bool KeyValueStoreAccessor::Emulator_Request(int pos, std::string &s, N&key)
 {
    if(pos >= lists.size()) return false;

@@ -257,9 +257,9 @@ class KeyValueStore
 		{
 		   key = random()%RAND_MAX; 
 		   b = ka->Put<T,N,std::string>(pos,st,key,data);
-		   if(myrank==0 && i < 200 && (int)(key/(float)4)%4==0)
+		   if(myrank==0 && i==0)
 		   {
-			b = ka->Emulator_Request<T,N>(pos,st,key);	
+			b = ka->Get<T,N>(pos,st,key);	
 		   }
 		   usleep(200000); 
 		}
