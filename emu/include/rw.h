@@ -180,6 +180,11 @@ public:
 	   
 	   std::function<void(const tl::request &,std::string &,uint64_t &)>GetNVMEEvent(
 	   std::bind(&read_write_process::ThalliumGetNVMEEvent,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+	   std::function<void(const tl::request &,std::string &,uint64_t&)> FindEvent(
+           std::bind(&read_write_process::ThalliumFindEvent,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+
+	   thallium_server->define("EmulatorFindEvent",FindEvent);
+	   thallium_shm_server->define("EmulatorFindEvent",FindEvent);
 	   thallium_server->define("EmulatorGetNVMEEvent",GetNVMEEvent);
 	   thallium_shm_server->define("EmulatorGetNVMEEvent",GetNVMEEvent);
 	   thallium_server->define("EmulatorGetNVMEProc",GetNVMEProc);
@@ -546,6 +551,15 @@ public:
 		req.respond(find_nvme_event(s,ts));
 	}
 
+	void ThalliumFindEvent(const tl::request &req,std::string &s,uint64_t &ts)
+        {
+           req.respond(FindEvent(s,ts));
+        }
+
+
+	std::string FindEvent(std::string&,uint64_t&);
+	std::string GetEvent(std::string &,uint64_t&,int);
+	std::string GetNVMEEvent(std::string &,uint64_t&,int);
         bool get_events_in_range_from_read_buffers(std::string &s,std::pair<uint64_t,uint64_t> &range,std::vector<struct event> &oup);
 	void create_events(int num_events,std::string &s,double);
 	void clear_write_events(int,uint64_t&,uint64_t&);
@@ -564,7 +578,8 @@ public:
 	void data_stream(struct thread_arg_w*);
 	void sync_clocks();
 	bool create_buffer(int &,std::string &);
-	uint64_t add_event(std::string&,std::string&); 
+	uint64_t add_event(std::string&,std::string&);
+        int endsessioncount();	
 };
 
 #endif

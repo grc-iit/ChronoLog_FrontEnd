@@ -1163,47 +1163,65 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 
 }
 
+int read_write_process::endsessioncount()
+{
+     int send_v = end_of_session.load();
+     std::vector<int> recv_v(numprocs);
+     std::fill(recv_v.begin(),recv_v.end(),0);
+     MPI_Request *reqs = new MPI_Request[2*numprocs];
+     int tag_p = 1500; 
+
+     int nreq = 0;
+     for(int i=0;i<numprocs;i++)
+     {
+	MPI_Isend(&send_v,1,MPI_INT,i,tag_p,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recv_v[i],1,MPI_INT,i,tag_p,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+     }
+
+     MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+    std::free(reqs);     
+
+    int count = 0;
+    for(int i=0;i<numprocs;i++) count += recv_v[i];
+    return count;
+
+}
+
 void read_write_process::data_stream(struct thread_arg_w *t)
 {
-   int niter = iters_per_batch;
 
-   atomic_buffer *ab = dm->get_atomic_buffer(0);
-
-   int numevents = ab->buffer_size.load();
-
-   int maxsize_per_proc = std::ceil(4096/numprocs);
- 
-   niter = 1;
-
-   bool endloop = false;
+   auto t1 = std::chrono::high_resolution_clock::now();
+   bool b = true; 
 
    while(end_of_session.load()==0)
    {
+      int nprocs = endsessioncount();
+      t1 = std::chrono::high_resolution_clock::now();
+      if(nprocs==numprocs) break;
+
       for(;;)
       {
-    	if(end_of_session.load()==1)  
-	{
-	   endloop = true; break;
-	}
-	if(numrecvevents.load()>=256) 
-	{
-		numrecvevents.store(0);
-		break;
-	}
+        auto t2 = std::chrono::high_resolution_clock::now();
+        if(std::chrono::duration<double>(t2-t1).count() > 100 && b) 
+        {
+	   b = false;
+	   break;
+        }
       }
 
-      if(endloop) break;
-
-     try
-     {
-	sort_events(t->name);
-     }
-     catch(const std::exception &except)
-     {
-
-	std::cout <<except.what()<<std::endl;
-	exit(-1);
-     }
+      try
+      {
+	  sort_events(t->name);
+      }
+      catch(const std::exception &except)
+      {
+	  std::cout <<except.what()<<std::endl;
+	  exit(-1);
+      }
+      b = true;
    }
 
    try
@@ -1337,4 +1355,54 @@ void read_write_process::io_polling(struct thread_arg_w *t)
      }
 
   }
+}
+
+std::string read_write_process::GetEvent(std::string &s,uint64_t &ts,int s_id)
+{
+ if(ipaddrs[s_id].compare(myipaddr)==0)
+ {
+    tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[s_id]);
+    tl::remote_procedure rp = thallium_shm_client->define("EmulatorGetEvent");
+    return rp.on(ep)(s,ts);
+ }
+ else
+ {
+   tl::remote_procedure rp = thallium_client->define("EmulatorGetEvent");
+   return rp.on(serveraddrs[s_id])(s,ts);
+ }
+}
+
+std::string read_write_process::GetNVMEEvent(std::string &s,uint64_t &ts,int s_id)
+{
+
+   if(ipaddrs[s_id].compare(myipaddr)==0)
+   {
+	tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[s_id]);
+	tl::remote_procedure rp = thallium_shm_client->define("EmulatorGetNVMEEvent");
+	return rp.on(ep)(s,ts);
+   }
+   else
+   {
+	tl::remote_procedure rp = thallium_client->define("EmulatorGetNVMEEvent");
+	return rp.on(serveraddrs[s_id])(s,ts);
+   }
+}
+
+std::string read_write_process::FindEvent(std::string &s,uint64_t &ts)
+{
+   std::string eventstring;
+   int pid = get_event_proc(s,ts);
+   if(pid != -1)
+   {
+	return GetEvent(s,ts,pid);
+   }
+   else
+   {
+	pid = get_nvme_proc(s,ts);
+	if(pid != -1) 
+	{
+          return GetNVMEEvent(s,ts,pid);
+	}
+   }
+   return eventstring;
 }
