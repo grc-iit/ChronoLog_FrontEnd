@@ -11,32 +11,6 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
 {
 
   int datasize = em.get_datasize();
-  MPI_Datatype value_field;
-  MPI_Type_contiguous(datasize,MPI_CHAR,&value_field);
-  MPI_Type_commit(&value_field);
-
-  struct event e;
-  MPI_Aint tdispl1[2];
-
-  MPI_Get_address(&e,&tdispl1[0]);
-  MPI_Get_address(&e.data,&tdispl1[1]);
-
-  MPI_Aint base = tdispl1[0];
-  MPI_Aint valuef = MPI_Aint_diff(tdispl1[1],base);
-
-  MPI_Datatype key_value;
-  int blocklens[2];
-  MPI_Aint tdispl[2];
-  int types[2];
-  blocklens[0] = 1;
-  blocklens[1] = 1;
-  tdispl[0] = 0;
-  tdispl[1] = 8;
-  types[0] = MPI_UINT64_T;
-  types[1] = value_field;
-
-  MPI_Type_create_struct(2,blocklens,tdispl,types,&key_value);
-  MPI_Type_commit(&key_value);
 
   int total_events = 0;
 
@@ -57,6 +31,7 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
      mysplitters.push_back((*events[index])[r1].ts);
      mysplitters.push_back((*events[index])[r2].ts);
    }
+   else if(local_events==1) mysplitters.push_back((*events[index])[0].ts);
 
    std::vector<int> splitter_counts(numprocs);
    std::fill(splitter_counts.begin(),splitter_counts.end(),0);
@@ -305,9 +280,5 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
 	if(recv_ts[i+1] > max_v) max_v = recv_ts[i+1];
     }
    }
-
-   MPI_Type_free(&key_value);
-   MPI_Type_free(&value_field);
-
    delete reqs; 
 }
