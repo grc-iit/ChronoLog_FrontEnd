@@ -1217,7 +1217,6 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 
       for(;;)
       {
-	if(end_of_session.load()==1) break;
         auto t2 = std::chrono::high_resolution_clock::now();
         if(std::chrono::duration<double>(t2-t1).count() > 100 && b) 
         {
