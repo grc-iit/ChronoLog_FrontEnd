@@ -253,15 +253,15 @@ class KeyValueStore
 		data.resize(100);
 
 		if_q->CreateEmulatorBuffer(512,st,myrank);
-		for(int i=0;i<512;i++)
+		for(int i=0;i<1;i++)
 		{
 		   key = random()%RAND_MAX; 
-		   b = ka->Put<T,N,std::string>(pos,st,key,data);
+		   //b = ka->Put<T,N,std::string>(pos,st,key,data);
 		   if(myrank==0 && i==0)
 		   {
-			b = ka->Get<T,N>(pos,st,key);	
+			//b = ka->Get<T,N>(pos,st,key);	
 		   }
-		   usleep(200000); 
+		   //usleep(1000); 
 		}
    	       //RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }

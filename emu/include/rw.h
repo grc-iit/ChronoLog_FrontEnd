@@ -21,6 +21,7 @@ struct thread_arg_w
 {
   int tid;
   int num_events;
+  bool endsession;
   std::string name;
 };
 
@@ -354,26 +355,6 @@ public:
 	   eventstring = pack_event(&e,em.get_datasize());
 	   return eventstring;
 	}
-	void get_nvme_buffer(std::vector<struct event> *buffer1,std::vector<struct event> *buffer2,std::string &s,int tag)
-	{
-		/*m1.lock();
-		auto r = write_names.find(s);
-		int aindex = (r->second).first;
-		m1.unlock();
-
-		int index = nm->buffer_index(s);
-		while(nm->get_buffer(index,tag,3)==false);
-			
-		int size = myevents[aindex]->buffer_size.load();
-		for(int i=0;i<size;i++)
-		   buffer1->push_back((*(myevents[aindex])->buffer)[i]);
-
-		int bc;
-		std::vector<std::vector<int>> numblocks;
-		nm->fetch_buffer(buffer2,s,index,tag,bc,numblocks);
-		nm->release_buffer(index);*/
-	}
-
 	bool find_event(int index,uint64_t ts,struct event *e,int length)
 	{
 

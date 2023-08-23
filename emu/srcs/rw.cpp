@@ -171,7 +171,7 @@ void read_write_process::sort_events(std::string &s)
         uint64_t min_v,max_v;
         int numevents = myevents[index]->buffer_size.load();
         myevents[index]->buffer_size.store(0);
-        ds->sort_data(index,index,numevents,min_v,max_v,em);
+        if(ds->sort_data(index,index,numevents,min_v,max_v,em))
         myevents[index]->buffer_size.store(myevents[index]->buffer->size());
 
         uint64_t minv = std::min(min_v,(*write_interval)[index].first.load());
@@ -261,6 +261,7 @@ void read_write_process::spawn_write_streams(std::vector<std::string> &snames,st
         for(int i=0;i<snames.size();i++)
         {
                t_args[i].tid = i;
+	       t_args[i].endsession = false;
                int numevents = total_events[i];
                int events_per_proc = numevents/numprocs;
                int rem = numevents%numprocs;
@@ -272,7 +273,7 @@ void read_write_process::spawn_write_streams(std::vector<std::string> &snames,st
 	 std::function<void(struct thread_arg_w *)> DataFunc(
          std::bind(&read_write_process::data_stream,this,std::placeholders::_1));
 
-         for(int i=0;i<nbatches;i++)
+         while(true)
          {
                for(int j=0;j<num_threads;j++)
                {
@@ -292,6 +293,10 @@ void read_write_process::spawn_write_streams(std::vector<std::string> &snames,st
 
                 num_streams.store(num_threads);
                 while(num_streams.load()!=0);
+	        bool endbatch = true;
+		for(int j=0;j<num_threads;j++)
+		  if(t_args[j].endsession != true) endbatch = false;
+		if(endbatch) break;
 
            }
 
@@ -1196,11 +1201,19 @@ void read_write_process::data_stream(struct thread_arg_w *t)
    auto t1 = std::chrono::high_resolution_clock::now();
    bool b = true; 
 
-   while(end_of_session.load()==0)
+   int numrounds = 0;
+
+   while(true)
    {
       int nprocs = endsessioncount();
       t1 = std::chrono::high_resolution_clock::now();
-      if(nprocs==numprocs) break;
+      if(nprocs==numprocs) 
+      {
+	  t->endsession = true;
+	  break;
+      }
+
+      if(numrounds == 8) break;
 
       for(;;)
       {
@@ -1216,6 +1229,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
       try
       {
 	  sort_events(t->name);
+	  numrounds++;
       }
       catch(const std::exception &except)
       {

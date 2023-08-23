@@ -7,7 +7,7 @@ bool compare_fn(struct event &e1, struct event &e2)
     return e1.ts <= e2.ts;
 }
 
-void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v,event_metadata &em)
+bool dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v,event_metadata &em)
 {
 
   int datasize = em.get_datasize();
@@ -15,7 +15,8 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
   int total_events = 0;
 
    int local_events = size;
-   
+  
+
    std::vector<uint64_t> mysplitters;
    if(local_events >= 2)
    {
@@ -61,8 +62,9 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    for(int i=0;i<numprocs;i++) num_splitters += splitter_counts[i];
 
    
-   if(myrank==0 && index >= 4)
-   std::cout <<" num_splitters = "<<num_splitters<<" index = "<<index<<" tag = "<<tag<<std::endl;
+   if(myrank==0)
+   std::cout <<" num_splitters = "<<num_splitters<<" numevents = "<<local_events<<" index = "<<index<<" tag = "<<tag<<std::endl;
+   if(num_splitters==0) return false;
 
    if(num_splitters > 0)
    {
@@ -279,6 +281,7 @@ void dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
 	if(recv_ts[i] < min_v) min_v = recv_ts[i];
 	if(recv_ts[i+1] > max_v) max_v = recv_ts[i+1];
     }
+    return true;
    }
    delete reqs; 
 }

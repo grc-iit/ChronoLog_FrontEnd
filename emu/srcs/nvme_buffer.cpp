@@ -62,15 +62,18 @@ void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,in
     int psize = ev->size();
     int psized = ed->size();
 
-    try
+    if(numevents > 0)
     {
-      ev->resize(psize+numevents);
-      ed->resize(psized+numevents*datasize);
-    }
-    catch(const std::exception &except)
-    {
+      try
+      {
+        ev->resize(psize+numevents);
+        ed->resize(psized+numevents*datasize);
+      }
+      catch(const std::exception &except)
+      {
 	std::cout <<except.what()<<std::endl;
 	exit(-1);
+      }
     }
 
     int p = psize;
