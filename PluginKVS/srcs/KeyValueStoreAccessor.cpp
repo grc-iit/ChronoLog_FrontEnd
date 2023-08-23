@@ -68,8 +68,11 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
    T *invlist = reinterpret_cast<T*>(lists[pos].second);
    int ret = invlist->get_entry(key,values);
 
-   std::string eventstring = if_q->GetEmulatorEvent(s,ts,myrank);
-   std::cout <<" event = "<<eventstring.length()<<std::endl;
+   if(values.size()>0)
+   {
+     ts = values[0];
+     std::string eventstring = if_q->GetEmulatorEvent(s,ts,myrank);
+   }
    return false;
 
 }
