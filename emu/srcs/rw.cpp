@@ -149,6 +149,7 @@ void read_write_process::sort_events(std::string &s)
       m1.lock();
       auto r = write_names.find(s);
       int index = -1;
+      int datasize = -1;
       event_metadata em;
       if(r != write_names.end())
       {
@@ -156,6 +157,7 @@ void read_write_process::sort_events(std::string &s)
         em = (r->second).second;
       }
       m1.unlock();
+      datasize = em.get_datasize();
       int nm_index = nm->buffer_index(s);
 
       if(index == -1 || nm_index == -1)
@@ -170,6 +172,7 @@ void read_write_process::sort_events(std::string &s)
         ds->get_unsorted_data(myevents[index]->buffer,myevents[index]->datamem,index);
         uint64_t min_v,max_v;
         int numevents = myevents[index]->buffer_size.load();
+	int maxevents = myevents[index]->buffer->size();
         myevents[index]->buffer_size.store(0);
         if(ds->sort_data(index,index,numevents,min_v,max_v,em))
         myevents[index]->buffer_size.store(myevents[index]->buffer->size());
@@ -181,6 +184,9 @@ void read_write_process::sort_events(std::string &s)
         nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
       
         clear_write_events(index,min_v,max_v);
+	myevents[index]->buffer->resize(maxevents);
+	myevents[index]->datamem->resize(maxevents*datasize);
+
       }
       
       nm->release_buffer(nm_index);
@@ -1213,12 +1219,12 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 	  break;
       }
 
-      if(numrounds == 8) break;
+      if(numrounds == 4) break;
 
       for(;;)
       {
         auto t2 = std::chrono::high_resolution_clock::now();
-        if(std::chrono::duration<double>(t2-t1).count() > 100 && b) 
+        if(std::chrono::duration<double>(t2-t1).count() > 50 && b) 
         {
 	   b = false;
 	   break;
@@ -1228,6 +1234,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
       try
       {
 	  sort_events(t->name);
+	  if(myrank==0) std::cout <<" sort"<<std::endl;
 	  numrounds++;
       }
       catch(const std::exception &except)
