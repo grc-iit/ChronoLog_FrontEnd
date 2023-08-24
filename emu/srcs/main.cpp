@@ -112,7 +112,6 @@ int main(int argc,char **argv)
 	else np->prepare_service(name,em2,4096);
   }
 
-
   MPI_Barrier(MPI_COMM_WORLD);
 
   int num_writer_threads = 4;

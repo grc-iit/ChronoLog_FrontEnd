@@ -28,6 +28,6 @@ struct atomic_buffer
 };
 
 std::string pack_event(struct event *,int);
-
+void unpack_event(struct event *,std::string &);
 
 #endif
