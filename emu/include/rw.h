@@ -364,7 +364,7 @@ public:
 
            for(int i=0;i<myevents[index]->buffer_size.load();i++)
 	   {	   
-		if((*myevents[index]->buffer)[i].ts==ts)
+		if((*myevents[index]->valid)[i].load()==1 && (*myevents[index]->buffer)[i].ts==ts)
 		{	
 		   e->ts = (*myevents[index]->buffer)[i].ts;
 	           std::memcpy(e->data,&(*myevents[index]->buffer)[i].data,length);

@@ -106,10 +106,10 @@ int main(int argc,char **argv)
   {
 	std::string name = "table"+std::to_string(i+1);
 	story_names.push_back(name);
-	total_events.push_back(2048);
+	total_events.push_back(4096);
 	if(i%2==0)
-	np->prepare_service(name,em1,2048);
-	else np->prepare_service(name,em2,2048);
+	np->prepare_service(name,em1,4096);
+	else np->prepare_service(name,em2,4096);
   }
 
 

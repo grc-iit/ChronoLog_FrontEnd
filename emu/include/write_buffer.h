@@ -64,6 +64,7 @@ class databuffers
 	 {
 		 delete atomicbuffers[i]->buffer;
 		 delete atomicbuffers[i]->datamem;
+		 delete atomicbuffers[i]->valid;
 		 delete atomicbuffers[i];
 	 }
      }

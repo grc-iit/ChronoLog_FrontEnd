@@ -24,6 +24,7 @@ struct atomic_buffer
    std::atomic<int> buffer_size;
    std::vector<struct event> *buffer;
    std::vector<char> *datamem;
+   std::vector<std::atomic<int>> *valid;
 };
 
 std::string pack_event(struct event *,int);

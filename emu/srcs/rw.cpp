@@ -54,6 +54,8 @@ bool read_write_process::create_buffer(int &num_events,std::string &s)
     {
 	ab->buffer->resize(num_events);
 	ab->datamem->resize(num_events*datasize);
+	for(int i=0;i<ab->valid->size();i++)
+		(*ab->valid)[i].store(0);
     }
     catch(const std::exception &except)
     {
@@ -118,6 +120,8 @@ void read_write_process::create_events(int num_events,std::string &s,double arri
     {
       ab->buffer->resize(num_events);
       ab->datamem->resize(num_events*datasize);
+      for(int i=0;i<ab->valid->size();i++)
+	      (*ab->valid)[i].store(0);
     }
     catch(const std::exception &except)
     {
