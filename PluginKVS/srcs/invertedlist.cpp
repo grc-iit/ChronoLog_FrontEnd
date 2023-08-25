@@ -45,14 +45,11 @@ int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entry(KeyT& k,std::vector<Va
 {
 	int pid = partition_no(k);
         int ret = -1;
-
 	if(pid==serverid)
-	    values = LocalGetEntry(k);
-	else 
-	    values = GetEntry(k,pid);
+	   values = LocalGetEntry(k);
+	else values = GetEntry(k,pid);
+	if(values.size()>0) ret = pid;
 
-	std::vector<struct keydata> events = get_events(k,values,pid);	
-	//ret = create_async_io_request(k); 
 	return ret;
 }
 

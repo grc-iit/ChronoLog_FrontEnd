@@ -184,6 +184,11 @@ public:
 	   std::function<void(const tl::request &,std::string &,uint64_t&)> FindEvent(
            std::bind(&read_write_process::ThalliumFindEvent,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 
+	   std::function<void(const tl::request &,std::string &)> CheckFile(
+	   std::bind(&read_write_process::ThalliumCheckFile,this,std::placeholders::_1,std::placeholders::_2));
+
+	   thallium_server->define("EmulatorCheckFile",CheckFile);
+	   thallium_shm_server->define("EmulatorCheckFile",CheckFile);	   
 	   thallium_server->define("EmulatorFindEvent",FindEvent);
 	   thallium_shm_server->define("EmulatorFindEvent",FindEvent);
 	   thallium_server->define("EmulatorGetNVMEEvent",GetNVMEEvent);
@@ -443,6 +448,15 @@ public:
 	   }
 
 	}
+	bool file_exists(std::string &s)
+	{
+	   bool found = false;
+	   m1.lock();
+	   auto r = std::find(file_names.begin(),file_names.end(),s);
+	   if(r != file_names.end()) found = true;
+	   m1.unlock();
+	   return found;
+	}
 
         bool get_range_in_read_buffers(std::string &s,uint64_t &min_v,uint64_t &max_v)
 	{
@@ -506,6 +520,10 @@ public:
 	int dropped_events()
 	{
 	    return dm->num_dropped_events();
+	}
+	void ThalliumCheckFile(const tl::request &req,std::string &s)
+	{
+	   req.respond(file_exists(s));
 	}
 	void ThalliumCreateBuffer(const tl::request &req, int &num_events,std::string &s)
         {

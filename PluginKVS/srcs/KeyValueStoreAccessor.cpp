@@ -66,12 +66,30 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
    std::vector<uint64_t> values;
 
    T *invlist = reinterpret_cast<T*>(lists[pos].second);
-   int ret = invlist->get_entry(key,values);
+   int pid = invlist->get_entry(key,values);
 
    if(values.size()>0)
    {
      ts = values[0];
      std::string eventstring = if_q->GetEmulatorEvent(s,ts,myrank);
+     if(eventstring.length()==0)
+     {	
+	if(!invlist->CheckLocalFileExists())
+	{
+	   std::string filename = "file";
+	   filename += s+".h5";
+	   if(if_q->CheckFileExistence(filename,myrank))
+	   {
+		invlist->LocalFileExists();
+	   }
+	}
+
+	if(invlist->CheckLocalFileExists())
+	{
+	   invlist->get_events(key,values,pid);
+	}
+     }
+		
    }
    return false;
 

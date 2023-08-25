@@ -126,7 +126,7 @@ class hdf5_invlist
 	     rpc_prefix = filename+attributename;
 	     d = ds;
 	     io_t = io;
-	     file_exists = true;
+	     file_exists = false;
 	     tl::engine *t_server = d->get_thallium_server();
              tl::engine *t_server_shm = d->get_thallium_shm_server();
              tl::engine *t_client = d->get_thallium_client();
@@ -262,6 +262,15 @@ class hdf5_invlist
 		   tl::remote_procedure rp = thallium_client->define(fcnname.c_str());
 		   return rp.on(serveraddrs[destid])(k);
 		}
+	   }
+	   bool CheckLocalFileExists()
+	   {
+		   return file_exists;
+	   }
+
+	   void LocalFileExists()
+	   {
+		file_exists = true;
 	   }
 
 	   std::vector<struct keydata> get_events(KeyT&,std::vector<ValueT> &,int);

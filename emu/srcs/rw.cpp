@@ -1238,7 +1238,6 @@ void read_write_process::data_stream(struct thread_arg_w *t)
       try
       {
 	  sort_events(t->name);
-	  if(myrank==0) std::cout <<" sort"<<std::endl;
 	  numrounds++;
       }
       catch(const std::exception &except)
