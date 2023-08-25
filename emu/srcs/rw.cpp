@@ -1419,6 +1419,7 @@ std::string read_write_process::FindEvent(std::string &s,uint64_t &ts)
    int pid = get_event_proc(s,ts);
    if(pid != -1)
    {
+
 	return GetEvent(s,ts,pid);
    }
    else
