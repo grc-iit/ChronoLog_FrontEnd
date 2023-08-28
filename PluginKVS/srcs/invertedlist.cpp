@@ -91,7 +91,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_async_io_request(KeyT &k
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
 std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events(KeyT &k,std::vector<ValueT> &values,int pid)
 {
-   std::string fname = "file";
+   std::string fname = dir;
+   fname += "file";
    fname += filename+".h5";
 
    if(file_exists)

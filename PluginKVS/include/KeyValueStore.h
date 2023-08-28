@@ -258,28 +258,25 @@ class KeyValueStore
 		for(int i=0;i<512;i++)
 		{
 		   key = random()%RAND_MAX; 
-		   if(n==3 && i > 250)
-                   {
-                      b = ka->Get<T,N>(pos,st,key);
-                   }
 
 		   b = ka->Put<T,N,std::string>(pos,st,key,data);
 		   if(n==0&&i<10)
 		   {
 			keys.push_back(key);
-			b = ka->Get<T,N>(pos,st,key);
-		   }
-		   if(n==1 && i==0) 
-		   {
-			for(int j=0;j<keys.size();j++)
-			{
-			  b = ka->Get<T,N>(pos,st,keys[j]);	
-			}
+			//b = ka->Get<T,N>(pos,st,key);
 		   }
 
 		   usleep(200000); 
 		}
 
+		if(myrank==0)
+		{
+		   for(int i=0;i<keys.size();i++)
+		   {
+			b = ka->Get<T,N>(pos,st,keys[i]);
+		   }
+
+		}
 		ka->flush_invertedlist<T>(attr_name);
    	       //RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }
