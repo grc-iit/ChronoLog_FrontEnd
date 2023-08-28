@@ -515,12 +515,13 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
 void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 {
- std::string fname = "file";
+ std::string fname = dir;
+ fname+="file";
  fname += filename+".h5";
 
  if(!file_exists) return;
 
- if(myrank==0) std::cout <<" filename = "<<filename<<" attr = "<<attributename<<std::endl;
+ if(myrank==0) std::cout <<" filename = "<<fname<<" attr = "<<attributename<<std::endl;
 
  hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
  hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -570,9 +571,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  int numblocks = attrs[3];
  int pos = 4;
 
- if(myrank==0) std::cout <<" total records = "<<attrs[0]<<" total size = "<<attrs[0]*16<<std::endl;
-
  uint64_t maxts = attrs[pos+(numblocks-1)*4+1];
+ if(myrank==0) std::cout <<" total records = "<<attrs[0]<<" maxts = "<<maxts<<std::endl;
 
  int key_pre = 0;
  int total_keys = 0;
@@ -886,7 +886,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  H5Dclose(dataset1);
  //H5Sclose(attrspace[0]);
  H5Sclose(attr_space[0]);
- H5Sclose(file_dataspace);
+ //H5Sclose(file_dataspace);
  H5Aclose(attr_id);
  H5Tclose(s2);
  H5Tclose(s1);

@@ -279,6 +279,35 @@ class KeyValueStore
 
 		   usleep(200000); 
 		}
+
+		int nreq = 0;
+		MPI_Request *reqs = new MPI_Request[2*numprocs];
+
+		int send_v = ka->get_inserts();
+		std::vector<int> recv_v(numprocs);
+		std::fill(recv_v.begin(),recv_v.end(),0);
+
+		for(int i=0;i<numprocs;i++)
+		{
+		  MPI_Isend(&send_v,1,MPI_INT,i,123,MPI_COMM_WORLD,&reqs[nreq]);
+		  nreq++;
+		  MPI_Irecv(&recv_v[i],1,MPI_INT,i,123,MPI_COMM_WORLD,&reqs[nreq]);
+		  nreq++;
+		}
+		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+		int totalinserts = 0;
+		if(myrank==0)
+		{
+		  for(int i=0;i<numprocs;i++)
+		  totalinserts += recv_v[i];
+		  std::cout <<" totalinserts = "<<totalinserts<<std::endl;
+		}
+
+
+		delete reqs;
+
+		ka->flush_invertedlist<T>(attr_name);
    	       //RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }
 

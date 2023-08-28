@@ -52,6 +52,7 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
    {
 	T *invlist = reinterpret_cast<T*>(lists[pos].second);
 	b = invlist->put_entry(key,ts);
+	if(b) inserts++;
    }
    return b;
 }
@@ -152,6 +153,16 @@ void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name)
 
     T *invlist = reinterpret_cast<T*>(lists[pos].second);
 
+    if(!invlist->CheckLocalFileExists())
+    {
+           std::string filename = "file";
+           filename += "table1.h5";
+           if(if_q->CheckFileExistence(filename,myrank))
+           {
+                invlist->LocalFileExists();
+           }
+    }
+    
     struct sync_request *r = new struct sync_request();
     std::string type = md.get_type(attr_name);
     int keytype = 0;

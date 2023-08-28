@@ -68,6 +68,7 @@ class hdf5_invlist
            std::vector<std::string> shmaddrs;
            std::string myipaddr;
            std::string myhostname;
+	   std::string dir;
            int nservers;
            int serverid;
 	   int ntables;
@@ -102,6 +103,7 @@ class hdf5_invlist
 
 	     if(myrank==0) std::cout <<" totalsize = "<<totalsize<<" number of tables = "<<ntables<<" totalbits = "<<nbits<<" nbits_per_table = "<<nbits_r<<std::endl;
 
+	     dir = "/home/asasidharan/FrontEnd/build/emu/"; 
 	     maxsize = numtables*pow(2,nbits_r);
 
 	     int prefix = 0;
