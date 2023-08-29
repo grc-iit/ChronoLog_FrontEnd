@@ -75,14 +75,19 @@ bool databuffers::add_event(int index,uint64_t ts,std::string &data,event_metada
 
 	   if(d)
 	   {
-	     int ps = prev;
+	     int ps = prev; //atomicbuffers[index]->buffer_size.fetch_add(1);
 	     (*atomicbuffers[index]->buffer)[ps].ts = ts;
 	     char *dest = &((*atomicbuffers[index]->datamem)[ps*datasize]);
              (*atomicbuffers[index]->buffer)[ps].data = dest;
 	     std::memcpy(dest,data.c_str(),datasize);
 	     (*atomicbuffers[index]->valid)[ps].store(1);
-	   }
-	   else b = false;
+	    }
+	    else 
+	    {
+		    std::cout <<" buffer full"<<std::endl;
+		    return false;
+	    }
+	   //else b = false;
 	}
 	return b;
 

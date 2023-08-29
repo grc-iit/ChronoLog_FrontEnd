@@ -252,9 +252,9 @@ class KeyValueStore
 		std::string data;
 		data.resize(100);
 
-		if_q->CreateEmulatorBuffer(512,st,myrank);
+		if_q->CreateEmulatorBuffer(4096,st,myrank);
 		std::vector<N> keys;
-		for(int n=0;n<4;n++)
+		for(int n=0;n<8;n++)
 		for(int i=0;i<512;i++)
 		{
 		   key = random()%RAND_MAX; 
@@ -266,17 +266,14 @@ class KeyValueStore
 			//b = ka->Get<T,N>(pos,st,key);
 		   }
 
-		   usleep(200000); 
+		   usleep(20000); 
 		}
 
-		if(myrank==0)
+		for(int i=0;i<keys.size();i++)
 		{
-		   for(int i=0;i<keys.size();i++)
-		   {
-			b = ka->Get<T,N>(pos,st,keys[i]);
-		   }
-
+		  b = ka->Get<T,N>(pos,st,keys[i]);
 		}
+
 		ka->flush_invertedlist<T>(attr_name);
    	       //RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }

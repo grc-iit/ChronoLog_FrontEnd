@@ -33,6 +33,7 @@
 #include "data_server_client.h"
 #include <fstream>
 
+using namespace std::chrono_literals;
 namespace tl=thallium;
 
 
@@ -209,13 +210,15 @@ class Interface_Queues
 	    {
 		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
 		tl::remote_procedure rp = thallium_shm_client->define("EmulatorAddEvent");
-		b = rp.on(ep)(s,data);
+		std::chrono::duration<double,std::ratio<100>> second;
+		b = rp.on(ep).timed(second,s,data);
 	    }
 	    else
 	    {
 		tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
 		tl::remote_procedure rp = thallium_client->define("EmulatorAddEvent");
-		b = rp.on(ep)(s,data);
+		std::chrono::duration<double,std::ratio<100>> second;
+		b = rp.on(ep).timed(second,s,data);
 	    }
 	    return b;
 	}
@@ -227,13 +230,15 @@ class Interface_Queues
 	    {
 		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
 		tl::remote_procedure rp = thallium_shm_client->define("EmulatorCreateBuffer");
-		b = rp.on(ep)(numevents,s);
+		std::chrono::duration<double,std::ratio<20>> second;
+		b = rp.on(ep).timed(second,numevents,s);
 	    }
 	    else
 	    {
 		tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
 		tl::remote_procedure rp = thallium_client->define("EmulatorCreateBuffer");
-		b = rp.on(ep)(numevents,s);
+		std::chrono::duration<double,std::ratio<20>> second;
+		b = rp.on(ep).timed(second,numevents,s);
 	    }
 	    return  b;
 	}
@@ -245,13 +250,15 @@ class Interface_Queues
 	   {
 	     tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
              tl::remote_procedure rp = thallium_shm_client->define("EmulatorEndSessions");
-	     b = rp.on(ep)(s);
+	     std::chrono::duration<double> second;
+	     b = rp.on(ep).timed(second,s);
 	   }
 	   else
 	   {
 	     tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
 	     tl::remote_procedure rp = thallium_client->define("EmulatorEndSessions");
-	     b = rp.on(ep)(s);
+	     std::chrono::duration<double> second;
+	     b = rp.on(ep).timed(second,s);
 	   }
 	   return b;
 	}
@@ -273,14 +280,16 @@ class Interface_Queues
 	   {
 	      tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
 	      tl::remote_procedure rp = thallium_shm_client->define("EmulatorPutRemoteAddresses");
-	      b = rp.on(ep)(lines);
+	      std::chrono::duration<double> second;
+	      b = rp.on(ep).timed(second,lines);
 
 	   }
 	   else
 	   {
 	     tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
 	     tl::remote_procedure rp = thallium_client->define("EmulatorPutRemoteAddresses");
-	     b = rp.on(ep)(lines);
+	     std::chrono::duration<double> second;
+	     b = rp.on(ep).timed(second,lines);
 	   }
 	   return b;
 	}
@@ -291,13 +300,15 @@ class Interface_Queues
    	   {
 		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
 		tl::remote_procedure rp = thallium_shm_client->define("EmulatorFindEvent");
-		return rp.on(ep)(s,ts);
+		std::chrono::duration<double,std::ratio<100>> second;
+		return rp.on(ep).timed(second,s,ts);
 	   }		   
 	   else
 	   {
 		tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
 		tl::remote_procedure rp = thallium_client->define("EmulatorFindEvent");
-		return rp.on(ep)(s,ts);
+		std::chrono::duration<double,std::ratio<100>> second;
+		return rp.on(ep).timed(second,s,ts);
 	   }
 	}
 	bool CheckFileExistence(std::string &s,int s_id)
@@ -306,13 +317,15 @@ class Interface_Queues
 	   {
 		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
 		tl::remote_procedure rp = thallium_shm_client->define("EmulatorCheckFile");
-		return rp.on(ep)(s);
+		std::chrono::duration<double> second;
+		return rp.on(ep).timed(second,s);
 	   }
 	   else
 	   {
 		tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
 		tl::remote_procedure rp = thallium_client->define("EmulatorCheckFile");
-		return rp.on(ep)(s);
+		std::chrono::duration<double> second;
+		return rp.on(ep).timed(second,s);
 	   }
 	}
 
