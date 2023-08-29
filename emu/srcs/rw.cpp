@@ -91,7 +91,6 @@ uint64_t read_write_process::add_event(std::string &s,std::string &data)
       ts = CM->Timestamp();
       bool b = dm->add_event(index,ts,data,em);
       if(!b) ts = UINT64_MAX;
-      int p = numrecvevents.fetch_add(1);
     }
     return ts;
 }

@@ -61,13 +61,28 @@ bool databuffers::add_event(int index,uint64_t ts,std::string &data,event_metada
 
 	if(b)
 	{
-	   int ps = atomicbuffers[index]->buffer_size.fetch_add(1);
-	   assert (ps < atomicbuffers[index]->buffer->size());
-	   (*atomicbuffers[index]->buffer)[ps].ts = ts;
-	   char *dest = &((*atomicbuffers[index]->datamem)[ps*datasize]);
-           (*atomicbuffers[index]->buffer)[ps].data = dest;
-	   std::memcpy(dest,data.c_str(),datasize);
-	   (*atomicbuffers[index]->valid)[ps].store(1);
+	   bool d = false;
+	   int prev = 0,next = 0;
+	   int maxsize = atomicbuffers[index]->buffer->size();
+
+	   do
+	   {
+		d = false;
+		prev = atomicbuffers[index]->buffer_size.load();
+		if(prev == maxsize) break;
+		next = prev+1;
+	   }while(!(d=atomicbuffers[index]->buffer_size.compare_exchange_strong(prev,next)));
+
+	   if(d)
+	   {
+	     int ps = prev;
+	     (*atomicbuffers[index]->buffer)[ps].ts = ts;
+	     char *dest = &((*atomicbuffers[index]->datamem)[ps*datasize]);
+             (*atomicbuffers[index]->buffer)[ps].data = dest;
+	     std::memcpy(dest,data.c_str(),datasize);
+	     (*atomicbuffers[index]->valid)[ps].store(1);
+	   }
+	   else b = false;
 	}
 	return b;
 
@@ -114,15 +129,30 @@ bool databuffers::add_event(event &e,int index,event_metadata &em)
 		}
 		if(end) break;
 	      }
-	     
-              int ps = atomicbuffers[index]->buffer_size.fetch_add(1);
-	      assert (ps < atomicbuffers[index]->buffer->size());
-              (*atomicbuffers[index]->buffer)[ps].ts = e.ts;
-	      char *dest = &((*atomicbuffers[index]->datamem)[ps*datasize]);
-	      (*atomicbuffers[index]->buffer)[ps].data = dest;
-	      std::memcpy(dest,data,datasize);
-              (*atomicbuffers[index]->valid)[ps].store(1);
-              event_count++;
+	    
+	     bool d = false;
+	     int prev = 0,next = 0;
+	     int maxsize = atomicbuffers[index]->buffer->size();
+
+	     do
+	     {
+		d=false;
+		prev = atomicbuffers[index]->buffer_size.load();
+		if(prev == maxsize) break;
+		next = prev+1;	
+	     }while(!(d=atomicbuffers[index]->buffer_size.compare_exchange_strong(prev,next))); 
+	      
+	     if(d)
+	     {
+		int ps = prev;
+                (*atomicbuffers[index]->buffer)[ps].ts = e.ts;
+	        char *dest = &((*atomicbuffers[index]->datamem)[ps*datasize]);
+	        (*atomicbuffers[index]->buffer)[ps].data = dest;
+	        std::memcpy(dest,data,datasize);
+                (*atomicbuffers[index]->valid)[ps].store(1);
+                event_count++;
+	     }
+	     else b = false;
       }
       return b;
 }
