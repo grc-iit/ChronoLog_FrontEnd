@@ -575,7 +575,7 @@ public:
 	void data_stream(struct thread_arg_w*);
 	void sync_clocks();
 	bool create_buffer(int &,std::string &);
-	uint64_t add_event(std::string&,std::string&);
+	std::vector<uint64_t> add_event(std::string&,std::string&);
         int endsessioncount();	
 };
 

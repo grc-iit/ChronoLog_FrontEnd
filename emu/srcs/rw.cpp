@@ -65,7 +65,7 @@ bool read_write_process::create_buffer(int &num_events,std::string &s)
     return true;
 }
 
-uint64_t read_write_process::add_event(std::string &s,std::string &data)
+std::vector<uint64_t> read_write_process::add_event(std::string &s,std::string &data)
 {
     int index = -1;
     event_metadata em;
@@ -86,13 +86,20 @@ uint64_t read_write_process::add_event(std::string &s,std::string &data)
 
     uint64_t ts = UINT64_MAX;
 
+    std::vector<uint64_t> res;
+
+    int b = 0;
+
     boost::shared_lock<boost::shared_mutex> lk(ab->m);
     {
       ts = CM->Timestamp();
-      bool b = dm->add_event(index,ts,data,em);
-      if(!b) ts = UINT64_MAX;
+      b = dm->add_event(index,ts,data,em);
+      if(b!=1) ts = UINT64_MAX;
     }
-    return ts;
+    res.push_back(ts);
+    res.push_back(b);
+
+    return res;
 }
 
 void read_write_process::create_events(int num_events,std::string &s,double arrival_rate)
