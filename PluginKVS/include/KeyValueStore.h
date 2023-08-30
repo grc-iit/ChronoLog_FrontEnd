@@ -252,21 +252,47 @@ class KeyValueStore
 		std::string data;
 		data.resize(100);
 
-		if_q->CreateEmulatorBuffer(4096,st,myrank);
-		std::vector<N> keys;
-		for(int n=0;n<8;n++)
-		for(int i=0;i<512;i++)
-		{
-		   key = random()%RAND_MAX; 
+		if_q->CreateEmulatorBuffer(8192,st,myrank);
 
-		   b = ka->Put<T,N,std::string>(pos,st,key,data);
-		   if(n==0&&i<10)
-		   {
+		MPI_Request *reqs = new MPI_Request[2*numprocs];
+		int nreq = 0;
+
+		int send_v = 1;
+		std::vector<int> recv_v(numprocs);
+		std::fill(recv_v.begin(),recv_v.end(),0);
+
+		for(int i=0;i<numprocs;i++)
+		{
+		  MPI_Isend(&send_v,1,MPI_INT,i,1000,MPI_COMM_WORLD,&reqs[nreq]);
+		  nreq++;
+		  MPI_Irecv(&recv_v[i],1,MPI_INT,i,1000,MPI_COMM_WORLD,&reqs[nreq]);
+		  nreq++;
+		}
+
+		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+		delete reqs;
+
+		std::vector<N> keys;
+		for(int n=0;n<128;n++)
+		{
+		  if(n%32==0)
+		  {
+		    ka->cache_invertedtable<T>(attr_name);
+		  }
+		  for(int i=0;i<512;i++)
+		  {
+		    key = random()%RAND_MAX; 
+
+		    b = ka->Put<T,N,std::string>(pos,st,key,data);
+		    if(n==0&&i<10)
+		    {
 			keys.push_back(key);
 			//b = ka->Get<T,N>(pos,st,key);
-		   }
+		    }
 
-		   usleep(20000); 
+		    usleep(20000); 
+		 }
 		}
 
 		for(int i=0;i<keys.size();i++)

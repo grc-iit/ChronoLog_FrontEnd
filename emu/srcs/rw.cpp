@@ -1223,7 +1223,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 	  break;
       }
 
-      if(numrounds == 4) break;
+      if(numrounds == 2) break;
 
       for(;;)
       {

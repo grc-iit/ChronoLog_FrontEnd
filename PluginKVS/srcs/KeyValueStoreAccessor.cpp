@@ -137,6 +137,18 @@ void KeyValueStoreAccessor::cache_invertedtable(std::string &attr_name)
    if(pos==-1) return;
 
    T *invlist = reinterpret_cast<T*>(lists[pos].second);
+
+   if(!invlist->CheckLocalFileExists())
+   {
+	std::string filename = "file";
+	filename += "table1.h5";
+
+	if(if_q->CheckFileExistence(filename,myrank))
+	{
+	   invlist->LocalFileExists();
+	}
+   }
+
    invlist->cache_latest_table();
 }
 

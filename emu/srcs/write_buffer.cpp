@@ -84,7 +84,6 @@ bool databuffers::add_event(int index,uint64_t ts,std::string &data,event_metada
 	    }
 	    else 
 	    {
-		    std::cout <<" buffer full"<<std::endl;
 		    return false;
 	    }
 	   //else b = false;

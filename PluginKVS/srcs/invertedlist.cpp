@@ -139,6 +139,7 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 
 	   if(offset_r != UINT64_MAX)
 	   {
+	       std::cout <<" offset = "<<offset_r<<std::endl;
                hsize_t blocksize = 1;
 	       hid_t mem_dataspace = H5Screate_simple(1,&blocksize,NULL);
 	       std::vector<struct keydata> e(1);	
@@ -344,7 +345,8 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
 void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 {
-   std::string fname = "file";
+   std::string fname = dir;
+   fname += "file";
    fname += filename+".h5";
 
    if(file_exists)
