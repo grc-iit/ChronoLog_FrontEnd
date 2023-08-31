@@ -395,8 +395,10 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 
 	hsize_t offset_k = cached_keyindex_mt[1];
 
-	ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&offset_k,NULL,&blocksize,NULL);
-	ret = H5Dread(dataset_k,kv1,mem_dataspace_k,file_dataspace_t,xfer_plist,cached_keyindex.data());
+	std::cout <<" rank = "<<myrank<<" offset_k = "<<offset_k<<" total_keys = "<<total_keys<<std::endl;
+
+	//ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&offset_k,NULL,&blocksize,NULL);
+	//ret = H5Dread(dataset_k,kv1,mem_dataspace_k,file_dataspace_t,xfer_plist,cached_keyindex.data());
 
 	
 	H5Dclose(dataset_k);
@@ -418,9 +420,9 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 template<typename KeyT, typename ValueT,typename hashfcn,typename equalfcn>
 void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::string &s,int offset)
 {
-   std::string filename = dir;
-   filename += "file";
-   filename += s+".h5";
+   std::string fname = dir;
+   fname += "file";
+   fname += filename+".h5";
 
    hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
    hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -436,7 +438,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
 
    int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
 
-   hid_t fid = H5Fopen(filename.c_str(),H5F_ACC_RDWR,fapl);     
+   hid_t fid = H5Fopen(fname.c_str(),H5F_ACC_RDWR,fapl);     
 
    hsize_t attr_size[1];
    attr_size[0] = MAXBLOCKS*4+4;
@@ -836,10 +838,12 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     hsize_t prevtotal = 0;
     for(int i=0;i<totalsize;i++) prevtotal += numkeys[2*i];
 
+    if(myrank==0) std::cout <<" prevtotal = "<<prevtotal<<std::endl;
+
     hsize_t newsize = prevtotal+totalkeys;
 
     H5Dset_extent(dataset_k,&newsize);
-    
+     
     std::vector<struct KeyIndex<KeyT>> preKeyTimestamps;
 
     preKeyTimestamps.resize(prev_keys);
@@ -868,6 +872,10 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
     offset_w = 2*pre_table*pow(2,nbits_r);
     kblocksize = 2*maxsize;
+
+    int totalkeys_n = 0;
+    for(int i=0;i<maxsize;i++) totalkeys_n += numkeys_n[2*i];
+
     ret = H5Sselect_hyperslab(file_dataspace_table,H5S_SELECT_SET,&offset_w,NULL,&kblocksize,NULL);
     hid_t memdataspace_tt = H5Screate_simple(1,&kblocksize,NULL);
     ret = H5Dwrite(dataset_t,H5T_NATIVE_INT,memdataspace_tt,file_dataspace_table,xfer_plist,numkeys_n.data());
@@ -952,12 +960,19 @@ std::vector<struct KeyIndex<KeyT>> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::m
 
    while(j<newlist.size())
    {
-	result_list.push_back(newlist[j]);j++;
+	uint64_t key1 = hashfcn()(newlist[j].key);
+	int pos1 = key1%maxsize;
+	result_list.push_back(newlist[j]);
+	numkeys[2*pos1]++;
+	j++;
    }
 
    while(i<prevlist.size())
-   {	
+   {
+   	   uint64_t key2 = hashfcn()(prevlist[i].key);
+	   int pos2 = key2%maxsize;	   
 	   result_list.push_back(prevlist[i]);
+	   numkeys[2*pos2]++;
 	   i++;
    }
 
