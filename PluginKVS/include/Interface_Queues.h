@@ -203,24 +203,22 @@ class Interface_Queues
 	   return b;
 	}
 
-	uint64_t PutEmulatorEvent(std::string &s,std::string &data,int s_id)
+	std::vector<uint64_t> PutEmulatorEvent(std::string &s,std::string &data,int s_id)
 	{
-	    uint64_t b = UINT64_MAX;
 	    if(remoteipaddrs[s_id].compare(myipaddr)==0)
 	    {
 		tl::endpoint ep = thallium_shm_client->lookup(remoteshmaddrs[s_id]);
 		tl::remote_procedure rp = thallium_shm_client->define("EmulatorAddEvent");
 		std::chrono::duration<double,std::ratio<100>> second;
-		b = rp.on(ep).timed(second,s,data);
+		return rp.on(ep).timed(second,s,data);
 	    }
 	    else
 	    {
 		tl::endpoint ep = thallium_client->lookup(remoteserveraddrs[s_id]);
 		tl::remote_procedure rp = thallium_client->define("EmulatorAddEvent");
 		std::chrono::duration<double,std::ratio<100>> second;
-		b = rp.on(ep).timed(second,s,data);
+		return rp.on(ep).timed(second,s,data);
 	    }
-	    return b;
 	}
 
 	bool CreateEmulatorBuffer(int numevents,std::string &s,int s_id)

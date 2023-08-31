@@ -271,20 +271,19 @@ class KeyValueStore
 
 		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
-		delete reqs;
-
 		std::vector<N> keys;
-		for(int n=0;n<128;n++)
+		bool exit = false;
+		for(int n=0;n<256;n++)
 		{
-		  if(n%32==0)
-		  {
-		    ka->cache_invertedtable<T>(attr_name);
-		  }
+		  exit = false;
 		  for(int i=0;i<512;i++)
 		  {
 		    key = random()%RAND_MAX; 
 
-		    b = ka->Put<T,N,std::string>(pos,st,key,data);
+		    if(!ka->Put<T,N,std::string>(pos,st,key,data))
+		    {
+			exit = true; break;
+		    }
 		    if(n==0&&i<10)
 		    {
 			keys.push_back(key);
@@ -293,14 +292,47 @@ class KeyValueStore
 
 		    usleep(20000); 
 		 }
+
+		  nreq = 0;
+
+		  send_v = exit ? 1 : 0;
+		  std::fill(recv_v.begin(),recv_v.end(),0);
+
+		  for(int i=0;i<numprocs;i++)
+		  {
+		    MPI_Isend(&send_v,1,MPI_INT,i,1000,MPI_COMM_WORLD,&reqs[nreq]);
+		    nreq++;
+		    MPI_Irecv(&recv_v[i],1,MPI_INT,i,1000,MPI_COMM_WORLD,&reqs[nreq]);
+		    nreq++;
+		  }
+
+		  MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+		  int recvv=0;
+		  for(int i=0;i<numprocs;i++) recvv += recv_v[i];
+		  if(recvv!=0) break;
+
+		  if(n > 0 && n%32==0)
+		  {
+		     ka->flush_invertedlist<T>(attr_name);
+		  }
+
+		  if(n%32==0)
+		  {
+		    ka->cache_invertedtable<T> (attr_name);
+		  }
+
 		}
 
-		for(int i=0;i<keys.size();i++)
+		if(myrank==0)
 		{
-		  b = ka->Get<T,N>(pos,st,keys[i]);
+		 for(int i=0;i<keys.size();i++)
+                 {
+                  b = ka->Get<T,N>(pos,st,keys[i]);
+                 }
 		}
 
-		ka->flush_invertedlist<T>(attr_name);
+
    	       //RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }
 

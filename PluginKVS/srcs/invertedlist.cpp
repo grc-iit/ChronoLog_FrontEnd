@@ -139,7 +139,6 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 
 	   if(offset_r != UINT64_MAX)
 	   {
-	       std::cout <<" offset = "<<offset_r<<std::endl;
                hsize_t blocksize = 1;
 	       hid_t mem_dataspace = H5Screate_simple(1,&blocksize,NULL);
 	       std::vector<struct keydata> e(1);	
@@ -349,6 +348,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
    fname += "file";
    fname += filename+".h5";
 
+
    if(file_exists)
    {
      while(!io_t->announce_sync(io_count));
@@ -398,6 +398,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 	ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&offset_k,NULL,&blocksize,NULL);
 	ret = H5Dread(dataset_k,kv1,mem_dataspace_k,file_dataspace_t,xfer_plist,cached_keyindex.data());
 
+	
 	H5Dclose(dataset_k);
 	H5Dclose(dataset_t);
 	H5Sclose(mem_dataspace_k);
@@ -417,7 +418,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 template<typename KeyT, typename ValueT,typename hashfcn,typename equalfcn>
 void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::string &s,int offset)
 {
-   std::string filename = "file";
+   std::string filename = dir;
+   filename += "file";
    filename += s+".h5";
 
    hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
@@ -523,8 +525,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  fname += filename+".h5";
 
  if(!file_exists) return;
-
- if(myrank==0) std::cout <<" filename = "<<fname<<" attr = "<<attributename<<std::endl;
 
  hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
  hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
