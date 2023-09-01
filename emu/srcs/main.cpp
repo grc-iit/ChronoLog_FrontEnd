@@ -108,10 +108,10 @@ int main(int argc,char **argv)
   {
 	std::string name = "table"+std::to_string(i+1);
 	story_names.push_back(name);
-	total_events.push_back(4096*size);
+	total_events.push_back(8192*size);
 	if(i%2==0)
-	np->prepare_service(name,em1,4096*size);
-	else np->prepare_service(name,em2,4096*size);
+	np->prepare_service(name,em1,8192*size);
+	else np->prepare_service(name,em2,8192*size);
   }
 
   MPI_Barrier(MPI_COMM_WORLD);

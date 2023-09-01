@@ -395,10 +395,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
 
 	hsize_t offset_k = cached_keyindex_mt[1];
 
-	std::cout <<" rank = "<<myrank<<" offset_k = "<<offset_k<<" total_keys = "<<total_keys<<std::endl;
-
-	//ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&offset_k,NULL,&blocksize,NULL);
-	//ret = H5Dread(dataset_k,kv1,mem_dataspace_k,file_dataspace_t,xfer_plist,cached_keyindex.data());
+	ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&offset_k,NULL,&blocksize,NULL);
+	ret = H5Dread(dataset_k,kv1,mem_dataspace_k,file_dataspace_t,xfer_plist,cached_keyindex.data());
 
 	
 	H5Dclose(dataset_k);
