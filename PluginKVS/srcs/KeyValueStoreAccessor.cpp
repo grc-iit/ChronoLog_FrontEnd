@@ -89,7 +89,7 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
 
 	if(invlist->CheckLocalFileExists())
 	{
-	   invlist->get_events(key,values,pid);
+	   //invlist->get_events(key,values,pid);
 	}
      }
 		

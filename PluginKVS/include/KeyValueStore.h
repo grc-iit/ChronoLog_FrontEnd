@@ -13,14 +13,10 @@
 #include <mutex>
 #include "Interface_Queues.h"
 
-template<typename N>
 struct kstream_args
 {
   std::string tname;
   std::string attr_name;
-  std::vector<N> keys;
-  std::vector<uint64_t> ts;
-  std::vector<int> op;
   int tid;
 };
 
@@ -36,8 +32,10 @@ class KeyValueStore
 	    KeyValueStoreAccessorRepository *tables;
 	    int io_count;
 	    int tag;
-	    std::vector<struct kstream_args<float>> k_args;
+	    std::unordered_map<std::string,int> kvindex;
+	    std::vector<struct kstream_args> k_args;
 	    std::vector<std::thread> kstreams;
+	    std::atomic<int> *stream_flags;
 	    std::atomic<int> nstreams;
 
     public:
@@ -73,6 +71,7 @@ class KeyValueStore
 		tables = new KeyValueStoreAccessorRepository(numprocs,myrank,io_layer,if_q,ds);
 		k_args.resize(MAXSTREAMS);
 	        kstreams.resize(MAXSTREAMS);
+		stream_flags = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
 	   }
 	   void createKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &);
 	   bool findKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &);
@@ -80,8 +79,8 @@ class KeyValueStore
 	   void addKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   bool findKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void removeKeyValueStoreInvList(std::string &s,std::string &attr_name);
-	  
-	   template<typename T,typename N>
+
+	   /*template<typename T,typename N>
 	   void PutGetPerf(struct kstream_args<N>*k)
 	   {
 		KeyValueStoreAccessor* ka = tables->get_accessor(k->tname);
@@ -112,10 +111,81 @@ class KeyValueStore
                  {
                    std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
                  }
-	   }
+	   }*/
 
 	   template<typename T,typename N>
-           void RunKeyValueStoreFunctions(KeyValueStoreAccessor* ka,struct kstream_args<N> *k)
+	   void cacheflushInvList(struct kstream_args*k)
+	   {
+    		std::string s = k->tname;
+    		std::string attr_name = k->attr_name;
+    		KeyValueStoreAccessor* ka = tables->get_accessor(s);
+
+    		int pos = ka->get_inverted_list_index(attr_name);
+
+    		std::string type = ka->get_attribute_type(attr_name);
+
+    		int tag = 1500;
+
+    		int send_v = 1;
+    		std::vector<int> recv_v(numprocs);
+    		std::fill(recv_v.begin(),recv_v.end(),0);
+
+    		int nreq = 0;
+   	 	MPI_Request *reqs = (MPI_Request*)std::malloc(2*numprocs*sizeof(MPI_Request));
+
+		while(true)
+   		{
+      		  send_v = stream_flags[k->tid].load();
+      		  std::fill(recv_v.begin(),recv_v.end(),0);
+      		  nreq = 0;
+      		  for(int i=0;i<numprocs;i++)
+      		  {
+        	     MPI_Isend(&send_v,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+        	     nreq++;
+        	     MPI_Irecv(&recv_v[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+        	     nreq++;
+      		  }
+
+      		  MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+      		  int sum = 0;
+      		  for(int i=0;i<numprocs;i++) sum += recv_v[i];
+
+      		  if(sum==numprocs) break;
+
+      		  auto t1 = std::chrono::high_resolution_clock::now();
+
+
+                 while(true)
+                 {
+        		auto t2 = std::chrono::high_resolution_clock::now();
+
+        		double t = std::chrono::duration<double>(t2-t1).count();
+        		if(t > 50) break;
+      		 }
+		 
+		 ka->flush_invertedlist<T>(attr_name);
+
+      		 t1 = std::chrono::high_resolution_clock::now();
+
+      		while(true)
+      		{
+        		auto t2 = std::chrono::high_resolution_clock::now();
+        		double t = std::chrono::duration<double> (t2-t1).count();
+        		if(t > 50) break;
+      		}
+
+      		ka->cache_invertedtable<T>(attr_name);
+
+   	       }
+
+   		std::free(reqs);
+          }
+
+
+
+	   template<typename T,typename N>
+           void RunKeyValueStoreFunctions(KeyValueStoreAccessor* ka,struct kstream_args *k)
 	   {
 		ka->cache_invertedtable<T>(k->attr_name);
 
@@ -219,16 +289,17 @@ class KeyValueStore
 
 		 std::free(reqs);
 	   }
+
 	   template<typename T,typename N>
-	   void create_keyvalues(struct kstream_args<N> *k)
+           void prepare_inverted_list(struct kstream_args *k)
 	   {
 		std::string s = k->tname;
-   		std::string attr_name = k->attr_name;
-   		KeyValueStoreAccessor* ka = tables->get_accessor(s);
+                std::string attr_name = k->attr_name;
+                KeyValueStoreAccessor* ka = tables->get_accessor(s);
 
-   		if(ka==nullptr)
-   		{
-        	   KeyValueStoreMetadata m;
+                if(ka==nullptr)
+                {
+                   KeyValueStoreMetadata m;
                    if(!findKeyValueStoreEntry(s,m)) return;
                    if(!tables->add_accessor(s,m)) return;
                    ka = tables->get_accessor(s);
@@ -245,15 +316,21 @@ class KeyValueStore
 
                std::string type = ka->get_attribute_type(attr_name);
 
-		bool b = false; //ka->Emulator_Request();
-		std::string st = "table1";
+	       if_q->CreateEmulatorBuffer(8192,s,myrank);
+	   }
+	   template<typename T,typename N>
+	   void create_keyvalues(struct kstream_args *k)
+	   {
+		std::string s = k->tname;
+   		std::string attr_name = k->attr_name;
+   		KeyValueStoreAccessor* ka = tables->get_accessor(s);
+
+		bool b = false;
+		int pos = ka->get_inverted_list_index(attr_name);
 		N key = 0.5;
-		char databuf[100];
+		std::string st = k->tname;
 		std::string data;
 		data.resize(100);
-
-		if_q->CreateEmulatorBuffer(8192,st,myrank);
-
 		
 		MPI_Request *reqs = new MPI_Request[2*numprocs];
 		int nreq = 0;
@@ -274,10 +351,10 @@ class KeyValueStore
 
 		std::vector<N> keys;
 		bool exit = false;
-		for(int n=0;n<64;n++)
+		for(int n=0;n<256;n++)
 		{
 		  exit = false;
-		  for(int i=0;i<512;i++)
+		  for(int i=0;i<256;i++)
 		  {
 		    key = random()%RAND_MAX; 
 
@@ -288,8 +365,8 @@ class KeyValueStore
 		    if(n==0&&i<10)
 		    {
 			keys.push_back(key);
-			b = ka->Get<T,N>(pos,st,key);
 		    }
+		    //b = ka->Get<T,N> (pos,st,key);
 
 		    usleep(20000); 
 		 }
@@ -313,20 +390,6 @@ class KeyValueStore
 
 		if(recvv != 0) break;
 
-		  if(n > 0 && n%32==0)
-		  {
-		     ka->flush_invertedlist<T>(attr_name);
-		  }
-
-		  if(n%32==0)
-		  {
-		    ka->cache_invertedtable<T> (attr_name);
-		  }
-
-		  if(n==63)
-		  for(int i=0;i<keys.size();i++)
-		    b = ka->Get<T,N>(pos,st,keys[i]);
-
 		}
 
    	       //RunKeyValueStoreFunctions<T,N>(ka,k);
@@ -337,30 +400,64 @@ class KeyValueStore
            void get_dataworld_workload(std::string&,std::vector<uint64_t>&,std::vector<uint64_t>&,std::vector<int>&);
 
 	   template<typename T,typename N>
-	   void spawn_kvstream(std::string &s,std::string &a,std::vector<N> &keys,std::vector<uint64_t> &ts,std::vector<int> &op)
+	   void spawn_kvstream(std::string &s,std::string &a)
 	   {
 
 		int prev = nstreams.load();
 		k_args[prev].tname = s;
 		k_args[prev].attr_name = a;
 		k_args[prev].tid = prev;
-		k_args[prev].keys.assign(keys.begin(),keys.end());
-		k_args[prev].ts.assign(ts.begin(),ts.end());
-		k_args[prev].op.assign(op.begin(),op.end());
+		std::string streamname = s+a;
+		std::pair<std::string,int> p(streamname,prev);
+		kvindex.insert(p);
+		stream_flags[prev].store(0);
+		//k_args[prev].keys.assign(keys.begin(),keys.end());
+		//k_args[prev].ts.assign(ts.begin(),ts.end());
+		//k_args[prev].op.assign(op.begin(),op.end());
 
-		keys.clear(); ts.clear(); op.clear();
+		//keys.clear(); ts.clear(); op.clear();
 
-		std::function<void(struct kstream_args<N> *)> 
-		KVStream(std::bind(&KeyValueStore::create_keyvalues<T,N>,this, std::placeholders::_1));
+		prepare_inverted_list<T,N>(&k_args[prev]);
+
+		std::function<void(struct kstream_args *)> 
+		KVStream(std::bind(&KeyValueStore::cacheflushInvList<T,N>,this, std::placeholders::_1));
 
 		nstreams.fetch_add(1);
 
-		
 	 	std::thread t{KVStream,&k_args[prev]};	
 		kstreams[prev] = std::move(t);
 
+		create_keyvalues<T,N>(&k_args[prev]);
+
+		stream_flags[prev].store(1);
 	   }
-	   void end_io_session()
+
+	   void start_session(std::string &name,std::string &attrname,KeyValueStoreMetadata &m)
+	   {
+		
+		 createKeyValueStoreEntry(name,m);
+		 addKeyValueStoreInvList(name,attrname);
+		 std::string type = m.get_type(attrname);
+		 if(type.compare("int")==0)
+		 {
+		   spawn_kvstream<integer_invlist,int>(name,attrname);
+		 }
+		 else if(type.compare("unsignedlong")==0)
+		 {
+		   spawn_kvstream<unsigned_long_invlist,unsigned long>(name,attrname);
+		 }
+		 else if(type.compare("float")==0)
+		 {
+		   spawn_kvstream<float_invlist,float>(name,attrname);
+		 }
+		 else if(type.compare("double")==0)
+		 {
+		    spawn_kvstream<double_invlist,double>(name,attrname);
+		 }
+
+	   }
+
+	   void close_sessions()
 	   {
 		for(int i=0;i<nstreams.load();i++) kstreams[i].join();
 
@@ -396,6 +493,7 @@ class KeyValueStore
 		delete mds;
 		delete ds;
 		delete if_q;
+		std::free(stream_flags);
 		H5close();
 
 	   }
