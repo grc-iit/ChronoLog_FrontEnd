@@ -61,14 +61,14 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 	   uint32_t mask = 1;
 	   mask = mask << 31;
 
-	   do
+	   /*do
 	   {
 		prev = synchronization_word.load();
 		b = false;
 		next = prev | mask;
 	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
 
-	   while(synchronization_word.load()!=mask);
+	   while(synchronization_word.load()!=mask);*/
 
 	   std::vector<struct sync_request *> sync_reqs;
 	   while(!sync_queue->empty())
@@ -125,12 +125,12 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 
 	   for(int i=0;i<common_reqs.size();i++) delete common_reqs[i];
 	   for(int i=0;i<sync_reqs.size();i++) sync_queue->push(sync_reqs[i]);
-	   
+	    /* 
 	   do
 	   {
 	      prev = synchronization_word.load();
 	      next = prev & ~mask;
-	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
+	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));*/
 
 	   if(end_io) break;
        }

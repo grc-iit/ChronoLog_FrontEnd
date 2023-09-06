@@ -41,10 +41,16 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
 {
    if(pos >= lists.size()) return false;
 
-   
-   std::string data = std::to_string(key);
-   data += value;  
-      
+   char keyarray[8];
+   N key_t = key;
+   char *arr = (char *)(&key_t);
+   for(int i=0;i<8;i++)
+   {
+	keyarray[i] = arr[i];
+   }
+   std::string key_s(keyarray,8);
+   std::string data = key_s+value;  
+     
    std::vector<uint64_t> ts;
    ts = if_q->PutEmulatorEvent(s,data,myrank);
    bool b = false;
@@ -89,7 +95,7 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
 
 	if(invlist->CheckLocalFileExists())
 	{
-	   //invlist->get_events(key,values,pid);
+	   invlist->get_events(key,values,pid);
 	}
      }
 		

@@ -207,8 +207,10 @@ class KeyValueStoreIO
 		    b = false;
 		    prev = synchronization_word.load();
 		    uint32_t m_p = prev & mask_s;
+		    uint32_t m_q = prev & mask;
+		    m_q = m_q >> p;
 		    m_p = m_p >> 31;
-		    if(m_p==1) break;
+		    if(m_p == 1 || m_q == 1) break;
 		    next = prev | mask;
 		}while(!(b = synchronization_word.compare_exchange_strong(prev,next)));
 

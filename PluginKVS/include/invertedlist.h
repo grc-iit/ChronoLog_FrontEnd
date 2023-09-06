@@ -30,7 +30,7 @@ struct KeyIndex
 struct keydata
 {
   uint64_t ts;
-  char data[8];
+  char data[108];
 
 };
 
@@ -57,7 +57,7 @@ class hdf5_invlist
 	   std::string filename;
 	   std::string attributename;
 	   std::string rpc_prefix;
-	   bool file_exists;
+	   std::atomic<bool> file_exists;
 	   data_server_client *d;
 	   tl::engine *thallium_server;
            tl::engine *thallium_shm_server;
@@ -84,6 +84,7 @@ class hdf5_invlist
 	   int pre_table;
 	   int numevents;
 	   int io_count;
+	   boost::mutex invmutex;
    public:
 	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io,int c) : numprocs(n), myrank(p), io_count(c)
 	   {
@@ -128,7 +129,7 @@ class hdf5_invlist
 	     rpc_prefix = filename+attributename;
 	     d = ds;
 	     io_t = io;
-	     file_exists = false;
+	     file_exists.store(false);
 	     tl::engine *t_server = d->get_thallium_server();
              tl::engine *t_server_shm = d->get_thallium_shm_server();
              tl::engine *t_client = d->get_thallium_client();
@@ -267,12 +268,12 @@ class hdf5_invlist
 	   }
 	   bool CheckLocalFileExists()
 	   {
-		   return file_exists;
+		   return file_exists.load();
 	   }
 
 	   void LocalFileExists()
 	   {
-		file_exists = true;
+		file_exists.store(true);
 	   }
 
 	   std::vector<struct keydata> get_events(KeyT&,std::vector<ValueT> &,int);

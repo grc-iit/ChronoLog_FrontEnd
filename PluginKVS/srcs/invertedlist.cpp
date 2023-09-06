@@ -95,26 +95,29 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
    fname += "file";
    fname += filename+".h5";
 
-   if(file_exists)
+   if(file_exists.load())
    {
 
-     while(!io_t->announce_sync(io_count));
+     boost::unique_lock<boost::mutex> lk(invmutex);
+
+     //while(!io_t->announce_sync(io_count));
 
      hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
      hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
 
+     std::cout <<" rank = "<<myrank<<" get_events : filename = "<<fname<<std::endl;
      hid_t fid = H5Fopen(fname.c_str(),H5F_ACC_RDONLY,fapl);
 
      std::string d_string = attributename;
      std::string s_string = attributename+"attr";
 
-     hsize_t adims[1];
-     adims[0] = 8;
+     /*hsize_t adims[1];
+     adims[0] = 108;
      hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
      hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct keydata));
      H5Tinsert(s2,"key",HOFFSET(struct keydata,ts),H5T_NATIVE_UINT64);
-     H5Tinsert(s2,"value",HOFFSET(struct keydata,data),s1);
-
+     H5Tinsert(s2,"value",HOFFSET(struct keydata,data),s1);*/
+     /*
      if(cached_keyindex_mt.size()>0 && cached_keyindex.size()>0 && pid==myrank)
      {
 	   std::string dstring = "Data1";   
@@ -322,15 +325,15 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	H5Dclose(dataset_mt);
 	H5Dclose(dataset_t);
 
-     }
+     }*/
 
-     H5Tclose(s1);
-     H5Tclose(s2);
+     //H5Tclose(s1);
+    // H5Tclose(s2);
      H5Fclose(fid);
      H5Pclose(fapl);
      H5Pclose(xfer_plist);
 
-     io_t->reset_sync(io_count);
+     //io_t->reset_sync(io_count);
    }
 
 
@@ -349,13 +352,16 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
    fname += filename+".h5";
 
 
-   if(file_exists)
+   if(file_exists.load())
    {
-     while(!io_t->announce_sync(io_count));
+     //while(!io_t->announce_sync(io_count));
      
+     boost::unique_lock<boost::mutex> lk(invmutex);
+
      hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
      hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
 
+     std::cout <<" rank = "<<myrank<<" cache fname = "<<fname<<std::endl;
      hid_t fid = H5Fopen(fname.c_str(),H5F_ACC_RDONLY,fapl);
 
      std::string attr_t = attributename+"attr";
@@ -409,7 +415,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::cache_latest_table()
      H5Fclose(fid);
      H5Pclose(fapl);
      H5Pclose(xfer_plist);
-     io_t->reset_sync(io_count);
+     //io_t->reset_sync(io_count);
    }
 
 }
@@ -524,7 +530,9 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  fname+="file";
  fname += filename+".h5";
 
- if(!file_exists) return;
+ boost::unique_lock<boost::mutex> lk(invmutex);
+
+ if(!file_exists.load()) return;
 
  hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
  hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -546,7 +554,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  hid_t fid = H5Fopen(fname.c_str(),H5F_ACC_RDWR,fapl);
 
  hsize_t adims[1];
- adims[0] = 8;
+ adims[0] = 108;
  hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
  hid_t s2 = H5Tcreate(H5T_COMPOUND,sizeof(struct keydata));
  H5Tinsert(s2,"key",HOFFSET(struct keydata,ts),H5T_NATIVE_UINT64);

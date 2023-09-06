@@ -8,7 +8,6 @@
 #include "data_server_client.h"
 #include "util_t.h"
 #include <hdf5.h>
-#include "h5_async_lib.h"
 #include <thread>
 #include <mutex>
 #include "Interface_Queues.h"
@@ -42,7 +41,7 @@ class KeyValueStore
 	    KeyValueStore(int np,int r) : numprocs(np), myrank(r)
 	   {
 		H5open();
-   	        H5VLis_connector_registered_by_name("async");
+   	        //H5VLis_connector_registered_by_name("async");
 		io_count=0;
 		int base_port = 2000;
 		tag = 20000;
@@ -175,7 +174,7 @@ class KeyValueStore
         		if(t > 50) break;
       		}
 
-      		ka->cache_invertedtable<T>(attr_name);
+      		//ka->cache_invertedtable<T>(attr_name);
 
    	       }
 
@@ -351,24 +350,24 @@ class KeyValueStore
 
 		std::vector<N> keys;
 		bool exit = false;
-		for(int n=0;n<256;n++)
-		{
-		  exit = false;
-		  for(int i=0;i<256;i++)
-		  {
+		int op = 0;
+		for(int i=0;i<512;i++)
+		{	
 		    key = random()%RAND_MAX; 
-
-		    if(!ka->Put<T,N,std::string>(pos,st,key,data))
-		    {
-			exit = true; break;
+		    op = random()%2;
+		    if(op==0)
+		    { 
+		      if(!ka->Put<T,N,std::string>(pos,st,key,data))
+		      {
+			//exit = true; break;
+		      }
 		    }
-		    if(n==0&&i<10)
+		    else
 		    {
-			keys.push_back(key);
+		      b = ka->Get<T,N> (pos,st,key);
 		    }
-		    //b = ka->Get<T,N> (pos,st,key);
 
-		    usleep(20000); 
+		    usleep(200000); 
 		 }
 	
 		nreq = 0;
@@ -387,10 +386,6 @@ class KeyValueStore
 
 		int recvv=0;
 		for(int i=0;i<numprocs;i++) recvv+=recv_v[i];
-
-		if(recvv != 0) break;
-
-		}
 
    	       //RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }
