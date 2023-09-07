@@ -78,6 +78,7 @@ class hdf5_invlist
 	   int nbits_r;
 	   std::vector<int> cached_keyindex_mt;
 	   std::vector<struct KeyIndex<KeyT>> cached_keyindex;
+	   std::vector<std::pair<KeyT,std::vector<ValueT>> pending_gets;
 	   int tables_per_proc;
 	   int numtables;
 	   std::vector<int> table_ids;
@@ -85,6 +86,10 @@ class hdf5_invlist
 	   int numevents;
 	   int io_count;
 	   boost::mutex invmutex;
+	   hid_t fid;
+	   hid_t fapl;
+	   hid_t xfer_plist_coll;
+	   hid_t xfer_plist_indep;
    public:
 	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io,int c) : numprocs(n), myrank(p), io_count(c)
 	   {
@@ -276,6 +281,13 @@ class hdf5_invlist
 		file_exists.store(true);
 	   }
 
+	   void add_pending(KeyT &key,std::vector<ValueT> &values)
+	   {
+		std::pair<KeyT,std::vector<ValueT>> p;
+		p.first = key;
+		p.second.assign(values.begin(),values.end());
+		pending_gets.push_back(p);
+	   }
 	   std::vector<struct keydata> get_events(KeyT&,std::vector<ValueT> &,int);
 	   void create_async_io_request(KeyT &,std::vector<ValueT>&);
 	   void create_sync_io_request();
@@ -288,6 +300,8 @@ class hdf5_invlist
 	   void add_entries_to_tables(std::string&,std::vector<struct keydata>*,uint64_t,int); 
 	   void get_entries_from_tables(std::vector<struct KeyIndex<KeyT>> &,int&,int&,uint64_t);
 	   std::vector<struct KeyIndex<KeyT>> merge_keyoffsets(std::vector<struct KeyIndex<KeyT>>&,std::vector<struct KeyIndex<KeyT>>&,std::vector<int>&);
+	   bool open_file(bool);
+	   void close_file();
 };
 
 #include "../srcs/invertedlist.cpp"

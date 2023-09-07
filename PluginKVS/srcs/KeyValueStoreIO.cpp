@@ -56,19 +56,6 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 	       nprocs_sync += consensus[i];
        if(nprocs_sync==nservers)
        {
-	   uint32_t prev, next;
-	   bool b = false;
-	   uint32_t mask = 1;
-	   mask = mask << 31;
-
-	   /*do
-	   {
-		prev = synchronization_word.load();
-		b = false;
-		next = prev | mask;
-	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));
-
-	   while(synchronization_word.load()!=mask);*/
 
 	   std::vector<struct sync_request *> sync_reqs;
 	   while(!sync_queue->empty())
@@ -83,14 +70,20 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 	   std::vector<struct sync_request*> common_reqs;
            get_common_requests(sync_reqs,common_reqs);	   
 
+	   std::vector<std::string> completed_reqs;
+
 	   for(int i=0;i<common_reqs.size();i++)
 	   {
+	      std::string newname = common_reqs[i]->name+common_reqs[i]->attr_name;
+	      if(std::find(completed_reqs.begin(),completed_reqs.end(),newname)!=completed_reqs.end()) continue;
 	      if(common_reqs[i]->keytype==0)
 	      {
 		      if(common_reqs[i]->flush==true) 
 		      {
 			  integer_invlist* invlist = reinterpret_cast<integer_invlist*>(common_reqs[i]->funcptr);
 			  invlist->flush_table_file(common_reqs[i]->offset);
+			  std::string name = common_reqs[i]->name+common_reqs[i]->attr_name;
+			  completed_reqs.push_back(name);
 		      }
 	      }
 	      else if(common_reqs[i]->keytype==1)
@@ -99,6 +92,8 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 		   {
 			unsigned_long_invlist* invlist = reinterpret_cast<unsigned_long_invlist*>(common_reqs[i]->funcptr);
 			invlist->flush_table_file(common_reqs[i]->offset);
+			std::string name = common_reqs[i]->name+common_reqs[i]->attr_name;
+			completed_reqs.push_back(name);
 		   }
 	      }
 	      else if(common_reqs[i]->keytype==2)
@@ -107,6 +102,8 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 		{
 		   float_invlist* invlist = reinterpret_cast<float_invlist*>(common_reqs[i]->funcptr);
 		   invlist->flush_table_file(common_reqs[i]->offset);
+		   std::string name = common_reqs[i]->name+common_reqs[i]->attr_name;
+		   completed_reqs.push_back(name);
 		}
 	      }
 	      else if(common_reqs[i]->keytype==3)
@@ -115,6 +112,8 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 		{
 		   double_invlist* invlist = reinterpret_cast<double_invlist*>(common_reqs[i]->funcptr);
 		   invlist->flush_table_file(common_reqs[i]->offset);
+		   std::string name = common_reqs[i]->name+common_reqs[i]->attr_name;
+		   completed_reqs.push_back(name);
 		}
 	      }
 	      else if(common_reqs[i]->funcptr==nullptr)
@@ -125,12 +124,6 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 
 	   for(int i=0;i<common_reqs.size();i++) delete common_reqs[i];
 	   for(int i=0;i<sync_reqs.size();i++) sync_queue->push(sync_reqs[i]);
-	    /* 
-	   do
-	   {
-	      prev = synchronization_word.load();
-	      next = prev & ~mask;
-	   }while(!(b=synchronization_word.compare_exchange_strong(prev,next)));*/
 
 	   if(end_io) break;
        }
