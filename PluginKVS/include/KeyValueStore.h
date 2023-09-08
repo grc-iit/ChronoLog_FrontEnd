@@ -387,8 +387,6 @@ class KeyValueStore
 		int recvv=0;
 		for(int i=0;i<numprocs;i++) recvv+=recv_v[i];
 
-		ka->openfilerw<T,N>(pos,st);
-
 		}
 
 		//ka->closefilerw<T,N>(pos);
@@ -480,29 +478,6 @@ class KeyValueStore
 		}
 		
 		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
-		for(int i=0;i<nstreams.load();i++)
-		{	
-		   KeyValueStoreAccessor* ka = tables->get_accessor(k_args[i].tname);
-		   int pos = ka->get_inverted_list_index(k_args[i].attr_name);
-	   	   std::string type = ka->get_attribute_type(k_args[i].attr_name);
-		   if(type.compare("int")==0)
-		   {
-			ka->closefilerw<integer_invlist,int>(pos);
-		   }	   
-		   else if(type.compare("unsignedlong")==0)
-		   {
-			ka->closefilerw<unsigned_long_invlist,unsigned long>(pos);
-		   }
-		   else if(type.compare("float")==0)
-		   {
-			ka->closefilerw<float_invlist,float>(pos);
-		   }
-		   else if(type.compare("double")==0)
-		   {
-			ka->closefilerw<double_invlist,double>(pos);
-		   }
-		}
 
 		std::free(reqs);
 		std::string s = "endsession";

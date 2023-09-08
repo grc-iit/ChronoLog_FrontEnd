@@ -123,6 +123,7 @@ class KeyValueStoreIO
            std::string myipaddr;
            std::string myhostname;
 	   int num_io_threads;
+	   std::vector<std::pair<int,void*>> service_queries;
 	   std::vector<std::thread> io_threads;
 	   std::vector<struct thread_arg> t_args;
 	   std::atomic<int> request_count;
@@ -130,6 +131,7 @@ class KeyValueStoreIO
 	   boost::mutex mutex_t;
 	   boost::condition_variable cv;
 	   int semaphore;
+
    public:
 
 	    KeyValueStoreIO(int np,int p) : nservers(np), serverid(p)
@@ -184,6 +186,14 @@ class KeyValueStoreIO
 	    uint32_t read_sync_word()
 	    {
 		return synchronization_word.load();
+	    }
+
+	    void add_query_service(int type,void *fptr)
+	    {
+		std::pair<int,void*> p;
+		p.first = type;
+		p.second = fptr;
+		service_queries.push_back(p);
 	    }
 
 	    void write_sync_word(uint32_t n)

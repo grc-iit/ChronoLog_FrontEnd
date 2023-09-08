@@ -20,7 +20,7 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
 
     std::vector<int> consensus;
 
-    consensus.resize(nservers);
+    consensus.resize(nservers*3);
 
     while(true)
     {
@@ -31,6 +31,8 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
        op_type[0] = (req_queue->empty()==true) ? 0 : 1;
 
        op_type[1] = (sync_queue->empty()==true) ? 0 : 1;
+      
+       op_type[2] = service_queries.size();
 
        bool end_io = false;
 
@@ -49,11 +51,41 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
        }
 
 
-       MPI_Allgather(&op_type[1],1,MPI_INT,consensus.data(),1,MPI_INT,MPI_COMM_WORLD);
+       MPI_Allgather(op_type.data(),3,MPI_INT,consensus.data(),3,MPI_INT,MPI_COMM_WORLD);
+
+       int numqueries = INT_MAX;
+
+       for(int i=0;i<nservers;i++)
+	  if(consensus[3*i+2] < numqueries) numqueries = consensus[3*i+2];
+       
+       for(int i=0;i<numqueries;i++)
+       {
+	 if(service_queries[i].first==0)
+	 {
+	    integer_invlist *invlist = reinterpret_cast<integer_invlist*>(service_queries[i].second);
+	    invlist->get_events();
+	 }
+	 else if(service_queries[i].first==1)
+	 {
+	    unsigned_long_invlist *invlist = reinterpret_cast<unsigned_long_invlist*>(service_queries[i].second);
+	    invlist->get_events();
+	 }
+	 else if(service_queries[i].first==2)
+	 {	
+	    float_invlist *invlist  = reinterpret_cast<float_invlist*>(service_queries[i].second);
+	    invlist->get_events();
+	 }
+	 else if(service_queries[i].first==3)
+	 {
+	    double_invlist *invlist = reinterpret_cast<double_invlist*>(service_queries[i].second);
+	    invlist->get_events();
+
+	 }
+       }
 
        int nprocs_sync = 0;
-       for(int i=0;i<consensus.size();i++)
-	       nprocs_sync += consensus[i];
+       for(int i=0;i<nservers;i++)
+	       nprocs_sync += consensus[3*i+1];
        if(nprocs_sync==nservers)
        {
 
