@@ -104,7 +104,7 @@ int main(int argc,char **argv)
      em2.add_attr(a,vsize,is_signed,is_big_endian);
   }
 
-  for(int i=0;i<numstories;i++)
+  /*for(int i=0;i<numstories;i++)
   {
 	std::string name = "table"+std::to_string(i+1);
 	story_names.push_back(name);
@@ -112,7 +112,7 @@ int main(int argc,char **argv)
 	if(i%2==0)
 	np->prepare_service(name,em1,8192*size);
 	else np->prepare_service(name,em2,8192*size);
-  }
+  }*/
 
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -124,7 +124,7 @@ int main(int argc,char **argv)
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  np->data_streams_s(story_names,total_events,nbatches);
+  //np->data_streams_s(story_names,total_events,nbatches);
 
   //np->generate_queries(story_names);
 

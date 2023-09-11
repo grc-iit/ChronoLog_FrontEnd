@@ -80,7 +80,8 @@ std::vector<uint64_t> read_write_process::add_event(std::string &s,std::string &
     m1.unlock();
 
     int datasize = em.get_datasize();
-   
+ 
+   if(data.length()!=datasize) std::cout <<" data length = "<<data.length()<<" datasize = "<<datasize<<std::endl;  
     assert (data.length() == datasize);
 
     atomic_buffer *ab = dm->get_atomic_buffer(index);
@@ -267,6 +268,39 @@ void read_write_process::clear_read_events(std::string &s)
         }
 
         return err;
+}
+
+void read_write_process::spawn_write_stream(int index,std::string &sname)
+{
+    t_args[index].tid = index;   
+    t_args[index].endsession = false;
+    t_args[index].name = sname;
+
+    std::function<void(struct thread_arg_w*)> DataFunc(
+    std::bind(&read_write_process::data_stream,this,std::placeholders::_1));
+
+    std::thread t{DataFunc,&t_args[index]};
+    workers[index] = std::move(t);
+    /*
+    while(true)
+    {
+            std::thread st{DataFunc,&t_args[index]};
+            st.join();
+
+            struct io_request *r = new struct io_request();
+            r->name = t_args[index].name;
+            r->from_nvme = true;
+            io_queue_async->push(r);
+
+            num_streams.store(1);
+            while(num_streams.load()!=0);
+            bool endbatch = true;
+            if(t_args[index].endsession != true) endbatch = false;
+            if(endbatch) break;
+
+    }*/
+
+
 }
 
 void read_write_process::spawn_write_streams(std::vector<std::string> &snames,std::vector<int> &total_events,int nbatches)
@@ -1249,7 +1283,19 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 	  break;
       }
 
-      if(numrounds == 2) break;
+      if(numrounds == 2) 
+      {
+
+	struct io_request *r = new struct io_request();
+        r->name = t->name;
+        r->from_nvme = true;
+        io_queue_async->push(r);
+
+        num_streams.store(1);
+        while(num_streams.load()!=0);
+
+	numrounds = 0;
+      }
 
       for(;;)
       {
@@ -1261,19 +1307,24 @@ void read_write_process::data_stream(struct thread_arg_w *t)
         }
       }
 
-      try
+      if(enable_stream[t->tid].load()==1)
       {
+        try
+        {
 	  sort_events(t->name);
 	  numrounds++;
-      }
-      catch(const std::exception &except)
-      {
+        }
+        catch(const std::exception &except)
+        {
 	  std::cout <<except.what()<<std::endl;
 	  exit(-1);
+        }
       }
       b = true;
    }
 
+   if(enable_stream[t->tid].load()==1)
+   {
    try
    {
        sort_events(t->name);
@@ -1282,6 +1333,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
    {
 	std::cout <<except.what()<<std::endl;
 	exit(-1);
+   }
    }
 
 

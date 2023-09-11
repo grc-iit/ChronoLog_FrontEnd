@@ -31,7 +31,7 @@ struct KeyIndex
 struct keydata
 {
   uint64_t ts;
-  char data[108];
+  char *data;
 
 };
 
@@ -94,8 +94,9 @@ class hdf5_invlist
 	   int numevents;
 	   int io_count;
 	   boost::mutex invmutex;
+	   int datasize;
    public:
-	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io,int c) : numprocs(n), myrank(p), io_count(c)
+	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io,int c,int data_size) : numprocs(n), myrank(p), io_count(c)
 	   {
 	     tag = 20000;
 	     tag += io_count;
@@ -110,7 +111,7 @@ class hdf5_invlist
 	     int rem = ntables%numprocs;
 	     if(myrank < rem) numtables = tables_per_proc+1;
 	     else numtables = tables_per_proc;
-
+	     datasize = data_size;
 	     if(myrank==0) std::cout <<" totalsize = "<<totalsize<<" number of tables = "<<ntables<<" totalbits = "<<nbits<<" nbits_per_table = "<<nbits_r<<std::endl;
 
 	     dir = "/home/asasidharan/FrontEnd/build/emu/"; 

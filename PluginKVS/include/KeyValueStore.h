@@ -312,8 +312,11 @@ class KeyValueStore
                }
 
                std::string type = ka->get_attribute_type(attr_name);
-
-	       if_q->CreateEmulatorBuffer(8192,s,myrank);
+	       KeyValueStoreMetadata m = ka->get_metadata();
+	       std::vector<std::string> metastring;
+	       m.packmetadata(metastring);
+		
+	       if_q->CreateEmulatorStream(s,metastring,myrank);
 	   }
 	   template<typename T,typename N>
 	   void create_keyvalues(struct kstream_args *k)
@@ -351,7 +354,7 @@ class KeyValueStore
 		int op = 0;
 		for(int n=0;n<8;n++)
 		{
-		for(int i=0;i<512;i++)
+		for(int i=0;i<1024;i++)
 		{	
 		    key = random()%RAND_MAX; 
 		    op = random()%2;
