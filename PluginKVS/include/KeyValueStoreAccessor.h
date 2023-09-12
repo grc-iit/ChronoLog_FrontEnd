@@ -84,7 +84,7 @@ class KeyValueStoreAccessor
 		return md.get_type(attr_name);
 	  }
 
-	  int create_invertedlist(std::string &attr_name,int c)
+	  int create_invertedlist(std::string &attr_name,int c,int maxsize)
 	  {
 		std::string name = md.db_name();
 		std::string type = md.get_type(attr_name);
@@ -100,22 +100,22 @@ class KeyValueStoreAccessor
 		  if(type.compare("int")==0)
 		  {
 		   int maxint = INT32_MAX;
-		   ret = add_new_inverted_list<integer_invlist,int>(name,attr_name,32768,numtables,maxint,d,kio,c,md.value_size());
+		   ret = add_new_inverted_list<integer_invlist,int>(name,attr_name,maxsize,numtables,maxint,d,kio,c,md.value_size());
 		  }
 		  else if(type.compare("unsignedlong")==0)
 		  {
 		   uint64_t maxuint = UINT64_MAX;
-		   ret = add_new_inverted_list<unsigned_long_invlist,uint64_t>(name,attr_name,32768,numtables,maxuint,d,kio,c,md.value_size());
+		   ret = add_new_inverted_list<unsigned_long_invlist,uint64_t>(name,attr_name,maxsize,numtables,maxuint,d,kio,c,md.value_size());
 		  }
 		  else if(type.compare("float")==0)
 		  {
 		   float maxfl = DBL_MAX;
-		   ret = add_new_inverted_list<float_invlist,float>(name,attr_name,32768,numtables,maxfl,d,kio,c,md.value_size());
+		   ret = add_new_inverted_list<float_invlist,float>(name,attr_name,maxsize,numtables,maxfl,d,kio,c,md.value_size());
 		  }
 		  else if(type.compare("double")==0)
 		  {
 		   double maxd = DBL_MAX;
-		   ret = add_new_inverted_list<double_invlist,double>(name,attr_name,32768,numtables,maxd,d,kio,c,md.value_size());
+		   ret = add_new_inverted_list<double_invlist,double>(name,attr_name,maxsize,numtables,maxd,d,kio,c,md.value_size());
 		  }
 		}
 		else ret = r->second;

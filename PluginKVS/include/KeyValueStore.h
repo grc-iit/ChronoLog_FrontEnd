@@ -16,6 +16,7 @@ struct kstream_args
 {
   std::string tname;
   std::string attr_name;
+  int maxsize;
   int tid;
 };
 
@@ -75,7 +76,7 @@ class KeyValueStore
 	   void createKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &);
 	   bool findKeyValueStoreEntry(std::string &,KeyValueStoreMetadata &);
 	   void removeKeyValueStoreEntry(std::string &s);
-	   void addKeyValueStoreInvList(std::string &s,std::string &attr_name);
+	   void addKeyValueStoreInvList(std::string &s,std::string &attr_name,int);
 	   bool findKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void removeKeyValueStoreInvList(std::string &s,std::string &attr_name);
 
@@ -293,6 +294,7 @@ class KeyValueStore
 		std::string s = k->tname;
                 std::string attr_name = k->attr_name;
                 KeyValueStoreAccessor* ka = tables->get_accessor(s);
+		int maxsize = k->maxsize;
 
                 if(ka==nullptr)
                 {
@@ -306,7 +308,7 @@ class KeyValueStore
 
                if(pos==-1)
                {
-                  tables->create_invertedlist(s,attr_name,io_count);
+                  tables->create_invertedlist(s,attr_name,io_count,maxsize);
                   io_count++;
                   pos = ka->get_inverted_list_index(attr_name);
                }
@@ -316,7 +318,7 @@ class KeyValueStore
 	       std::vector<std::string> metastring;
 	       m.packmetadata(metastring);
 		
-	       if_q->CreateEmulatorStream(s,metastring,myrank);
+	       bool b = if_q->CreateEmulatorStream(s,metastring,myrank);
 	   }
 	   template<typename T,typename N>
 	   void create_keyvalues(struct kstream_args *k)
@@ -349,12 +351,13 @@ class KeyValueStore
 
 		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
-		std::vector<N> keys;
+		
+		/*std::vector<N> keys;
 		bool exit = false;
 		int op = 0;
 		for(int n=0;n<8;n++)
 		{
-		for(int i=0;i<1024;i++)
+		for(int i=0;i<512;i++)
 		{	
 		    key = random()%RAND_MAX; 
 		    op = random()%2;
@@ -390,8 +393,9 @@ class KeyValueStore
 		int recvv=0;
 		for(int i=0;i<numprocs;i++) recvv+=recv_v[i];
 
-		}
+		}*/
 
+		delete reqs;
 		//ka->closefilerw<T,N>(pos);
    	       //RunKeyValueStoreFunctions<T,N>(ka,k);
 	   }
@@ -401,13 +405,14 @@ class KeyValueStore
            void get_dataworld_workload(std::string&,std::vector<uint64_t>&,std::vector<uint64_t>&,std::vector<int>&);
 
 	   template<typename T,typename N>
-	   void spawn_kvstream(std::string &s,std::string &a)
+	   int spawn_kvstream(std::string &s,std::string &a,int maxsize)
 	   {
 
 		int prev = nstreams.load();
 		k_args[prev].tname = s;
 		k_args[prev].attr_name = a;
 		k_args[prev].tid = prev;
+		k_args[prev].maxsize = maxsize;
 		std::string streamname = s+a;
 		std::pair<std::string,int> p(streamname,prev);
 		kvindex.insert(p);
@@ -420,46 +425,49 @@ class KeyValueStore
 
 		prepare_inverted_list<T,N>(&k_args[prev]);
 
-		std::function<void(struct kstream_args *)> 
+		/*std::function<void(struct kstream_args *)> 
 		KVStream(std::bind(&KeyValueStore::cacheflushInvList<T,N>,this, std::placeholders::_1));
-
-		nstreams.fetch_add(1);
+		*/
+		/*nstreams.fetch_add(1);
 
 	 	std::thread t{KVStream,&k_args[prev]};	
-		kstreams[prev] = std::move(t);
+		kstreams[prev] = std::move(t);*/
 
-		create_keyvalues<T,N>(&k_args[prev]);
-
-		stream_flags[prev].store(1);
+		//create_keyvalues<T,N>(&k_args[prev]);
+		return prev;
 	   }
 
-	   void start_session(std::string &name,std::string &attrname,KeyValueStoreMetadata &m)
+	   int start_session(std::string &name,std::string &attrname,KeyValueStoreMetadata &m,int maxsize)
 	   {
 		
 		 createKeyValueStoreEntry(name,m);
-		 addKeyValueStoreInvList(name,attrname);
+		 addKeyValueStoreInvList(name,attrname,maxsize);
 		 std::string type = m.get_type(attrname);
+		 int session_index = -1;
 		 if(type.compare("int")==0)
 		 {
-		   spawn_kvstream<integer_invlist,int>(name,attrname);
+		   session_index = spawn_kvstream<integer_invlist,int>(name,attrname,maxsize);
 		 }
 		 else if(type.compare("unsignedlong")==0)
 		 {
-		   spawn_kvstream<unsigned_long_invlist,unsigned long>(name,attrname);
+		   session_index = spawn_kvstream<unsigned_long_invlist,unsigned long>(name,attrname,maxsize);
 		 }
 		 else if(type.compare("float")==0)
 		 {
-		   spawn_kvstream<float_invlist,float>(name,attrname);
+		   session_index = spawn_kvstream<float_invlist,float>(name,attrname,maxsize);
 		 }
 		 else if(type.compare("double")==0)
 		 {
-		    spawn_kvstream<double_invlist,double>(name,attrname);
+		    session_index = spawn_kvstream<double_invlist,double>(name,attrname,maxsize);
 		 }
+		 return session_index;
 
 	   }
 
 	   void close_sessions()
 	   {
+		for(int i=0;i<nstreams.load();i++) stream_flags[i].store(1);
+
 		for(int i=0;i<nstreams.load();i++) kstreams[i].join();
 
 		io_layer->end_io();
@@ -481,10 +489,10 @@ class KeyValueStore
 		}
 		
 		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
+		std::cout <<" rank = "<<myrank<<" close session"<<std::endl;
 		std::free(reqs);
 		std::string s = "endsession";
-		if_q->EndEmulatorSession(s,myrank);
+		bool b = if_q->EndEmulatorSession(s,myrank);
 	   }
 	   ~KeyValueStore()
 	   {

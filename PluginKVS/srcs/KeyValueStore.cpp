@@ -42,7 +42,7 @@ void KeyValueStore::get_dataworld_workload(std::string &s,std::vector<uint64_t> 
     create_dataworld_testinput(s,numprocs,myrank,keys,ts,op);
 }
 
-void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_name)
+void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_name,int maxsize)
 {
       if(!tables->find_accessor(s))
       {
@@ -52,7 +52,7 @@ void KeyValueStore::addKeyValueStoreInvList(std::string &s,std::string &attr_nam
 	   if(!tables->add_accessor(s,m)) return;
       }
 
-      tables->create_invertedlist(s,attr_name,io_count);
+      tables->create_invertedlist(s,attr_name,io_count,maxsize);
       io_count++;
 }
 

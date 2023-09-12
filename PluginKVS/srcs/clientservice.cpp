@@ -53,7 +53,7 @@ int main(int argc,char **argv)
    KeyValueStoreMetadata m5(sname5,n,types,names,lens,len);
    
 
-   k->start_session(sname5,names[0],m5);
+   int id = k->start_session(sname5,names[0],m5,32768);
 
    std::vector<int> keys1;
    std::vector<uint64_t> ts1;
