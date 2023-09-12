@@ -31,6 +31,7 @@ struct io_request
    std::string name;
    bool from_nvme;
    bool read_op;
+   int tid;
    std::vector<struct event> *buf1;
    std::vector<struct event> *buf2;
    std::vector<struct event> *buf3;

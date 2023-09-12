@@ -1289,10 +1289,11 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 	struct io_request *r = new struct io_request();
         r->name = t->name;
         r->from_nvme = true;
+	r->tid = t->tid;
         io_queue_async->push(r);
 
-        num_streams.store(1);
-        while(num_streams.load()!=0);
+        io_reqs_pending[t->tid].store(1);
+        while(io_reqs_pending[t->tid].load()!=0);
 
 	numrounds = 0;
       }
@@ -1375,33 +1376,48 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      std::atomic_thread_fence(std::memory_order_seq_cst);
 
-     while(num_streams.load()==0 && end_of_io_session.load()==0);
+     while(cstream.load()==0 && end_of_io_session.load()==0);
 
-     int sync_async[3];
-     sync_async[0] = 0;
-     int async_empty = num_streams.load() == 0 ? 0 : 1;
-     sync_async[1] = async_empty;
+     int end_io=0;
      int end_sessions = end_of_io_session.load()==0 ? 0 : 1;
-     sync_async[2] = io_queue_async->empty() ? end_sessions : 0;
+     end_io = io_queue_async->empty() ? end_sessions : 0;
 
-     int sync_empty_all[3];
+     int empty_all;
 
-     MPI_Allreduce(&sync_async,&sync_empty_all,3,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+     MPI_Allreduce(&end_io,&empty_all,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
-     if(sync_empty_all[2]==numprocs) 
+     if(empty_all==numprocs) 
      {
 	     break;
      }
 
-     if(sync_empty_all[1]==numprocs)
+     int valid_stream = cstream.load();
+     int active_valid_stream = 0;
+     MPI_Allreduce(&valid_stream,&active_valid_stream,1,MPI_INT,MPI_MIN,MPI_COMM_WORLD);
+
+     if(active_valid_stream > 0)
+     {
+     std::vector<int> pending_streams(active_valid_stream);
+     for(int i=0;i<active_valid_stream;i++)
+	   pending_streams[i]=io_reqs_pending[i].load();
+
+     std::vector<int> active_reqs(active_valid_stream);
+     std::fill(active_reqs.begin(),active_reqs.end(),0);
+     MPI_Allreduce(pending_streams.data(),active_reqs.data(),active_valid_stream,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+
+     int numreq = 0;
+     for(int i=0;i<active_reqs.size();i++)
+	     if(active_reqs[i]==numprocs) numreq++;
+     if(numreq > 0)
      {
        snames.clear(); data.clear(); total_records.clear(); offsets.clear(); numrecords.clear();
        minkeys.clear(); maxkeys.clear();
        bcounts.clear(); blockcounts.clear();
 
+        std::vector<io_request*> inactive_reqs;
+
 	CM->SynchronizeClocks();
 	CM->ComputeErrorInterval();
-        //sync_clocks();
 
 
        while(!io_queue_async->empty())
@@ -1412,8 +1428,8 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
          if(r != nullptr)
          {
-           if(r->from_nvme)
-           {
+           if(r->tid < active_valid_stream && active_reqs[r->tid]==numprocs)
+	   {
               hsize_t trecords, offset, numrecords;
 	      uint64_t min_key,max_key;
 	      int nblocks;
@@ -1438,14 +1454,17 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 	      bcounts.push_back(nblocks);
  	      blockcounts.push_back(blockc);
 	      clear_nvme = true;
+	      delete r;
+	      io_reqs_pending[r->tid].store(0);
           }
+	  else inactive_reqs.push_back(r);
 
-	  delete r;
          }
       }
 
-      num_streams.store(0);
-      std::atomic_thread_fence(std::memory_order_seq_cst);
+      for(int i=0;i<inactive_reqs.size();i++)
+	      io_queue_async->push(inactive_reqs[i]);
+
       pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
       snames.clear();
       data.clear();
@@ -1454,6 +1473,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
       numrecords.clear();
       bcounts.clear();
       blockcounts.clear();
+     }
      }
 
   }
