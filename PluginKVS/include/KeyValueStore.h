@@ -321,43 +321,24 @@ class KeyValueStore
 	       bool b = if_q->CreateEmulatorStream(s,metastring,myrank);
 	   }
 	   template<typename T,typename N>
-	   void create_keyvalues(struct kstream_args *k)
+	   void create_keyvalues(int s_id,int nops)
 	   {
-		std::string s = k->tname;
-   		std::string attr_name = k->attr_name;
+		std::string s = k_args[s_id].tname;
+   		std::string attr_name = k_args[s_id].attr_name;
    		KeyValueStoreAccessor* ka = tables->get_accessor(s);
 
 		bool b = false;
 		int pos = ka->get_inverted_list_index(attr_name);
 		N key = 0.5;
-		std::string st = k->tname;
+		std::string st = k_args[s_id].tname;
 		std::string data;
-		data.resize(100);
+		KeyValueStoreMetadata m = ka->get_metadata();
+		int datasize = m.value_size();
+		data.resize(datasize);
 		
-		MPI_Request *reqs = new MPI_Request[2*numprocs];
-		int nreq = 0;
-
-		int send_v = 1;
-		std::vector<int> recv_v(numprocs);
-		std::fill(recv_v.begin(),recv_v.end(),0);
-
-		for(int i=0;i<numprocs;i++)
-		{
-		  MPI_Isend(&send_v,1,MPI_INT,i,1000,MPI_COMM_WORLD,&reqs[nreq]);
-		  nreq++;
-		  MPI_Irecv(&recv_v[i],1,MPI_INT,i,1000,MPI_COMM_WORLD,&reqs[nreq]);
-		  nreq++;
-		}
-
-		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
-		
-		/*std::vector<N> keys;
 		bool exit = false;
 		int op = 0;
-		for(int n=0;n<8;n++)
-		{
-		for(int i=0;i<512;i++)
+		for(int i=0;i<nops;i++)
 		{	
 		    key = random()%RAND_MAX; 
 		    op = random()%2;
@@ -374,30 +355,8 @@ class KeyValueStore
 		    }
 
 		    usleep(200000); 
-		 }
-	
-		nreq = 0;
-		send_v = exit ? 1 : 0;
-		std::fill(recv_v.begin(),recv_v.end(),0);
-
-		for(int i=0;i<numprocs;i++)
-		{
-		  MPI_Isend(&send_v,1,MPI_INT,i,1000,MPI_COMM_WORLD,&reqs[nreq]);
-		  nreq++;
-		  MPI_Irecv(&recv_v[i],1,MPI_INT,i,1000,MPI_COMM_WORLD,&reqs[nreq]);
-		  nreq++;
 		}
-
-		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
-		int recvv=0;
-		for(int i=0;i<numprocs;i++) recvv+=recv_v[i];
-
-		}*/
-
-		delete reqs;
-		//ka->closefilerw<T,N>(pos);
-   	       //RunKeyValueStoreFunctions<T,N>(ka,k);
+	
 	   }
 
            void get_testworkload(std::string &,std::vector<int>&,std::vector<uint64_t>&,int);
@@ -425,15 +384,14 @@ class KeyValueStore
 
 		prepare_inverted_list<T,N>(&k_args[prev]);
 
-		/*std::function<void(struct kstream_args *)> 
+		std::function<void(struct kstream_args *)> 
 		KVStream(std::bind(&KeyValueStore::cacheflushInvList<T,N>,this, std::placeholders::_1));
-		*/
-		/*nstreams.fetch_add(1);
+	
+		nstreams.fetch_add(1);
 
 	 	std::thread t{KVStream,&k_args[prev]};	
-		kstreams[prev] = std::move(t);*/
+		kstreams[prev] = std::move(t);
 
-		//create_keyvalues<T,N>(&k_args[prev]);
 		return prev;
 	   }
 
@@ -489,7 +447,6 @@ class KeyValueStore
 		}
 		
 		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-		std::cout <<" rank = "<<myrank<<" close session"<<std::endl;
 		std::free(reqs);
 		std::string s = "endsession";
 		bool b = if_q->EndEmulatorSession(s,myrank);

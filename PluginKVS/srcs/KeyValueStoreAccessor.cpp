@@ -57,9 +57,12 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
    {
 	keyarray[i] = arr[i];
    }
-   std::string key_s(keyarray,8);
-   std::string data = key_s+value;  
-     
+   for(int i=0;i<8;i++)
+     value[i] = keyarray[i];
+   std::string data = value; 
+   
+   assert(data.length()==value.length());  
+
    std::vector<uint64_t> ts;
    ts = if_q->PutEmulatorEvent(s,data,myrank);
    bool b = false;

@@ -55,6 +55,8 @@ int main(int argc,char **argv)
 
    int id = k->start_session(sname5,names[0],m5,32768);
 
+   k->create_keyvalues<double_invlist,double>(id,4096);
+
    std::vector<int> keys1;
    std::vector<uint64_t> ts1;
 

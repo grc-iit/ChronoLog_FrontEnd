@@ -16,9 +16,23 @@ int main(int argc,char **argv)
 
    KeyValueStore *k = new KeyValueStore(size,rank);
 
+   std::string sname = "table2";
+   int n = 2;
+   std::vector<std::string> types;
+   std::vector<std::string> names;
+   std::vector<int> lens;
+   types.push_back("int");
+   names.push_back("value1");
+   lens.push_back(sizeof(int));
+   types.push_back("char");
+   names.push_back("value2");
+   lens.push_back(200);
+   int len = sizeof(int)+200;
+   KeyValueStoreMetadata m(sname,n,types,names,lens,len);
+ 
+   int s = k->start_session(sname,names[0],m,32768);
 
-
-   MPI_Barrier(MPI_COMM_WORLD);
+   k->create_keyvalues<integer_invlist,int>(s,4096);
 
    k->close_sessions();
 

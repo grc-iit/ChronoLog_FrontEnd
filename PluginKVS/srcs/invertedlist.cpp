@@ -144,12 +144,13 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	}
      }
 
-     if(cached_keyindex_mt.size()>0 && cached_keyindex.size()>0 && worklist1.size()>0)
+     //if(cached_keyindex_mt.size()>0 && cached_keyindex.size()>0)
      {
 	   std::string dstring = "Data1";   
-           hid_t dataset_t = H5Dopen2(fid,dstring.c_str(),H5P_DEFAULT);
+           hid_t dataset_t = H5Dopen(fid,dstring.c_str(),H5P_DEFAULT);
 	   hid_t file_dataspace = H5Dget_space(dataset_t);
 
+	   if(cached_keyindex_mt.size()>0 && cached_keyindex.size()>0)
 	   for(int n=0;n<worklist1.size();n++)
 	   {
 	     KeyT k = worklist1[n].first;
@@ -184,20 +185,13 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	       H5Sclose(mem_dataspace);
 	     }
 	   }
-	       H5Sclose(file_dataspace);
-	       H5Dclose(dataset_t);
-	       //H5Fclose(fid);
-	       H5Tclose(s2);
-	       H5Tclose(s1);
-	       //H5Pclose(xfer_plist);
-	       //H5Pclose(fapl);
-     	       //io_t->reset_sync(io_count);
 	   H5Sclose(file_dataspace);
 	   H5Dclose(dataset_t);
 
      }
      
-     if(worklist2.size()>0)
+     MPI_Barrier(MPI_COMM_WORLD);
+
      {
        hsize_t attr_size[1];
        attr_size[0] = MAXBLOCKS*4+4;
@@ -208,7 +202,7 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
        attrname[0] = "Datasizes";
 
        std::string data_string = "Data1";
-       hid_t dataset1 = H5Dopen2(fid,data_string.c_str(), H5P_DEFAULT);
+       hid_t dataset1 = H5Dopen(fid,data_string.c_str(), H5P_DEFAULT);
 
        hid_t attr_id = H5Aopen(dataset1,attrname[0],H5P_DEFAULT);
        std::vector<uint64_t> attrs;
@@ -285,7 +279,6 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
      H5Pclose(fapl);
      H5Pclose(xfer_plist);
 
-     //io_t->reset_sync(io_count);
    }
    }
 
