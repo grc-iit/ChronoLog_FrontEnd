@@ -113,7 +113,7 @@ void create_integertestinput(std::string &name,int numprocs,int myrank,int offse
 
 }
 
-void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,std::vector<float> &keys,std::vector<uint64_t> &ts,std::vector<int>&op)
+void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,std::vector<uint64_t> &keys,std::vector<float> &values,std::vector<int>&op)
 {
    if(myrank==0)
    {
@@ -159,15 +159,15 @@ void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,s
          ess >> valuestr;
          float value = std::stof(valuestr,nullptr);
 
-         ts.push_back(tsu);
-         keys.push_back(value);
+         keys.push_back(tsu);
+         values.push_back(value);
        }
        else
        {
 	  uint64_t tsu = UINT64_MAX;
 	  float value = 0;
-	  ts.push_back(tsu);
-	  keys.push_back(value);
+	  keys.push_back(tsu);
+	  values.push_back(value);
 	
        }
      }
@@ -177,7 +177,7 @@ void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,s
 
    }
    
-   int numrecords = ts.size();
+   int numrecords = keys.size();
    int totalrecords = 0;
    MPI_Allreduce(&numrecords,&totalrecords,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
@@ -189,7 +189,7 @@ void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,s
 
    if(myrank != 0) 
    {
-      ts.resize(numrecords);
+      values.resize(numrecords);
       keys.resize(numrecords);
       op.resize(numrecords);
    }
@@ -206,14 +206,14 @@ void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,s
 	else nrecords = records_per_proc;
 	if(i != 0)
 	{
-	  MPI_Isend(&ts[offset],nrecords,MPI_UINT64_T,i,123,MPI_COMM_WORLD,&reqs[nreq]);
+	  MPI_Isend(&keys[offset],nrecords,MPI_UINT64_T,i,123,MPI_COMM_WORLD,&reqs[nreq]);
 	  nreq++;
         }
 	offset += nrecords;
    }
    else
    {
-	MPI_Irecv(ts.data(),numrecords,MPI_UINT64_T,0,123,MPI_COMM_WORLD,&reqs[nreq]);
+	MPI_Irecv(keys.data(),numrecords,MPI_UINT64_T,0,123,MPI_COMM_WORLD,&reqs[nreq]);
 	nreq++;
    }
 
@@ -222,8 +222,8 @@ void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,s
    if(myrank==0)
    {
 	std::vector<uint64_t> temp;
-	temp.assign(ts.begin(),ts.begin()+numrecords);
-	ts.assign(temp.begin(),temp.end());
+	temp.assign(keys.begin(),keys.begin()+numrecords);
+	keys.assign(temp.begin(),temp.end());
 
    }
 
@@ -238,14 +238,14 @@ void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,s
 
       if(i != 0)
       {
-	MPI_Isend(&keys[offset],nrecords,MPI_FLOAT,i,123,MPI_COMM_WORLD,&reqs[nreq]);
+	MPI_Isend(&values[offset],nrecords,MPI_FLOAT,i,123,MPI_COMM_WORLD,&reqs[nreq]);
 	nreq++;
       }
       offset += nrecords;
    }
    else
    {
-	MPI_Irecv(keys.data(),numrecords,MPI_FLOAT,0,123,MPI_COMM_WORLD,&reqs[nreq]);
+	MPI_Irecv(values.data(),numrecords,MPI_FLOAT,0,123,MPI_COMM_WORLD,&reqs[nreq]);
 	nreq++;
    }
 
@@ -254,8 +254,8 @@ void create_timeseries_testinput(std::string &filename,int numprocs,int myrank,s
    if(myrank==0)
    {
 	std::vector<float> temp;
-	temp.assign(keys.begin(),keys.begin()+numrecords);
-	keys.assign(temp.begin(),temp.end());
+	temp.assign(values.begin(),values.begin()+numrecords);
+	values.assign(temp.begin(),temp.end());
    }
 
    offset = 0;

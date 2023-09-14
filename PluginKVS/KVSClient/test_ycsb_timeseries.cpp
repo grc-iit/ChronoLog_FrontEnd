@@ -16,23 +16,32 @@ int main(int argc,char **argv)
 
    KeyValueStore *k = new KeyValueStore(size,rank);
 
-   std::string sname = "table3";
+   std::string sname = "timeseriesrun";
    int n = 2;
    std::vector<std::string> types;
    std::vector<std::string> names;
    std::vector<int> lens;
-   types.push_back("float");
+   types.push_back("unsignedlong");
    names.push_back("value1");
-   lens.push_back(sizeof(float));
-   types.push_back("char");
+   lens.push_back(sizeof(uint64_t));
+   types.push_back("float");
    names.push_back("value2");
-   lens.push_back(200);
-   int len = sizeof(float)+200;
+   lens.push_back(sizeof(float));
+   int len = sizeof(uint64_t)+sizeof(float);
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
- 
+   
+   std::vector<uint64_t> keys;
+   std::vector<float> values;
+   std::vector<int> op;
+   std::string filename = sname+".log"; 
+   k->get_ycsb_timeseries_workload(filename,keys,values,op);
+
+   MPI_Barrier(MPI_COMM_WORLD);
+
+   std::cout <<" rank = "<<rank<<" numkeys = "<<keys.size()<<std::endl;
    int s = k->start_session(sname,names[0],m,32768);
 
-   k->create_keyvalues<float_invlist,float>(s,8192,200000);
+   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
 
    k->close_sessions();
 

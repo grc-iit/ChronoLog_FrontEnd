@@ -50,18 +50,11 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
 {
    if(pos >= lists.size()) return false;
 
-   char keyarray[8];
-   N key_t = key;
-   char *arr = (char *)(&key_t);
-   for(int i=0;i<8;i++)
-   {
-	keyarray[i] = arr[i];
-   }
-   for(int i=0;i<8;i++)
-     value[i] = keyarray[i];
-   std::string data = value; 
-   
-   assert(data.length()==value.length());  
+   int ksize = sizeof(N);
+
+   std::string data = value;
+
+   assert(data.length()==value.length());
 
    std::vector<uint64_t> ts;
    ts = if_q->PutEmulatorEvent(s,data,myrank);
@@ -190,12 +183,14 @@ void KeyValueStoreAccessor::cache_invertedtable(std::string &attr_name)
    int pos = get_inverted_list_index(attr_name);
    if(pos==-1) return;
 
+   std::string tname = md.db_name();
+
    T *invlist = reinterpret_cast<T*>(lists[pos].second);
 
    if(!invlist->CheckLocalFileExists())
    {
 	std::string filename = "file";
-	filename += "table1.h5";
+	filename += tname+".h5";
 
 	if(if_q->CheckFileExistence(filename,myrank))
 	{
@@ -211,6 +206,8 @@ void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name)
 {
     int offset = md.locate_offset(attr_name);
 
+    std::string tname = md.db_name();
+
     if(offset==-1) return;
 
     int pos = get_inverted_list_index(attr_name); 
@@ -222,7 +219,7 @@ void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name)
     if(!invlist->CheckLocalFileExists())
     {
            std::string filename = "file";
-           filename += "table1.h5";
+           filename += tname+".h5";
            if(if_q->CheckFileExistence(filename,myrank))
            {
                 invlist->LocalFileExists();

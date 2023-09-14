@@ -1,6 +1,6 @@
 
 include_directories("../include")
-set(clients test1_integerkeys test2_floatkeys)
+set(clients test1_integerkeys test2_floatkeys test_ycsb_timeseries)
 
 foreach(client ${clients}) 
     add_executable(${client} ${client}.cpp)

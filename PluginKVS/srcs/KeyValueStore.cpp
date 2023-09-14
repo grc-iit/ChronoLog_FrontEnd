@@ -29,10 +29,10 @@ void KeyValueStore::get_testworkload(std::string &s,std::vector<int>&keys,std::v
    create_integertestinput(s,numprocs,myrank,offset,keys,ts);
 }
 
-void KeyValueStore::get_ycsb_timeseries_workload(std::string &s,std::vector<float> &keys,std::vector<uint64_t> &ts,std::vector<int>&op)
+void KeyValueStore::get_ycsb_timeseries_workload(std::string &s,std::vector<uint64_t> &keys,std::vector<float> &values,std::vector<int>&op)
 {
 
-   create_timeseries_testinput(s,numprocs,myrank,keys,ts,op);
+   create_timeseries_testinput(s,numprocs,myrank,keys,values,op);
 
 }
 

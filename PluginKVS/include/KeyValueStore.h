@@ -311,8 +311,45 @@ class KeyValueStore
 		
 	       bool b = if_q->CreateEmulatorStream(s,metastring,myrank);
 	   }
+	   template<typename T,typename N,typename M>
+	   void create_keyvalues(int s_id,std::vector<N> &keys,std::vector<M> &values,std::vector<int> &ops,int rate)
+	   {
+	      std::string s = k_args[s_id].tname;
+	      std::string attr_name = k_args[s_id].attr_name;
+	      KeyValueStoreAccessor *ka = tables->get_accessor(s);
+	      bool b = false;
+	      int pos = ka->get_inverted_list_index(attr_name);
+	      std::string st = k_args[s_id].tname;
+	      KeyValueStoreMetadata m = ka->get_metadata();
+	      int datasize = m.value_size();
+	      
+	      for(int i=0;i<keys.size();i++)
+	      {
+		if(ops[i]==0)
+		{
+	          std::string data;
+	          data.resize(datasize);
+		  char *key = (char*)(&(keys[i]));
+		  char *value = (char*)(&(values[i]));
+		  for(int j=0;j<sizeof(N);j++)
+		    data[j] = key[j];
+	          for(int j=0;j<sizeof(M);j++)
+		    data[sizeof(N)+j] = value[j];	 
+		  if(ka->Put<T,N,std::string>(pos,st,keys[i],data))
+		  {
+
+
+		  }
+		
+		  usleep(rate);
+		}
+
+
+	      }
+
+	   }
 	   template<typename T,typename N>
-	   void create_keyvalues(int s_id,int nops)
+	   void create_keyvalues(int s_id,int nops,int rate)
 	   {
 		std::string s = k_args[s_id].tname;
    		std::string attr_name = k_args[s_id].attr_name;
@@ -320,7 +357,6 @@ class KeyValueStore
 
 		bool b = false;
 		int pos = ka->get_inverted_list_index(attr_name);
-		N key = 0.5;
 		std::string st = k_args[s_id].tname;
 		std::string data;
 		KeyValueStoreMetadata m = ka->get_metadata();
@@ -331,7 +367,7 @@ class KeyValueStore
 		int op = 0;
 		for(int i=0;i<nops;i++)
 		{	
-		    key = random()%RAND_MAX; 
+		    N key = random()%RAND_MAX; 
 		    op = random()%2;
 		    if(op==0)
 		    { 
@@ -344,13 +380,12 @@ class KeyValueStore
 		      b = ka->Get<T,N> (pos,st,key);
 		    }
 
-		    usleep(200000); 
+		    usleep(rate); 
 		}
-	
 	   }
 
            void get_testworkload(std::string &,std::vector<int>&,std::vector<uint64_t>&,int);
-           void get_ycsb_timeseries_workload(std::string&,std::vector<float>&,std::vector<uint64_t>&,std::vector<int>&);
+           void get_ycsb_timeseries_workload(std::string&,std::vector<uint64_t>&,std::vector<float>&,std::vector<int>&);
            void get_dataworld_workload(std::string&,std::vector<uint64_t>&,std::vector<uint64_t>&,std::vector<int>&);
 
 	   template<typename T,typename N>
