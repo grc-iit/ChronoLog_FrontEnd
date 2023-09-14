@@ -188,6 +188,10 @@ public:
       bool end_sessions(std::string &s)
       {
 	rwp->end_session_flag();
+	for(int i=0;i<dw.size();i++) dw[i].join();
+	for(int i=0;i<qp.size();i++) qp[i].join();
+	QE->end_sessions();
+	rwp->end_sessions();
 	end_process.store(1);
 	return true;
       }

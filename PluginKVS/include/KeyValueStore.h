@@ -448,7 +448,7 @@ class KeyValueStore
 
 		for(int i=0;i<nstreams.load();i++) kstreams[i].join();
 
-		io_layer->end_io();
+		//io_layer->end_io();
 
 		MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 	        int nreq = 0;
@@ -470,6 +470,8 @@ class KeyValueStore
 		std::free(reqs);
 		std::string s = "endsession";
 		bool b = if_q->EndEmulatorSession(s,myrank);
+
+		io_layer->end_io();
 	   }
 	   ~KeyValueStore()
 	   {
