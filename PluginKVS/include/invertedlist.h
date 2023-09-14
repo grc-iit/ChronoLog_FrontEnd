@@ -227,9 +227,6 @@ class hdf5_invlist
 	   {
 	        if(invlist != nullptr) 
 	        {
-		  /*std::vector<uint64_t> ts;
-		  invlist->bm->get_map(ts);
-		  std::cout <<" rank = "<<myrank<<" attribute_name = "<<attributename<<" numvalues = "<<ts.size()<<std::endl;*/
 	          delete invlist->bm;
 		  delete invlist->ml;
 		  delete invlist;

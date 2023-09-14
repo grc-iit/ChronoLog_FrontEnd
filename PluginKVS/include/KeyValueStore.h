@@ -124,14 +124,14 @@ class KeyValueStore
 
     		std::string type = ka->get_attribute_type(attr_name);
 
-    		int tag = 1500;
+    		int tag = k->tid;
 
     		int send_v = 1;
     		std::vector<int> recv_v(numprocs);
     		std::fill(recv_v.begin(),recv_v.end(),0);
 
     		int nreq = 0;
-   	 	MPI_Request *reqs = (MPI_Request*)std::malloc(2*numprocs*sizeof(MPI_Request));
+   	 	MPI_Request *reqs = new MPI_Request[2*numprocs];
 
 		while(true)
    		{
@@ -166,18 +166,9 @@ class KeyValueStore
 		 
 		 ka->flush_invertedlist<T>(attr_name);
 
-      		 t1 = std::chrono::high_resolution_clock::now();
-
-      		/*while(true)
-      		{
-        		auto t2 = std::chrono::high_resolution_clock::now();
-        		double t = std::chrono::duration<double> (t2-t1).count();
-        		if(t > 50) break;
-      		}*/
-
    	       }
 
-   		std::free(reqs);
+   	       delete reqs;
           }
 
 
@@ -346,7 +337,6 @@ class KeyValueStore
 		    { 
 		      if(!ka->Put<T,N,std::string>(pos,st,key,data))
 		      {
-			//exit = true; break;
 		      }
 		    }
 		    else
@@ -376,11 +366,6 @@ class KeyValueStore
 		std::pair<std::string,int> p(streamname,prev);
 		kvindex.insert(p);
 		stream_flags[prev].store(0);
-		//k_args[prev].keys.assign(keys.begin(),keys.end());
-		//k_args[prev].ts.assign(ts.begin(),ts.end());
-		//k_args[prev].op.assign(op.begin(),op.end());
-
-		//keys.clear(); ts.clear(); op.clear();
 
 		prepare_inverted_list<T,N>(&k_args[prev]);
 
@@ -432,7 +417,7 @@ class KeyValueStore
 
 		MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 	        int nreq = 0;
-		int tag = 1000;
+		int tag = nstreams.load();
 		
 		int send_v = 1;
 		std::vector<int> recv_v(numprocs);

@@ -104,7 +104,6 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 
      if(sum_v==numprocs)
      {
-     //while(!io_t->announce_sync(io_count));
 
      hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
      hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -144,7 +143,6 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	}
      }
 
-     //if(cached_keyindex_mt.size()>0 && cached_keyindex.size()>0)
      {
 	   std::string dstring = "Data1";   
            hid_t dataset_t = H5Dopen(fid,dstring.c_str(),H5P_DEFAULT);
@@ -688,14 +686,10 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
    cached_keyindex.resize(kblocksize);
    cached_keyindex.assign(KeyTimestamps_s.begin(),KeyTimestamps_s.end());
 
-   //hid_t attrid_k = H5Acreate(dataset_k, attrname_k[0], H5T_NATIVE_INT, attrspace[0], H5P_DEFAULT, H5P_DEFAULT);
-   //ret = H5Awrite(attrid_k,H5T_NATIVE_INT,attrdata.data());
-
    H5Sclose(mem_dataspace);
    H5Sclose(file_dataspace_t);
    H5Sclose(file_dataspace_table);
    H5Dclose(dataset_t);
-   //H5Aclose(attrid_k);
    H5Dclose(dataset_k);
  }
  else
@@ -793,9 +787,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  cached_keyindex.clear();
 
  H5Dclose(dataset1);
- //H5Sclose(attrspace[0]);
  H5Sclose(attr_space[0]);
- //H5Sclose(file_dataspace);
  H5Aclose(attr_id);
  H5Tclose(s2);
  H5Tclose(s1);
@@ -876,25 +868,15 @@ std::vector<struct KeyIndex<KeyT>> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::m
 	   i++;
    }
 
-   MPI_Request *reqs = (MPI_Request*)std::malloc(2*numprocs*sizeof(MPI_Request));
-
    std::vector<int> recv_size(numprocs);
    std::fill(recv_size.begin(),recv_size.end(),0);
 
-   int send_size = result_list.size();
+   std::vector<int> send_size(numprocs);
+   std::fill(send_size.begin(),send_size.end(),0);
 
-   int nreqs = 0;
+   send_size[myrank] = result_list.size();
 
-
-   for(int i=0;i<numprocs;i++)
-   {
-	MPI_Isend(&send_size,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreqs]);
-	nreqs++;
-	MPI_Irecv(&recv_size[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreqs]);
-	nreqs++;
-   }
-
-   MPI_Waitall(nreqs,reqs,MPI_STATUS_IGNORE);
+   MPI_Allreduce(send_size.data(),recv_size.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
    int prefix = 0;
    for(int i=0;i<myrank;i++) prefix += recv_size[i];
@@ -902,8 +884,6 @@ std::vector<struct KeyIndex<KeyT>> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::m
    numkeys[1] = prefix;
    for(int i=1;i<maxsize;i++) 
      numkeys[2*i+1] = numkeys[2*(i-1)+1]+numkeys[2*(i-1)];
-
-   std::free(reqs);
 
    return result_list;
 }
@@ -994,26 +974,17 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entries_from_tables(std::ve
 
 	invlist->bm->fetch_clear_map(keys,offsets,maxts);
 
-	MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
-	int nreq = 0;
-
 	int numentries = 0;
 	for(int i=0;i<keys->size();i++)
 		numentries += (*keys)[i].size();
 
+	std::vector<int> send_counts(numprocs);
 	std::vector<int> recv_counts(numprocs);
-	int send_count = 0;
-	send_count = numentries;
+	std::fill(send_counts.begin(),send_counts.end(),0);
+	std::fill(recv_counts.begin(),recv_counts.end(),0);
+	send_counts[myrank] = numentries;
 
-	for(int i=0;i<numprocs;i++)
-	{
-	   MPI_Isend(&send_count,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	   nreq++;
-	   MPI_Irecv(&recv_counts[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-	   nreq++;
-	}
-
-	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+	MPI_Allreduce(send_counts.data(),recv_counts.data(),numprocs,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
 	numkeys = 0;
 	for(int i=0;i<recv_counts.size();i++)
@@ -1040,5 +1011,4 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entries_from_tables(std::ve
 	delete keys;
 	delete offsets;
 
-	std::free(reqs);
 }

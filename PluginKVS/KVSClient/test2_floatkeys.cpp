@@ -32,7 +32,7 @@ int main(int argc,char **argv)
  
    int s = k->start_session(sname,names[0],m,32768);
 
-   k->create_keyvalues<float_invlist,float>(s,4096);
+   k->create_keyvalues<float_invlist,float>(s,8192);
 
    k->close_sessions();
 
