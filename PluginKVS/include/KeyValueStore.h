@@ -151,20 +151,22 @@ class KeyValueStore
       		  int sum = 0;
       		  for(int i=0;i<numprocs;i++) sum += recv_v[i];
 
-      		  if(sum==numprocs) break;
+      		  if(sum==numprocs) 
+		  {
+		     ka->flush_invertedlist<T>(attr_name);
+		     break;
+		  }
 
       		  auto t1 = std::chrono::high_resolution_clock::now();
-
-
-                 while(true)
-                 {
+                  while(true)
+                  {
         		auto t2 = std::chrono::high_resolution_clock::now();
 
         		double t = std::chrono::duration<double>(t2-t1).count();
         		if(t > 100) break;
-      		 }
+      		  }
 		 
-		 ka->flush_invertedlist<T>(attr_name);
+		  ka->flush_invertedlist<T>(attr_name);
 
    	       }
 
@@ -444,34 +446,17 @@ class KeyValueStore
 
 	   void close_sessions()
 	   {
-		for(int i=0;i<nstreams.load();i++) stream_flags[i].store(1);
-
-		for(int i=0;i<nstreams.load();i++) kstreams[i].join();
-
-		//io_layer->end_io();
-
-		MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
-	        int nreq = 0;
-		int tag = nstreams.load();
-		
-		int send_v = 1;
-		std::vector<int> recv_v(numprocs);
-		std::fill(recv_v.begin(),recv_v.end(),0);
-
-		for(int i=0;i<numprocs;i++)
-		{
-		   MPI_Isend(&send_v,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-		   nreq++;
-		   MPI_Irecv(&recv_v[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
-		   nreq++;
-		}
-		
-		MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-		std::free(reqs);
 		std::string s = "endsession";
 		bool b = if_q->EndEmulatorSession(s,myrank);
 
+		for(int i=0;i<nstreams.load();i++) stream_flags[i].store(1);
+		for(int i=0;i<nstreams.load();i++) kstreams[i].join();
+
 		io_layer->end_io();
+
+		s = "shutdown";
+		b = if_q->ShutDownEmulator(s,myrank);
+
 	   }
 	   ~KeyValueStore()
 	   {

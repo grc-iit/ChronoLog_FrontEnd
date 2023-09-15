@@ -1477,6 +1477,7 @@ void read_write_process::io_polling(struct thread_arg_w *t)
      }
 
   }
+
 }
 
 std::string read_write_process::GetEvent(std::string &s,uint64_t &ts,int s_id)

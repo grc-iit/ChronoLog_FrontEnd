@@ -227,9 +227,9 @@ public:
 	}
 	void end_sessions()
 	{
-		end_of_io_session.store(1);
 		for(int i=0;i<cstream.load();i++)
 			workers[i].join();
+		end_of_io_session.store(1);
 		for(int i=0;i<num_io_threads;i++) io_threads[i].join();
 
 	}

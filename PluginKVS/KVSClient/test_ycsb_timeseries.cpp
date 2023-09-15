@@ -38,7 +38,6 @@ int main(int argc,char **argv)
 
    MPI_Barrier(MPI_COMM_WORLD);
 
-   std::cout <<" rank = "<<rank<<" numkeys = "<<keys.size()<<std::endl;
    int s = k->start_session(sname,names[0],m,32768);
 
    k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
