@@ -423,7 +423,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
 
  hid_t fid = H5Fopen(fname.c_str(),H5F_ACC_RDWR,fapl);
- if(myrank==0) std::cout <<" flush "<<std::endl;
 
  hsize_t adims[1];
  adims[0] = datasize;

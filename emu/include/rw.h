@@ -94,7 +94,7 @@ public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n,data_server_client *rc) : myrank(r), numprocs(np), numcores(n), dsc(rc)
 	{
            H5open();
-	   //H5VLis_connector_registered_by_name("async");
+	   H5VLis_connector_registered_by_name("async");
            std::string unit = "microsecond";
 	   CM = C;
 	   sync_clock.store(0);

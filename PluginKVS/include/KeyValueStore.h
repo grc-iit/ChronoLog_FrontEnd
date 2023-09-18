@@ -133,6 +133,8 @@ class KeyValueStore
     		int nreq = 0;
    	 	MPI_Request *reqs = new MPI_Request[2*numprocs];
 
+		bool end_loop = false;
+
 		while(true)
    		{
       		  send_v = stream_flags[k->tid].load();
@@ -153,8 +155,7 @@ class KeyValueStore
 
       		  if(sum==numprocs) 
 		  {
-		     ka->flush_invertedlist<T>(attr_name);
-		     break;
+		     end_loop = true;
 		  }
 
       		  auto t1 = std::chrono::high_resolution_clock::now();
@@ -167,7 +168,7 @@ class KeyValueStore
       		  }
 		 
 		  ka->flush_invertedlist<T>(attr_name);
-
+		  if(end_loop) break;
    	       }
 
    	       delete reqs;
