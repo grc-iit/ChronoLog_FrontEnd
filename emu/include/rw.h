@@ -89,7 +89,8 @@ private:
       int iters_per_batch;
       std::atomic<int> *enable_stream;
       std::atomic<int> cstream;
-      std::atomic<int> *io_reqs_pending;
+      std::atomic<int> *w_reqs_pending;
+      std::atomic<int> *r_reqs_pending;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n,data_server_client *rc) : myrank(r), numprocs(np), numcores(n), dsc(rc)
 	{
@@ -124,7 +125,8 @@ public:
 	   write_interval =  new std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> (MAXSTREAMS);
 	   read_interval = new std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> (MAXSTREAMS);
 	   enable_stream = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
-	   io_reqs_pending = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
+	   w_reqs_pending = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
+	   r_reqs_pending = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
 	   t_args.resize(MAXSTREAMS);
 	   workers.resize(MAXSTREAMS);
 
@@ -137,7 +139,8 @@ public:
 		(*read_interval)[i].first.store(UINT64_MAX);
 		(*read_interval)[i].second.store(0);
 		enable_stream[i].store(0);
-		io_reqs_pending[i].store(0);
+		w_reqs_pending[i].store(0);
+		r_reqs_pending[i].store(0);
 
 	   }
 	   std::function<void(struct thread_arg_w *)> IOFunc(
@@ -169,7 +172,8 @@ public:
 	   delete write_interval;
 	   delete read_interval;
 	   std::free(enable_stream);
-	   std::free(io_reqs_pending);
+	   std::free(w_reqs_pending);
+	   std::free(r_reqs_pending);
 	   H5close();
 
 	}
