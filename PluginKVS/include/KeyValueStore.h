@@ -314,6 +314,44 @@ class KeyValueStore
 		
 	       bool b = if_q->CreateEmulatorStream(s,metastring,myrank);
 	   }
+
+	   template<typename T,typename N>
+	   void create_keyvalues(int s_id,std::vector<N> &keys,std::vector<std::string> &values,std::vector<int> &ops,int rate)
+	   {
+		std::string s = k_args[s_id].tname;
+		std::string attr_name = k_args[s_id].attr_name;
+		KeyValueStoreAccessor *ka = tables->get_accessor(s);
+		bool b = false;
+		int pos = ka->get_inverted_list_index(attr_name);
+		std::string st = k_args[s_id].tname;
+		KeyValueStoreMetadata m = ka->get_metadata();	
+		int datasize = m.value_size();
+
+		for(int i=0;i<keys.size();i++)
+		{
+		   if(ops[i]==0)
+		   {
+		     std::string data;
+		     data.resize(sizeof(N)+values[i].length());
+		     char *key = (char *)(&keys[i]);
+	     	     for(int j=0;j<sizeof(N);j++)
+			data[i] = key[j];
+		     for(int j=0;j<values[i].length();j++)
+			data[sizeof(N)+j] = values[i][j];	     
+			
+		     if(ka->Put<T,N,std::string>(pos,st,keys[i],data))
+		     {
+
+
+		     }
+		     usleep(rate);
+			
+		   }
+
+		}
+
+	   }
+
 	   template<typename T,typename N,typename M>
 	   void create_keyvalues(int s_id,std::vector<N> &keys,std::vector<M> &values,std::vector<int> &ops,int rate)
 	   {

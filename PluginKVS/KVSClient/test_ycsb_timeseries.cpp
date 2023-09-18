@@ -40,7 +40,7 @@ int main(int argc,char **argv)
 
    int s = k->start_session(sname,names[0],m,32768);
 
-   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
+   k->create_keyvalues<unsigned_long_invlist,uint64_t,float>(s,keys,values,op,20000);
 
    k->close_sessions();
 

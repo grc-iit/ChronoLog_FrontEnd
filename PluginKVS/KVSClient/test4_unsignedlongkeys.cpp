@@ -16,7 +16,7 @@ int main(int argc,char **argv)
 
    KeyValueStore *k = new KeyValueStore(size,rank);
 
-   std::string sname = "loadb";
+   std::string sname = "table5";
    int n = 2;
    std::vector<std::string> types;
    std::vector<std::string> names;
@@ -26,21 +26,13 @@ int main(int argc,char **argv)
    lens.push_back(sizeof(uint64_t));
    types.push_back("char");
    names.push_back("value2");
-   lens.push_back(sizeof(char)*1000);
-   int len = sizeof(uint64_t)+1000*sizeof(char);
+   lens.push_back(200);
+   int len = sizeof(uint64_t)+200;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
-   
-   std::vector<uint64_t> keys;
-   std::vector<std::string> values;
-   std::vector<int> op;
-   std::string filename = sname+".log"; 
-   k->get_ycsb_test(filename,keys,values);
-
-   for(int i=0;i<keys.size();i++)
-	   op.push_back(0);
+ 
    int s = k->start_session(sname,names[0],m,32768);
 
-   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
+   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,4096,200000);
 
    k->close_sessions();
 

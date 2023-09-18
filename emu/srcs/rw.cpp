@@ -1307,15 +1307,26 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 
    if(enable_stream[t->tid].load()==1)
    {
-   try
-   {
+     try
+     {
        sort_events(t->name);
-   }
-   catch(const std::exception &except)
-   {
+     }
+     catch(const std::exception &except)
+     {
 	std::cout <<except.what()<<std::endl;
 	exit(-1);
-   }
+     }
+     struct io_request *r = new struct io_request();
+     r->name = t->name;
+     r->from_nvme = true;
+     r->tid = t->tid;
+     io_queue_async->push(r);
+
+     io_reqs_pending[t->tid].store(1);
+     while(io_reqs_pending[t->tid].load()!=0);
+
+     numrounds = 0;
+
    }
 
 
