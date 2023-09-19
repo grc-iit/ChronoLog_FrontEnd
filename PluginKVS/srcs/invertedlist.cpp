@@ -173,13 +173,15 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
                hsize_t blocksize = 1;
 	       hid_t mem_dataspace = H5Screate_simple(1,&blocksize,NULL);
 	       std::vector<char> e(keydatasize);	
-
+	       std::cout <<" event "<<std::endl;
 	       int ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset_r,NULL,&blocksize,NULL);
 	       ret = H5Dread(dataset_t,s2, mem_dataspace, file_dataspace, xfer_plist,e.data());
-		
-
-	       numevents++;
-
+               std::string estring(e.data());		
+	       if(ost.is_open())
+	       {
+		  ost << estring << std::endl;
+	       }	       
+	
 	       H5Sclose(mem_dataspace);
 	     }
 	   }
@@ -257,6 +259,12 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 		uint64_t ts = *(uint64_t*)(&((*buffer)[i]));
 		if(ts==values[0])
 		{
+		   std::cout <<" event "<<std::endl;
+		   std::string eventstring(buffer->data()+i,buffer->data()+i+keydatasize);
+		   if(ost.is_open())
+		   {
+			ost << eventstring << std::endl;
+		   }
 		   break;
 		}
 	    }
@@ -440,8 +448,9 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  attrname[0] = "Datasizes";
   
  std::string data_string = "Data1";
- hid_t dataset1 = H5Dopen2(fid,data_string.c_str(), H5P_DEFAULT);
+ hid_t dataset1 = H5Dopen(fid,data_string.c_str(), H5P_DEFAULT);
 
+ hid_t file_dataspace = H5Dget_space(dataset1);
  hid_t attr_id = H5Aopen(dataset1,attrname[0],H5P_DEFAULT);
  std::vector<uint64_t> attrs;
  attrs.resize(attr_size[0]);
@@ -521,7 +530,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     i++;
  }
 
- hid_t file_dataspace = H5Dget_space(dataset1);
 
  std::vector<char> *buffer = new std::vector<char> ();
 
@@ -625,9 +633,11 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
  std::string d_string = attributename;
  
- if(!H5Lexists(fid,d_string.c_str(),H5P_DEFAULT))
+ //if(!H5Lexists(fid,d_string.c_str(),H5P_DEFAULT))
+ if(flush_count==0)
  {
 
+   MPI_Barrier(MPI_COMM_WORLD);	 
    std::vector<int> numkeys(2*maxsize);
    std::fill(numkeys.begin(),numkeys.end(),0);
 
@@ -684,7 +694,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
    cached_keyindex.clear();
    cached_keyindex.resize(kblocksize);
    cached_keyindex.assign(KeyTimestamps_s.begin(),KeyTimestamps_s.end());
-
+   
+   flush_count++;
    H5Sclose(mem_dataspace);
    H5Sclose(file_dataspace_t);
    H5Sclose(file_dataspace_table);
@@ -693,13 +704,14 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
  }
  else
  {
+    MPI_Barrier(MPI_COMM_WORLD);
 
     std::string dtable_str = attributename+"attr";
     hid_t dataset_t = H5Dopen(fid,dtable_str.c_str(),H5P_DEFAULT);
 
     hid_t file_dataspace_table = H5Dget_space(dataset_t);
 
-    hid_t dataset_k = H5Dopen2(fid,d_string.c_str(),H5P_DEFAULT);
+    hid_t dataset_k = H5Dopen(fid,d_string.c_str(),H5P_DEFAULT);
     
     hsize_t tsize = 2*totalsize;
 
@@ -782,8 +794,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     H5Dclose(dataset_t);
  }
 
- cached_keyindex_mt.clear();
- cached_keyindex.clear();
+ MPI_Barrier(MPI_COMM_WORLD);
 
  H5Dclose(dataset1);
  H5Sclose(attr_space[0]);

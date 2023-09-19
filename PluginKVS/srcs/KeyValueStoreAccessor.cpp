@@ -107,6 +107,7 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
    {
      ts = values[0];
      std::string eventstring = if_q->GetEmulatorEvent(s,ts,myrank);
+     std::cout <<" event = "<<eventstring.length()<<std::endl;
      if(eventstring.length()==0)
      {	
 	if(!invlist->CheckLocalFileExists())
@@ -121,12 +122,13 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
 	
 	invlist->AddPending(key,values,pid);
      }
+     else invlist->add_event_file(eventstring);
 		
    }
    else
    {
 	pid = invlist->partition_no(key);
-
+	
 	if(!invlist->CheckLocalFileExists())
 	{
 	   std::string filename = "file";

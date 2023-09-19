@@ -97,6 +97,11 @@ class hdf5_invlist
 	   boost::mutex invmutex;
 	   int datasize;
 	   hid_t datatype;
+	   std::string respfile1;
+	   std::ofstream ost;
+	   std::string respfile2;
+	   std::ofstream ost1;
+	   int flush_count;
    public:
 	   hdf5_invlist(int n,int p,int tsize,int np,KeyT emptykey,std::string &table,std::string &attr,data_server_client *ds,KeyValueStoreIO *io,int c,int data_size) : numprocs(n), myrank(p), io_count(c)
 	   {
@@ -135,6 +140,7 @@ class hdf5_invlist
 		table_ids.push_back(prefix+i);
 	     }
 
+	     flush_count = 0;
 	     emptyKey = emptykey;
 	     filename = table;
 	     attributename = attr;
@@ -142,6 +148,10 @@ class hdf5_invlist
 	     d = ds;
 	     io_t = io;
 	     file_exists.store(false);
+	     respfile1 = filename+attributename+std::to_string(myrank);
+	     ost = std::ofstream(respfile1.c_str(),std::ios_base::out); 
+	     respfile2 = filename+attributename+std::to_string(myrank)+std::to_string(1);
+	     ost1 = std::ofstream(respfile2.c_str(),std::ios_base::out);
 	     tl::engine *t_server = d->get_thallium_server();
              tl::engine *t_server_shm = d->get_thallium_shm_server();
              tl::engine *t_client = d->get_thallium_client();
@@ -232,9 +242,19 @@ class hdf5_invlist
 		  delete invlist;
 		  delete pending_gets;
 	         }
+		if(ost.is_open()) ost.close();
+		if(ost1.is_open()) ost1.close();
 		H5Tclose(kv1);
 	   }
+	  
+	   void add_event_file(std::string &eventstring)
+	   {
+		if(ost1.is_open())
+		{
+		   ost1 << eventstring << std::endl;
+		}
 
+	   }
 	   bool LocalPutEntry(KeyT &k,ValueT& v)
 	   {
 		bool b = false;

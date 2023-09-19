@@ -14,6 +14,7 @@
 #include <boost/lockfree/queue.hpp>
 //#include "h5_async_lib.h"
 #include <thread>
+#include <fstream>
 
 using namespace boost;
 
@@ -32,6 +33,8 @@ struct io_request
    bool from_nvme;
    bool read_op;
    int tid;
+   uint64_t mints;
+   uint64_t maxts;
    std::vector<struct event> *buf1;
    std::vector<struct event> *buf2;
    std::vector<struct event> *buf3;
@@ -95,7 +98,7 @@ public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n,data_server_client *rc) : myrank(r), numprocs(np), numcores(n), dsc(rc)
 	{
            H5open();
-	   H5VLis_connector_registered_by_name("async");
+	   //H5VLis_connector_registered_by_name("async");
            std::string unit = "microsecond";
 	   CM = C;
 	   sync_clock.store(0);
@@ -145,9 +148,6 @@ public:
 	   }
 	   std::function<void(struct thread_arg_w *)> IOFunc(
            std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
-
-	   std::function<void(struct thread_arg_w*)> IOFuncSeq(
-	   std::bind(&read_write_process::io_polling_seq,this,std::placeholders::_1));
 
 	   t_args_io.resize(num_io_threads);
 	   io_threads.resize(num_io_threads);
@@ -641,13 +641,10 @@ public:
 	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool,std::vector<int>&,std::vector<std::vector<std::vector<int>>>&);
 	void pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool,std::vector<int>&,std::vector<std::vector<std::vector<int>>>&);
 	void pwrite_files(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool,std::vector<int>&,std::vector<std::vector<std::vector<int>>>&);
-	bool preaddata(const char*,std::string &s,uint64_t,uint64_t,uint64_t&,uint64_t&,uint64_t&,uint64_t&,std::vector<struct event>*);
-	void preadappend(const char*,const char*,std::string&);
-	bool preadfileattr(const char*);
+	bool pread(std::vector<std::vector<io_request*>>&,int);
 	std::pair<std::vector<struct event>*,std::vector<char>*>
 	create_data_spaces(std::string &,hsize_t&,hsize_t&,uint64_t&,uint64_t&,bool,int&,std::vector<std::vector<int>>&);
 	void io_polling(struct thread_arg_w*);
-	void io_polling_seq(struct thread_arg_w*);
 	void data_stream(struct thread_arg_w*);
 	void sync_clocks();
 	bool create_buffer(int &,std::string &);
