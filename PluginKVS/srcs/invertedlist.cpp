@@ -721,6 +721,11 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
     std::fill(numkeys.begin(),numkeys.end(),0);
 
     hsize_t offsett =0;
+    std::vector<int> numkeys_l(2*maxsize);
+
+    numkeys_l.assign(cached_keyindex_mt.begin(),cached_keyindex_mt.end());
+
+    MPI_Allgather(numkeys_l.data(),2*maxsize,MPI_INT,numkeys.data(),2*maxsize,MPI_INT,MPI_COMM_WORLD);
 
     //ret = H5Sselect_hyperslab(file_dataspace_table,H5S_SELECT_SET,&offsett,NULL,&tsize,NULL);
     //ret = H5Dread(dataset_t,H5T_NATIVE_INT,mem_dataspace_t,file_dataspace_table,xfer_plist,numkeys.data());
@@ -749,6 +754,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset)
 
     //ret = H5Sselect_hyperslab(file_dataspace_p,H5S_SELECT_SET,&offset_prev,NULL,&prev_keys,NULL);
     //ret = H5Dread(dataset_k,kv1,mem_dataspace_p,file_dataspace_p,xfer_plist,preKeyTimestamps.data());
+
+    preKeyTimestamps.assign(cached_keyindex.begin(),cached_keyindex.end());
 
     std::vector<int> numkeys_n(2*maxsize);
     std::fill(numkeys_n.begin(),numkeys_n.end(),0);
