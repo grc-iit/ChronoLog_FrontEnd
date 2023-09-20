@@ -173,7 +173,7 @@ class hdf5_invlist
 	     invlist->ml = new memory_pool<KeyT,ValueT,hashfcn,equalfcn> (100);
 	     invlist->bm = new BlockMap<KeyT,ValueT,hashfcn,equalfcn>(size,invlist->ml,emptykey);
 	     KeyT key;
-	     int v_i;float v_f;double v_d;unsigned long v_l;
+	     /*int v_i;float v_f;double v_d;unsigned long v_l;
 	     if(typeid(key)==typeid(v_i))
 		datatype = H5Tcopy(H5T_NATIVE_INT);
 	     else if(typeid(key)==typeid(v_f))
@@ -185,7 +185,7 @@ class hdf5_invlist
 
 	     kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct KeyIndex<KeyT>));
     	     H5Tinsert(kv1,"key",HOFFSET(struct KeyIndex<KeyT>,key),datatype);
-    	     H5Tinsert(kv1,"index",HOFFSET(struct KeyIndex<KeyT>,index),H5T_NATIVE_UINT64);
+    	     H5Tinsert(kv1,"index",HOFFSET(struct KeyIndex<KeyT>,index),H5T_NATIVE_UINT64);*/
 	     pending_gets = new boost::lockfree::queue<struct event_req<KeyT,ValueT>*> (128);
 	   }
 
@@ -244,7 +244,7 @@ class hdf5_invlist
 	         }
 		if(ost.is_open()) ost.close();
 		if(ost1.is_open()) ost1.close();
-		H5Tclose(kv1);
+		//H5Tclose(kv1);
 	   }
 	  
 	   void add_event_file(std::string &eventstring)
