@@ -166,8 +166,10 @@ class KeyValueStore
         		double t = std::chrono::duration<double>(t2-t1).count();
         		if(t > 100) break;
       		  }
-		 
-		  ka->flush_invertedlist<T>(attr_name);
+		
+		  if(end_loop) 
+		  ka->flush_invertedlist<T>(attr_name,true);
+		  else ka->flush_invertedlist<T>(attr_name,false);
 		  if(end_loop) break;
    	       }
 

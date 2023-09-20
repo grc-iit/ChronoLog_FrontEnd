@@ -203,7 +203,7 @@ void KeyValueStoreAccessor::cache_invertedtable(std::string &attr_name)
 }
 
 template<typename T>
-void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name)
+void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name,bool p)
 {
     int offset = md.locate_offset(attr_name);
 
@@ -241,6 +241,7 @@ void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name)
     r->offset = offset;
     r->keytype = keytype;
     r->flush = true;
+    r->persist = p;
 
     bool ret = kio->LocalPutSyncRequest(r);
 

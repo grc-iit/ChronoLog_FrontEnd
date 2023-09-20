@@ -142,7 +142,7 @@ class KeyValueStoreAccessor
 	  template<typename T,typename N>
 	  std::vector<uint64_t> get_entry(int,N &key);
 	  template<typename T>
-	  void flush_invertedlist(std::string &);
+	  void flush_invertedlist(std::string &,bool);
 	  template<typename T>
 	  void cache_invertedtable(std::string &);
 	  template<typename T>
