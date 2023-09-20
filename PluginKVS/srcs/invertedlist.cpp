@@ -173,7 +173,6 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
                hsize_t blocksize = 1;
 	       hid_t mem_dataspace = H5Screate_simple(1,&blocksize,NULL);
 	       std::vector<char> e(keydatasize);	
-	       std::cout <<" event "<<std::endl;
 	       int ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset_r,NULL,&blocksize,NULL);
 	       ret = H5Dread(dataset_t,s2, mem_dataspace, file_dataspace, xfer_plist,e.data());
                std::string estring(e.data());		
@@ -221,9 +220,9 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	 std::vector<ValueT> values;
 	 values.assign(worklist2[n].second.begin(),worklist2[n].second.end());
 
-         if(values.size()>=1)
+         if(values.size()>0)
          {
-	   ValueT v = values[0];
+	   ValueT v = values[values.size()-1];
 	  for(int i=0;i<numblocks;i++)
 	  {
 	     uint64_t minkey = attrs[4+i*4+0];
@@ -236,7 +235,9 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	     }
 	  }
         }
-    
+   
+	if(values.size()>0 && blockids.size()==0) add_pending(worklist2[n].first,worklist2[n].second);
+
         if(blockids.size()==1)
         {
 
@@ -257,9 +258,8 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	    for(int i=0;i<buffer->size();i+=keydatasize)
 	    {
 		uint64_t ts = *(uint64_t*)(&((*buffer)[i]));
-		if(ts==values[0])
+		if(ts==values[values.size()-1])
 		{
-		   std::cout <<" event "<<std::endl;
 		   std::string eventstring(buffer->data()+i,buffer->data()+i+keydatasize);
 		   if(ost.is_open())
 		   {

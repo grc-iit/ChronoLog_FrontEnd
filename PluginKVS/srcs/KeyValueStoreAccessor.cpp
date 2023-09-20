@@ -105,11 +105,10 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
 
    if(values.size()>0)
    {
-     ts = values[0];
+     ts = values[values.size()-1];
      std::string eventstring = if_q->GetEmulatorEvent(s,ts,myrank);
-     std::cout <<" event = "<<eventstring.length()<<std::endl;
      if(eventstring.length()==0)
-     {	
+     {
 	if(!invlist->CheckLocalFileExists())
 	{
 	   std::string filename = "file";

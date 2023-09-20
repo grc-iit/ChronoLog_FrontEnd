@@ -406,6 +406,7 @@ class KeyValueStore
 		
 		bool exit = false;
 		int op = 0;
+		N prevkey=0;
 		for(int i=0;i<nops;i++)
 		{	
 		    N key = random()%RAND_MAX; 
@@ -415,9 +416,11 @@ class KeyValueStore
 		      if(!ka->Put<T,N,std::string>(pos,st,key,data))
 		      {
 		      }
+		      prevkey = key;
 		    }
-		    else
+		    else if(prevkey != 0) 
 		    {
+		      key = prevkey;
 		      b = ka->Get<T,N> (pos,st,key);
 		    }
 
