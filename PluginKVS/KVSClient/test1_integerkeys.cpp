@@ -55,7 +55,7 @@ int main(int argc,char **argv)
    int s2 = k->start_session(sname1,names[1],m1,32768);
 
 
-   int numthreads = 1;
+   int numthreads = 2;
 
    std::vector<struct mthread_arg> args(numthreads);
    std::vector<std::thread> workers(numthreads);
@@ -63,7 +63,7 @@ int main(int argc,char **argv)
    for(int i=0;i<numthreads;i++)
    {
 	args[i].k = k;
-	args[i].index = s1;
+	args[i].index = i;
 	args[i].nreq = 4096;
 	args[i].rate = 200000;
 

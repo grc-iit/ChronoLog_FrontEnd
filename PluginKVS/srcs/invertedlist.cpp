@@ -114,9 +114,6 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 
      hid_t fid = H5Fopen(fname.c_str(),H5F_ACC_RDONLY,fapl);
 
-     std::string d_string = attributename;
-     std::string s_string = attributename+"attr";
-     
      hsize_t adims[1];
      adims[0] = datasize;
      int keydatasize = sizeof(uint64_t)+datasize; 

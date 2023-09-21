@@ -432,7 +432,7 @@ class KeyValueStore
 		    else if(prevkey != 0) 
 		    {
 		      key = prevkey;
-		      b = ka->Get<T,N> (pos,st,key);
+		      //b = ka->Get<T,N> (pos,st,key);
 		    }
 
 		    usleep(rate); 
