@@ -144,7 +144,7 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	   std::string dstring = "Data1";   
            hid_t dataset_t = H5Dopen(fid,dstring.c_str(),H5P_DEFAULT);
 	   hid_t file_dataspace = H5Dget_space(dataset_t);
-
+	/*
 	   if(cached_keyindex_mt.size()>0 && cached_keyindex.size()>0)
 	   for(int n=0;n<worklist1.size();n++)
 	   {
@@ -180,9 +180,9 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	
 	       H5Sclose(mem_dataspace);
 	     }
-	   }
-	   H5Sclose(file_dataspace);
+	   }*/
 	   H5Dclose(dataset_t);
+	   H5Sclose(file_dataspace);
 
      }
      
@@ -211,7 +211,7 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 
        int pos = 4;
 
-       for(int n=0;n<worklist2.size();n++)
+       /*for(int n=0;n<worklist2.size();n++)
        {
          std::vector<int> blockids;
 	 std::vector<ValueT> values;
@@ -269,16 +269,16 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	    delete buffer;
 	    H5Sclose(mem_dataspace);
        }
-      }
+      }*/
 
-       H5Sclose(file_dataspace);
        H5Aclose(attr_id);
        H5Dclose(dataset1);
+       H5Sclose(file_dataspace);
     } 
      
+     H5Fclose(fid);
      H5Tclose(s1);
      H5Tclose(s2);
-     H5Fclose(fid);
      H5Pclose(fapl);
      H5Pclose(xfer_plist);
 
