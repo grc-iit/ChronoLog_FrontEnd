@@ -475,7 +475,7 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 {
 
 
-   for(int i=0;i<maxstreams;i++)
+   for(int i=0;i<my_requests.size();i++)
    {
      std::string s = t_args[i].name;
      std::string filename = "file";
@@ -486,11 +486,11 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
      if(r == file_names.end()) end = true;
      m1.unlock();
 
-     int file_exists = end == true ? 0 : 1;
+     int file_exists = (end == true) ? 0 : 1;
 
      int file_exists_t = 0;
      MPI_Allreduce(&file_exists,&file_exists_t,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-
+     
      if(file_exists_t==numprocs)
      {
     
@@ -505,9 +505,9 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
        attr_space[0] = MAXBLOCKS*4+4;
        const char *attr_name[1];
 
-       std::string filename_r = s+"results"+std::to_string(myrank)+".txt";
+       //std::string filename_r = s+"results"+std::to_string(myrank)+".txt";
 
-       std::ofstream ost(filename_r.c_str(),std::ios::app);
+       //std::ofstream ost(filename_r.c_str(),std::ios::app);
 
        xfer_plist = H5Pcreate(H5P_DATASET_XFER);
        hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -554,7 +554,7 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 
 	std::vector<char> *data_buffer = new std::vector<char> ();
 
-	for(int n=0;n<my_requests[i].size();n++)
+	/*for(int n=0;n<my_requests[i].size();n++)
 	{
              uint64_t mints = my_requests[i][n]->mints;
 	     uint64_t maxts = my_requests[i][n]->maxts;
@@ -602,17 +602,18 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
             }
 	    delete my_requests[i][n];
 	    my_requests[i][n] = nullptr;
-	}
+	}*/
 	     
        delete data_buffer;	       
-       H5Sclose(file_dataspace);
-       H5Pclose(xfer_plist);
        H5Aclose(attr_id);
        H5Dclose(dataset1);
+       H5Fclose(fid);  
+       H5Sclose(file_dataspace);
        H5Tclose(s2);
        H5Tclose(s1);
-       H5Fclose(fid);  
-       if(ost.is_open()) ost.close();
+       H5Pclose(xfer_plist);
+       H5Pclose(fapl);
+       //if(ost.is_open()) ost.close();
      }
    }
     return true;
@@ -1218,12 +1219,12 @@ void read_write_process::io_polling(struct thread_arg_w *t)
       bcounts.clear();
       blockcounts.clear();
 
-     //pread(read_reqs,active_valid_stream);
+     pread(read_reqs,active_valid_stream);
 
-      /*for(int i=0;i<active_valid_stream;i++)
+      for(int i=0;i<active_valid_stream;i++)
            for(int j=0;j<read_reqs[i].size();j++)
                  if(read_reqs[i][j] != nullptr)
-                   io_queue_async->push(read_reqs[i][j]);*/
+                   io_queue_async->push(read_reqs[i][j]);
 
      }
 
