@@ -534,7 +534,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset,boo
  {
     if(block_index[i].size() > 0)
     {
-
     block_id = i;
 
     int nrecords = attrs[pos+block_id*4+3];
@@ -566,6 +565,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset,boo
 	  {
 		  k+=keydatasize;
 		  if(k==buffer->size()) break;
+		  ts = *(uint64_t*)(&((*buffer)[k]));
 	  }
 	  if(k==buffer->size()) break;
 	  if(Timestamp_order[p].index == ts)
