@@ -150,7 +150,7 @@ class KeyValueStoreAccessor
 	  template <typename T,typename N,typename M>
 	  bool Put(int,std::string &,N &key, M &value);
 	  template <typename T,typename N>
-          bool Get(int,std::string&,N&);
+          bool Get(int,std::string&,N&,int);
 	  void sort_on_secondary_key(std::string &attr_name);
 	  template<typename T,typename N>
 	  bool Emulator_Request(int,std::string &,N &);

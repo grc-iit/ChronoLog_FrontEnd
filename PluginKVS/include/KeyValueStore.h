@@ -80,39 +80,6 @@ class KeyValueStore
 	   bool findKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void removeKeyValueStoreInvList(std::string &s,std::string &attr_name);
 
-	   /*template<typename T,typename N>
-	   void PutGetPerf(struct kstream_args<N>*k)
-	   {
-		KeyValueStoreAccessor* ka = tables->get_accessor(k->tname);
-		int pos = ka->get_inverted_list_index(k->attr_name);
-		int nthreads = 4;
-		int totalkeys = k->keys.size();
-		int mywork = totalkeys/nthreads;
-		int rem = totalkeys%nthreads;
-
-		int start=0,end=0;
-		for(int i=0;i<k->tid;i++)
-		{
-			if(i < rem) start += mywork+1;
-			else start += mywork;
-		}
-		
-		if(k->tid < rem) end = start+mywork+1;
-		else end = start+mywork;
-
-		for(int i=start;i<end;i++)
-                {
-                        N key = k->keys[i];
-                        uint64_t ts_k = k->ts[i];
-                        ka->insert_entry<T,N>(pos,key,ts_k);
-                }
-
-                 for(int i=start;i<end;i++)
-                 {
-                   std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
-                 }
-	   }*/
-
 	   template<typename T,typename N>
 	   void cacheflushInvList(struct kstream_args*k)
 	   {
@@ -175,7 +142,7 @@ class KeyValueStore
 		  else 
 		  {
 		     bool c = false;
-		     if(request_count/5==0) c = true;
+		     if(request_count%5==0) c = true;
 		     ka->flush_invertedlist<T>(attr_name,c);
 		  }
 		  if(end_loop) break;
@@ -185,113 +152,6 @@ class KeyValueStore
    	       delete reqs;
           }
 
-
-
-	   template<typename T,typename N>
-           void RunKeyValueStoreFunctions(KeyValueStoreAccessor* ka,struct kstream_args *k)
-	   {
-		ka->cache_invertedtable<T>(k->attr_name);
-
-   		int pos = ka->get_inverted_list_index(k->attr_name);
-
-		/*std::function<void(struct kstream_args<N> *)>
-                PutGetWorkload(std::bind(&KeyValueStore::PutGetPerf<T,N>,this, std::placeholders::_1));
-
-		int nthreads = 4;
-		std::vector<struct kstream_args<N>> k_args_w(nthreads);
-
-		for(int i=0;i<nthreads;i++)
-		{
-		    k_args_w[i].tname = k->tname;
-                    k_args_w[i].attr_name = k->attr_name;
-                    k_args_w[i].tid = i;
-                    k_args_w[i].keys.assign(k->keys.begin(),k->keys.end());
-                    k_args_w[i].ts.assign(k->ts.begin(),k->ts.end());
-
-		}
-
-		std::vector<std::thread> workers(nthreads);
-
-		for(int i=0;i<nthreads;i++)
-		{
-		   std::thread t{PutGetWorkload,&k_args_w[i]};
-		   workers[i] = std::move(t);
-		}
-
-		for(int i=0;i<nthreads;i++) workers[i].join();*/
-
-		auto t1 = std::chrono::high_resolution_clock::now();
-
-		/*
-    		for(int i=0;i<k->keys.size();i++)
-    		{
-		        if(k->op[i]==0)
-			{
-        		  N key = k->keys[i];
-        		  uint64_t ts_k = k->ts[i];
-        		  ka->insert_entry<T,N>(pos,key,ts_k);
-			}
-    		}*/
-
-		auto t2 = std::chrono::high_resolution_clock::now();
-
-		double pt = std::chrono::duration<double>(t2-t1).count();
-
-		t1 = std::chrono::high_resolution_clock::now();
-
-		 /*for(int i=0;i<k->keys.size();i++)
-    		 {
-		   if(k->op[i]==0 && i%100==0)
-		   {
-      		      std::vector<uint64_t> values = ka->get_entry<T,N>(pos,k->keys[i]);
-		   }
-    		 }*/
-
-		 t2 = std::chrono::high_resolution_clock::now();
-
-		 double gt = std::chrono::duration<double>(t2-t1).count();
-
-		 t1 = std::chrono::high_resolution_clock::now();
-
-		 //ka->flush_invertedlist<T>(k->attr_name);
-
-		 t2 = std::chrono::high_resolution_clock::now();
-
-		 double ft = std::chrono::duration<double>(t2-t1).count();
-		 
-		 MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
-		 int nreq = 0;
-
-		 std::vector<double> send_v(3);
-		 send_v[0] = pt; send_v[1] = gt; send_v[2] = ft;
-		 std::vector<double> recvv(3*numprocs);
-		 std::fill(recvv.begin(),recvv.end(),0);
-
-		 int tag_m = tag+k->tid;
-
-		 for(int i=0;i<numprocs;i++)
-		 {
-		    MPI_Isend(send_v.data(),3,MPI_DOUBLE,i,tag_m,MPI_COMM_WORLD,&reqs[nreq]);
-		    nreq++;
-		    MPI_Irecv(&recvv[3*i],3,MPI_DOUBLE,i,tag_m,MPI_COMM_WORLD,&reqs[nreq]);
-		    nreq++;
-		 }
-
-		 MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
-
-		 double max_time_1 = 0, max_time_2 = 0, max_time_3 = 0;
-
-		 for(int i=0;i<numprocs;i++)
-		 {	
-		    if(recvv[3*i] > max_time_1) max_time_1 = recvv[3*i];
-		    if(recvv[3*i+1] > max_time_2) max_time_2 = recvv[3*i+1];
-		    if(recvv[3*i+2] > max_time_3) max_time_3 = recvv[3*i+2];
-		 }
-
-		 if(myrank==0) std::cout <<" ptime = "<<max_time_1<<" gtime = "<<max_time_2<<" ftime = "<<max_time_3<<std::endl;
-
-		 std::free(reqs);
-	   }
 
 	   template<typename T,typename N>
            void prepare_inverted_list(struct kstream_args *k)
@@ -418,6 +278,7 @@ class KeyValueStore
 		bool exit = false;
 		int op = 0;
 		N prevkey=0;
+		int ids = 0;
 		for(int i=0;i<nops;i++)
 		{	
 		    N key = random()%RAND_MAX; 
@@ -432,7 +293,8 @@ class KeyValueStore
 		    else if(prevkey != 0) 
 		    {
 		      key = prevkey;
-		      b = ka->Get<T,N> (pos,st,key);
+		      b = ka->Get<T,N> (pos,st,key,ids);
+		      ids++;
 		    }
 
 		    usleep(rate); 

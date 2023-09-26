@@ -64,8 +64,8 @@ int main(int argc,char **argv)
    int s3 = k->start_session(sname2,names[0],m2,32768);
    int s4 = k->start_session(sname3,names[0],m3,32768);
 
-   int td = 4096*8;
-   td = td/size;
+   int tdw = 4096*8;
+   int td = tdw/size;
    int numthreads = 4;
 
    std::vector<struct mthread_arg> args(numthreads);
@@ -91,7 +91,11 @@ int main(int argc,char **argv)
    double t = std::chrono::duration<double>(t2-t1).count();
    double total_time = 0;
    MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-   if(rank==0) std::cout <<" Total time = "<<total_time<<std::endl;
+   if(rank==0) 
+   {
+	   std::cout <<" num put-get = "<<tdw*numthreads<<std::endl;
+	   std::cout <<" Total time = "<<total_time<<std::endl;
+   }
    MPI_Finalize();
 
 }

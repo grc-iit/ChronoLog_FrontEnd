@@ -72,27 +72,7 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
 
 
 template<typename T,typename N>
-bool KeyValueStoreAccessor::openfilerw(int pos,std::string &s)
-{
-   std::string filename = "file";
-   filename += s+".h5";
-
-   bool b = if_q->CheckFileExistence(filename,myrank);
-
-   T *invlist = reinterpret_cast<T*>(lists[pos].second);
-   bool ret = invlist->open_file(b);
-   return ret;
-}	
-
-template<typename T,typename N>
-void KeyValueStoreAccessor::closefilerw(int pos)
-{
-  T *invlist = reinterpret_cast<T*>(lists[pos].second);
-  invlist->close_file();
-}
-
-template<typename T,typename N>
-bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
+bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key,int id)
 {
    if(pos >= lists.size()) return false;
 
@@ -118,8 +98,8 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
 		invlist->LocalFileExists();
 	   }
 	}
-	
-	invlist->AddPending(key,values,pid);
+	bool bp = false;	
+	invlist->AddPending(key,values,bp,id,pid);
      }
      else invlist->add_event_file(eventstring);
 		
@@ -137,7 +117,8 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key)
 		invlist->LocalFileExists();
 	   }
 	}
-	invlist->AddPending(key,values,pid);	
+	bool bp = false;
+	invlist->AddPending(key,values,bp,id,pid);	
 
    }
    return false;

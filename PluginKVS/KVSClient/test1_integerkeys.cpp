@@ -32,11 +32,11 @@ int main(int argc,char **argv)
    int len = sizeof(int)*2+200;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int td = 4096*8;
-   td = td/size;
+   int tdw = 4096*8;
+   int td = tdw/size;
 
    auto t1 = std::chrono::high_resolution_clock::now();
-
+    
    int s1 = k->start_session(sname,names[0],m,32768);
 
    k->create_keyvalues<integer_invlist,int>(s1,td,200000);
@@ -52,7 +52,11 @@ int main(int argc,char **argv)
 
    double total_time = 0;
    MPI_Allreduce(&t,&total_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
-   if(rank==0) std::cout <<" total time = "<<total_time<<std::endl;
+   if(rank==0) 
+   {
+	std::cout <<" num put-gets = "<<tdw<<std::endl;
+	std::cout <<" total time = "<<total_time<<std::endl;
+   }
    MPI_Finalize();
 
 }
