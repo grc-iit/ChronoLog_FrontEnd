@@ -234,7 +234,9 @@ class KeyValueStore
 	      std::string st = k_args[s_id].tname;
 	      KeyValueStoreMetadata m = ka->get_metadata();
 	      int datasize = m.value_size();
-	      
+	     
+	      int ids = 0;
+
 	      for(int i=0;i<keys.size();i++)
 	      {
 		if(ops[i]==0)
@@ -253,9 +255,15 @@ class KeyValueStore
 
 		  }
 		
-		  usleep(rate);
 		}
+		else
+		{
 
+		   b = ka->Get<T,N> (pos,st,keys[i],ids);
+		   ids++;
+
+		}
+		usleep(rate);
 
 	      }
 
@@ -304,7 +312,7 @@ class KeyValueStore
            void get_testworkload(std::string &,std::vector<int>&,std::vector<uint64_t>&,int);
            void get_ycsb_timeseries_workload(std::string&,std::vector<uint64_t>&,std::vector<float>&,std::vector<int>&);
            void get_dataworld_workload(std::string&,std::vector<uint64_t>&,std::vector<uint64_t>&,std::vector<int>&);
-           void get_ycsb_test(std::string&,std::vector<uint64_t>&,std::vector<std::string>&);
+           void get_ycsb_test(std::string&,std::vector<uint64_t>&,std::vector<std::string>&,std::vector<int>&);
 
 	   template<typename T,typename N>
 	   int spawn_kvstream(std::string &s,std::string &a,int maxsize)

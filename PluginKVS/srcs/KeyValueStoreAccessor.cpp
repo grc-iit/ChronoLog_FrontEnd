@@ -126,6 +126,16 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key,int id)
 }
 
 template<typename T,typename N>
+bool KeyValueStoreAccessor::Update(int pos,std::string &s,N &key,std::string &attr,std::string &value,int id)
+{
+
+
+
+
+   return false;
+}
+
+template<typename T,typename N>
 bool KeyValueStoreAccessor::Emulator_Request(int pos, std::string &s, N&key)
 {
    if(pos >= lists.size()) return false;

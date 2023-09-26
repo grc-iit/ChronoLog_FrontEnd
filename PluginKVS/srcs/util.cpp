@@ -113,7 +113,7 @@ void create_integertestinput(std::string &name,int numprocs,int myrank,int offse
 
 }
 
-void create_ycsb_input(std::string &filename,int numprocs,int myrank,std::vector<uint64_t> &keys,std::vector<std::string> &values)
+void create_ycsb_input(std::string &filename,int numprocs,int myrank,std::vector<uint64_t> &keys,std::vector<std::string> &values,std::vector<int> &op)
 {
 
    int columnsize = 100;
@@ -129,8 +129,13 @@ void create_ycsb_input(std::string &filename,int numprocs,int myrank,std::vector
         std::stringstream ss(line);
         std::string string1;
         ss >> string1;
-        if(string1.compare("INSERT")==0)
-        lines.push_back(line);
+        if(string1.compare("INSERT")==0||string1.compare("READ")==0)
+	{
+          lines.push_back(line);
+	  if(string1.compare("INSERT")==0) op.push_back(0);
+	  else op.push_back(1);
+	}
+
      }
 
      std::string str1 = "usertable";
@@ -177,6 +182,7 @@ void create_ycsb_input(std::string &filename,int numprocs,int myrank,std::vector
        std::vector<std::string> fieldstrings;
        fieldstrings.resize(fields.size());
        std::string data;
+       if(op[i]==0)
        for(int j=0;j<fields.size();j++)
        {
          pos1 = lines[i].find(fields[j].c_str())+fields[j].length();
@@ -201,6 +207,7 @@ void create_ycsb_input(std::string &filename,int numprocs,int myrank,std::vector
          }
          data += fieldstrings[j];
        }
+
        keys.push_back(key);
        values.push_back(data);
      }
