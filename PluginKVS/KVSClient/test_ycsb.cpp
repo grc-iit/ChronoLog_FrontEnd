@@ -36,8 +36,6 @@ int main(int argc,char **argv)
    std::string filename = sname+".log"; 
    k->get_ycsb_test(filename,keys,values,op);
 
-   for(int i=0;i<keys.size();i++)
-	   op.push_back(0);
    int s = k->start_session(sname,names[0],m,32768);
 
    k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);

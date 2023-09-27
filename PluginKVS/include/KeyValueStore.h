@@ -187,6 +187,20 @@ class KeyValueStore
 	   }
 
 	   template<typename T,typename N>
+	   void create_keyvalues_ordered(int s_id,std::vector<N> &keys,std::vector<std::string> &values,std::vector<int> &ops,int rate)
+	   {
+		std::vector<int> request_status(keys.size());
+		std::fill(keys.begin(),keys.end(),0);
+		std::unordered_map<N,int> pending_requests;
+
+
+
+
+
+
+
+	   }
+	   template<typename T,typename N>
 	   void create_keyvalues(int s_id,std::vector<N> &keys,std::vector<std::string> &values,std::vector<int> &ops,int rate)
 	   {
 		std::string s = k_args[s_id].tname;
@@ -197,6 +211,7 @@ class KeyValueStore
 		std::string st = k_args[s_id].tname;
 		KeyValueStoreMetadata m = ka->get_metadata();	
 		int datasize = m.value_size();
+		int ids = 0;
 
 		for(int i=0;i<keys.size();i++)
 		{
@@ -215,11 +230,20 @@ class KeyValueStore
 
 
 		     }
-		     usleep(rate);
-			
+		     ids++;
 		   }
+		   else
+		   {
+			b = ka->Get_resp<T,N>(pos,st,keys[i],ids);
+			ids++;
 
+		   }
+		   usleep(rate);
+			
 		}
+
+		std::vector<std::pair<int,std::string>> resp_ids = ka->Completed_Gets<T,N>(pos,st);
+		std::cout <<" rank = "<<myrank<<" numb resp = "<<resp_ids.size()<<std::endl;
 
 	   }
 
@@ -259,13 +283,15 @@ class KeyValueStore
 		else
 		{
 
-		   b = ka->Get<T,N> (pos,st,keys[i],ids);
+		   b = ka->Get_resp<T,N> (pos,st,keys[i],ids);
 		   ids++;
 
 		}
 		usleep(rate);
 
 	      }
+
+	      std::vector<std::pair<int,std::string>> resp_ids = ka->Completed_Gets<T,N>(pos,st);
 
 	   }
 	   template<typename T,typename N>

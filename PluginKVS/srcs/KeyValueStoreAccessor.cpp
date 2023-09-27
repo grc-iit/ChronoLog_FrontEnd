@@ -98,7 +98,8 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key,int id)
 		invlist->LocalFileExists();
 	   }
 	}
-	bool bp = false;	
+	bool bp = false;
+      
 	invlist->AddPending(key,values,bp,id,pid);
      }
      else invlist->add_event_file(eventstring);
@@ -126,13 +127,66 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key,int id)
 }
 
 template<typename T,typename N>
-bool KeyValueStoreAccessor::Update(int pos,std::string &s,N &key,std::string &attr,std::string &value,int id)
+bool KeyValueStoreAccessor::Get_resp(int pos,std::string &s,N &key,int id)
 {
+   if(pos >= lists.size()) return false;
+   uint64_t ts = UINT64_MAX;
+   bool b = false;
+   std::vector<uint64_t> values;
 
+   T *invlist = reinterpret_cast<T*>(lists[pos].second);
+   int pid = invlist->get_entry(key,values);
+   if(values.size()>0)
+   {
+     ts = values[values.size()-1];
+     std::string eventstring = if_q->GetEmulatorEvent(s,ts,myrank);
+     if(eventstring.length()==0)
+     {
+        if(!invlist->CheckLocalFileExists())
+        {
+           std::string filename = "file";
+           filename += s+".h5";
+           if(if_q->CheckFileExistence(filename,myrank))
+           {
+                invlist->LocalFileExists();
+           }
+        }
+        bool bp = true;
 
+        invlist->AddPending(key,values,bp,id,pid);
+     }
+     else invlist->add_response(key,eventstring,id);
 
+   }
+   else
+   {
+        pid = invlist->partition_no(key);
+
+        if(!invlist->CheckLocalFileExists())
+        {
+           std::string filename = "file";
+           filename +=  s + ".h5";
+           if(if_q->CheckFileExistence(filename,myrank))
+           {
+                invlist->LocalFileExists();
+           }
+        }
+        bool bp = true;
+        invlist->AddPending(key,values,bp,id,pid);
+   }
 
    return false;
+}
+
+template<typename T,typename N>
+std::vector<std::pair<int,std::string>> KeyValueStoreAccessor::Completed_Gets(int pos,std::string &s)
+{
+   std::vector<std::pair<int,std::string>> ids;
+   if(pos >= lists.size()) return ids;
+
+   T *invlist = reinterpret_cast<T*>(lists[pos].second);
+   ids = invlist->get_completed_ids();
+   return ids;
 }
 
 template<typename T,typename N>
