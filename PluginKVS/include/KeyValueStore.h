@@ -189,15 +189,83 @@ class KeyValueStore
 	   template<typename T,typename N>
 	   void create_keyvalues_ordered(int s_id,std::vector<N> &keys,std::vector<std::string> &values,std::vector<int> &ops,int rate)
 	   {
+		std::string s = k_args[s_id].tname;
+                std::string attr_name = k_args[s_id].attr_name;
+                KeyValueStoreAccessor *ka = tables->get_accessor(s);
+                bool b = false;
+                int pos = ka->get_inverted_list_index(attr_name);
+                std::string st = k_args[s_id].tname;
+                KeyValueStoreMetadata m = ka->get_metadata();
+                int datasize = m.value_size();
+
 		std::vector<int> request_status(keys.size());
-		std::fill(keys.begin(),keys.end(),0);
+		std::fill(request_status.begin(),request_status.end(),0);
 		std::unordered_map<N,int> pending_requests;
 
+		while(true)
+		{
+		   std::vector<std::pair<int,std::string>> resp_ids = ka->Completed_Gets<T,N>(pos,st);
+
+		   for(int i=0;i<resp_ids.size();i++)
+		   {
+			int id = resp_ids[i].first;
+			N key = keys[id];
+			auto r = pending_requests.find(key);
+			if(r != pending_requests.end())
+			{
+			  pending_requests.erase(r);
+			}
+			request_status[id] = -1;
+		   }
+
+		   int num_completed = 0;
+		   for(int i=0;i<request_status.size();i++)
+			if(request_status[i]==-1) num_completed++;
+		   
+		   if(num_completed == request_status.size()) break;
+
+		   for(int i=0;i<keys.size();i++)
+		   {
+			if(request_status[i] != -1)
+			{
+			   N key = keys[i];
+			   auto r = pending_requests.find(key);
+			   if(r == pending_requests.end())
+			   {
+				if(ops[i]==0)
+				{
+				  std::string data;
+                     		  data.resize(sizeof(N)+values[i].length());
+                     		  char *keystr = (char *)(&keys[i]);
+                     		  for(int j=0;j<sizeof(N);j++)
+                        	    data[i] = keystr[j];
+                     		  for(int j=0;j<values[i].length();j++)
+                        	    data[sizeof(N)+j] = values[i][j];
+
+                                  if(ka->Put<T,N,std::string>(pos,st,keys[i],data))
+                                  {
 
 
+                                  }
+				  request_status[i] = -1;
+				  usleep(rate);
+				}
+				else
+				{
+				   b = ka->Get_resp<T,N>(pos,st,keys[i],i);
+				   std::pair<N,int> p;
+			   	   p.first = keys[i];
+				   p.second = ops[i];	   
+				   pending_requests.insert(p);
+				   usleep(rate);
+				}
+				
+			   }
 
+			}
+		   }
 
-
+		}
 
 	   }
 	   template<typename T,typename N>
@@ -243,7 +311,6 @@ class KeyValueStore
 		}
 
 		std::vector<std::pair<int,std::string>> resp_ids = ka->Completed_Gets<T,N>(pos,st);
-		std::cout <<" rank = "<<myrank<<" numb resp = "<<resp_ids.size()<<std::endl;
 
 	   }
 

@@ -191,6 +191,11 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	
 	       H5Sclose(mem_dataspace);
 	     }
+	     else if(!worklist1[n]->resp_queue)
+	     {
+	       std::string estring;
+	       bool b = AddResponse(worklist1[n]->key,estring,worklist1[n]->id,worklist1[n]->sender);
+	     }
 	     delete worklist1[n];
 	   }
 	   H5Dclose(dataset_t);
@@ -281,8 +286,6 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 		   {
 			std::cout <<" event b = "<<eventstring.length()<<std::endl;
 			bool b = AddResponse(worklist2[n]->key,eventstring,worklist2[n]->id,worklist2[n]->sender);
-
-
 		   }
 		   break;
 		}
