@@ -197,7 +197,6 @@ class KeyValueStore
                 std::string st = k_args[s_id].tname;
                 KeyValueStoreMetadata m = ka->get_metadata();
                 int datasize = m.value_size();
-
 		std::vector<int> request_status(keys.size());
 		std::fill(request_status.begin(),request_status.end(),0);
 		std::unordered_map<N,int> pending_requests;
@@ -214,6 +213,28 @@ class KeyValueStore
 			if(r != pending_requests.end())
 			{
 			  pending_requests.erase(r);
+			}
+			if(ops[id]==2)
+			{
+			    int pos1 = values[id].find("=");
+			    std::string fl = "field";
+			    std::string substr1 = values[id].substr(0,pos1);
+			    std::string substr2 = substr1.substr(fl.length());
+			    int atr_id = std::stoi(substr2);
+			    std::string data;
+                            data.resize(datasize);
+			    for(int j=0;j<datasize;j++)
+				 data[j]=resp_ids[i].second[sizeof(uint64_t)+j];
+			    int offset = atr_id*100;
+			    for(int j=0;j<values[id].length();j++)
+				data[sizeof(N)+offset+j] = values[id][j];
+                            if(ka->Put<T,N,std::string>(pos,st,keys[id],data))
+                            {
+
+
+                            }
+			    usleep(rate);
+
 			}
 			request_status[id] = -1;
 		   }
@@ -238,7 +259,7 @@ class KeyValueStore
                      		  data.resize(sizeof(N)+values[i].length());
                      		  char *keystr = (char *)(&keys[i]);
                      		  for(int j=0;j<sizeof(N);j++)
-                        	    data[i] = keystr[j];
+                        	    data[j] = keystr[j];
                      		  for(int j=0;j<values[i].length();j++)
                         	    data[sizeof(N)+j] = values[i][j];
 
@@ -289,7 +310,7 @@ class KeyValueStore
 		     data.resize(sizeof(N)+values[i].length());
 		     char *key = (char *)(&keys[i]);
 	     	     for(int j=0;j<sizeof(N);j++)
-			data[i] = key[j];
+			data[j] = key[j];
 		     for(int j=0;j<values[i].length();j++)
 			data[sizeof(N)+j] = values[i][j];	     
 			
@@ -300,7 +321,7 @@ class KeyValueStore
 		     }
 		     ids++;
 		   }
-		   else
+		   else if(ops[i]==1)
 		   {
 			b = ka->Get_resp<T,N>(pos,st,keys[i],ids);
 			ids++;

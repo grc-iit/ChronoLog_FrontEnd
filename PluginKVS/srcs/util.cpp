@@ -121,6 +121,8 @@ void create_ycsb_input(std::string &filename,int numprocs,int myrank,std::vector
    std::ifstream ist(filename.c_str(),std::ios_base::in);
    std::vector<std::string> lines;
 
+   std::vector<int> ops_t;
+
    if(ist.is_open())
    {
      std::string line;
@@ -129,11 +131,12 @@ void create_ycsb_input(std::string &filename,int numprocs,int myrank,std::vector
         std::stringstream ss(line);
         std::string string1;
         ss >> string1;
-        if(string1.compare("INSERT")==0||string1.compare("READ")==0)
+        if(string1.compare("INSERT")==0||string1.compare("READ")==0||string1.compare("UPDATE")==0)
 	{
           lines.push_back(line);
-	  if(string1.compare("INSERT")==0) op.push_back(0);
-	  else op.push_back(1);
+	  if(string1.compare("INSERT")==0) ops_t.push_back(0);
+	  else if(string1.compare("READ")==0) ops_t.push_back(1);
+	  else ops_t.push_back(2);
 	}
 
      }
@@ -182,10 +185,14 @@ void create_ycsb_input(std::string &filename,int numprocs,int myrank,std::vector
        std::vector<std::string> fieldstrings;
        fieldstrings.resize(fields.size());
        std::string data;
-       if(op[i]==0)
+       if(ops_t[i]==0 || ops_t[i]==2)
        for(int j=0;j<fields.size();j++)
        {
-         pos1 = lines[i].find(fields[j].c_str())+fields[j].length();
+         pos1 = lines[i].find(fields[j].c_str());
+         if(pos1 != std::string::npos)
+	 {
+	 if(ops_t[i]==2) data = fields[j];
+         pos1+=fields[j].length();
          substr1 = lines[i].substr(pos1);
          pos2 = substr1.find("field");
          fieldstrings[j].resize(columnsize);
@@ -206,10 +213,11 @@ void create_ycsb_input(std::string &filename,int numprocs,int myrank,std::vector
             }
          }
          data += fieldstrings[j];
+	 }
        }
-
        keys.push_back(key);
        values.push_back(data);
+       op.push_back(ops_t[i]);
      }
 
      ist.close();

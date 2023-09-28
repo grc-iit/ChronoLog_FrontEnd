@@ -64,8 +64,11 @@ int main(int argc,char **argv)
    op.clear();
    k->get_ycsb_test(filename,keys,values,op);
 
+
    k->create_keyvalues_ordered<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
-  
+
+   std::cout <<" rank = "<<rank<<" keyvalues = "<<keys.size()<<std::endl;
+
    delete reqs;
 
    k->close_sessions();
