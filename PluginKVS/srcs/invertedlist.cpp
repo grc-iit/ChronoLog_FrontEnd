@@ -102,6 +102,11 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 
 	MPI_Allreduce(&send_v,&sum_v,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
+	int npending = pending_gets->empty() ? 0 : 1;
+	int npending_t = 0;
+
+	MPI_Allreduce(&npending,&npending_t,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+
      if(sum_v==numprocs)
      {
 
@@ -125,7 +130,7 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
      std::vector<struct event_req<KeyT,ValueT>*> worklist1;
      std::vector<struct event_req<KeyT,ValueT>*> worklist2;
 
-     while(!pending_gets->empty())
+     /*while(!pending_gets->empty())
      {
 	struct event_req<KeyT,ValueT> *r;
 	if(pending_gets->pop(r))
@@ -139,14 +144,13 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	      worklist2.push_back(r);
 	   }
 	}
-     }
+     }*/
 
-     {
 	   std::string dstring = "Data1";   
            hid_t dataset_t = H5Dopen(fid,dstring.c_str(),H5P_DEFAULT);
 	   hid_t file_dataspace = H5Dget_space(dataset_t);
 
-	   if(cached_keyindex_mt.size()>0 && cached_keyindex.size()>0)
+	   /*if(cached_keyindex_mt.size()>0 && cached_keyindex.size()>0)
 	   for(int n=0;n<worklist1.size();n++)
 	   {
 	     KeyT k = worklist1[n]->key;
@@ -176,12 +180,12 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	       ret = H5Dread(dataset_t,s2, mem_dataspace, file_dataspace, xfer_plist,e.data());
                std::string estring(e.data());		
 	       if(worklist1[n]->resp_queue)
-	       {
+	       {*/
 	       /*if(ost.is_open())
 	       {
 		  ost << estring << std::endl;
 	       }*/
-	       }
+	       /*}
 	       else
 	       {
 		std::cout <<" event = "<<estring.length()<<std::endl;
@@ -197,38 +201,29 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	       bool b = AddResponse(worklist1[n]->key,estring,worklist1[n]->id,worklist1[n]->sender);
 	     }
 	     delete worklist1[n];
-	   }
-	   H5Dclose(dataset_t);
-	   H5Sclose(file_dataspace);
+	   }*/
+	   //H5Dclose(dataset_t);
+	   //H5Sclose(file_dataspace);
 
-     }
-     
-     MPI_Barrier(MPI_COMM_WORLD);
-
-     {
        hsize_t attr_size[1];
        attr_size[0] = MAXBLOCKS*4+4;
        const char *attrname[1];
        hid_t attr_space[1];
-       attr_space[0] = H5Screate_simple(1, attr_size, NULL);
+       //attr_space[0] = H5Screate_simple(1, attr_size, NULL);
 
        attrname[0] = "Datasizes";
 
-       std::string data_string = "Data1";
-       hid_t dataset1 = H5Dopen(fid,data_string.c_str(), H5P_DEFAULT);
-
-       hid_t attr_id = H5Aopen(dataset1,attrname[0],H5P_DEFAULT);
+       hid_t attr_id = H5Aopen(dataset_t,attrname[0],H5P_DEFAULT);
        std::vector<uint64_t> attrs;
        attrs.resize(attr_size[0]);
 
-       int ret = H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
+       int ret; //= H5Aread(attr_id,H5T_NATIVE_UINT64,attrs.data());
 
-       hid_t file_dataspace = H5Dget_space(dataset1);
        int numblocks = attrs[3];
 
        int pos = 4;
 
-       for(int n=0;n<worklist2.size();n++)
+       /*for(int n=0;n<worklist2.size();n++)
        {
          std::vector<int> blockids;
 	 std::vector<ValueT> values;
@@ -276,12 +271,12 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 		{
 		   std::string eventstring(buffer->data()+i,buffer->data()+i+keydatasize);
 		   if(worklist2[n]->resp_queue)
-		   {
+		   {*/
 		   /*if(ost.is_open())
 		   {
 			ost << eventstring << std::endl;
 		   }*/
-		   }
+		   /*}
 		   else
 		   {
 			std::cout <<" event b = "<<eventstring.length()<<std::endl;
@@ -295,18 +290,16 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	    H5Sclose(mem_dataspace);
 	    delete worklist2[n];
        }
-      }
+      }*/
 
        H5Aclose(attr_id);
-       H5Dclose(dataset1);
+       H5Dclose(dataset_t);
        H5Sclose(file_dataspace);
-    } 
-     
-     H5Fclose(fid);
-     H5Tclose(s1);
-     H5Tclose(s2);
-     H5Pclose(fapl);
-     H5Pclose(xfer_plist);
+       H5Fclose(fid);
+       H5Tclose(s2);
+       H5Tclose(s1);
+       H5Pclose(fapl);
+       H5Pclose(xfer_plist);
 
    }
    }
@@ -700,8 +693,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_table_file(int offset,boo
  H5Pclose(dataset_pl);
  H5Fclose(fid);
 
- if(persist && index_writes==0) create_index_file();
- else if(persist) update_index_file();
+ if(index_writes==0) create_index_file();
+ else update_index_file();
  }
  }
 
@@ -778,15 +771,15 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::update_index_file()
     H5Sclose(mem_dataspace);
 
     index_writes++;
-    H5Sclose(file_dataspace);
     H5Dclose(dataset_k);
+    H5Sclose(file_dataspace);
     }
-    H5Sclose(file_dataspace_t);
     H5Dclose(dataset_t);
+    H5Sclose(file_dataspace_t);
     H5Fclose(fid);
+    H5Tclose(kv1);
     H5Pclose(fapl);
     H5Pclose(dxpl);
-    H5Tclose(kv1);
 
 }
 
@@ -862,10 +855,11 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_index_file()
 
     H5Dclose(dataset_t);
     H5Dclose(dataset_k);
+    H5Fclose(fid);
     H5Sclose(file_dataspace_t);
     H5Sclose(file_dataspace);
-    H5Fclose(fid);
     H5Tclose(kv1);
+    H5Pclose(dataset_pl);
     H5Pclose(fapl);
     H5Pclose(dxpl);
 
