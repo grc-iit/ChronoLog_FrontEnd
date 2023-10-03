@@ -4,7 +4,6 @@
 #include "blockmap.h"
 #include <mpi.h>
 #include <hdf5.h>
-#include "h5_async_lib.h"
 #include "event.h"
 #include "data_server_client.h"
 #include "KeyValueStoreIO.h"

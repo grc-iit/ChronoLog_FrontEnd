@@ -36,12 +36,11 @@ int main(int argc,char **argv)
    std::string filename = sname+".log"; 
    k->get_ycsb_test(filename,keys,values,op);
 
-   std::cout <<" rank = "<<rank<<" nkeys = "<<keys.size()<<std::endl;
    int s = k->start_session(sname,names[0],m,32768);
 
-   std::vector<uint64_t> keys_n(keys.begin(),keys.begin()+50000);
-   std::vector<std::string> values_n(values.begin(),values.begin()+50000);
-   std::vector<int> op_n(op.begin(),op.begin()+50000);
+   std::vector<uint64_t> keys_n(keys.begin(),keys.begin()+80000);
+   std::vector<std::string> values_n(values.begin(),values.begin()+80000);
+   std::vector<int> op_n(op.begin(),op.begin()+80000);
 
    k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys_n,values_n,op_n,20000);
 
