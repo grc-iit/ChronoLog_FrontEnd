@@ -87,7 +87,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_async_io_request(KeyT &k
       io_t->LocalPutRequest(r);
 
 }
-
+/*
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
 std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
 {
@@ -219,7 +219,7 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 
        int numblocks = attrs[3];
 
-       int pos = 4;
+       int pos = 4;*/
 
        /*for(int n=0;n<worklist2.size();n++)
        {
@@ -289,7 +289,7 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 	    delete worklist2[n];
        }
       }*/
-
+/*
        H5Aclose(attr_id);
        H5Sclose(file_dataspace);
        H5Dclose(dataset_t);
@@ -306,7 +306,7 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
    std::vector<struct keydata> events;
    return events;
 
-}
+}*/
 
 template<typename KeyT, typename ValueT,typename hashfcn,typename equalfcn>
 void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::string &s,int offset)

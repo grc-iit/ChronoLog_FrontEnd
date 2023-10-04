@@ -578,7 +578,7 @@ public:
 	}
 
 
-        std::string FindEventFile(std::string&,uint64_t &);
+	std::string FindEventFile(std::string&,uint64_t &);
 	std::string FindEvent(std::string&,uint64_t&);
 	std::string GetEvent(std::string &,uint64_t&,int);
 	std::string GetNVMEEvent(std::string &,uint64_t&,int);

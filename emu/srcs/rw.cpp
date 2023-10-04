@@ -501,9 +501,9 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
        attr_space[0] = MAXBLOCKS*4+4;
        const char *attr_name[1];
 
-       //std::string filename_r = s+"results"+std::to_string(myrank)+".txt";
+       std::string filename_r = s+"results"+std::to_string(myrank)+".txt";
 
-       //std::ofstream ost(filename_r.c_str(),std::ios::app);
+       std::ofstream ost(filename_r.c_str(),std::ios::app);
 
        xfer_plist = H5Pcreate(H5P_DATASET_XFER);
        hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -550,7 +550,7 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 
 	std::vector<char> *data_buffer = new std::vector<char> ();
 
-	/*for(int n=0;n<my_requests[i].size();n++)
+	for(int n=0;n<my_requests[i].size();n++)
 	{
              uint64_t mints = my_requests[i][n]->mints;
 	     uint64_t maxts = my_requests[i][n]->maxts;
@@ -596,20 +596,32 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 		databuff += block_size*keydatasize;
 	      }
             }
+	    for(int j=0;j<total_records*keydatasize;j+=keydatasize)
+	    {
+		uint64_t ts = *(uint64_t*)(&((*data_buffer)[j]));
+		if(ts >= my_requests[i][n]->mints && ts <= my_requests[i][n]->maxts)
+		{
+		   std::string eventstring;
+		   eventstring.resize(keydatasize);
+		   for(int k=0;k<keydatasize;k++)
+			eventstring[k] = (*data_buffer)[j+k];
+		  ost << eventstring << std::endl; 
+		}
+	    }
 	    delete my_requests[i][n];
 	    my_requests[i][n] = nullptr;
-	}*/
+	}
 	     
        delete data_buffer;	       
        H5Aclose(attr_id);
-       H5Dclose(dataset1);
-       H5Fclose(fid);  
        H5Sclose(file_dataspace);
+       H5Dclose(dataset1);
        H5Tclose(s2);
        H5Tclose(s1);
        H5Pclose(xfer_plist);
        H5Pclose(fapl);
-       //if(ost.is_open()) ost.close();
+       H5Fclose(fid);  
+       if(ost.is_open()) ost.close();
      }
    }
     return true;
@@ -1284,7 +1296,6 @@ std::string read_write_process::FindEvent(std::string &s,uint64_t &ts)
 std::string read_write_process::FindEventFile(std::string &s,uint64_t &ts)
 {
    std::string eventstring;
-   int pid1 = get_event_proc(s,ts);
    int index = -1;
    m1.lock();
    auto r1 = write_names.find(s);
@@ -1293,31 +1304,30 @@ std::string read_write_process::FindEventFile(std::string &s,uint64_t &ts)
 
    if(index == -1) return eventstring;
 
+   int pid1 = get_event_proc(s,ts);
    if(pid1 != -1)
    {
 	eventstring = GetEvent(s,ts,pid1);
-	if(eventstring.length()==0)
-	{
-	   int pid2 = get_nvme_proc(s,ts);
-	   if(pid2 != -1)
-	   {
-		eventstring = GetNVMEEvent(s,ts,pid2);
-		if(eventstring.length()==0)
-		{
-		   struct io_request *r = new struct io_request();
-		   r->name = s;
-		   r->from_nvme = false;
-		   r->read_op = true;
-		   r->tid = index;
-		   r->mints = ts;
-		   r->maxts = ts;
-		   io_queue_async->push(r); 
-
-		}
-	   }
-	}
    }
-
-
+   if(eventstring.length()==0)
+   {
+     int pid2 = get_nvme_proc(s,ts);
+     if(pid2 != -1)
+     {
+	eventstring = GetNVMEEvent(s,ts,pid2);
+     }
+   }
+   
+   if(eventstring.length()==0)
+   {
+	struct io_request *r = new struct io_request();
+        r->name = s;
+        r->from_nvme = false;
+	r->read_op = true;
+        r->tid = index;
+	r->mints = ts;
+	r->maxts = ts;
+        io_queue_async->push(r); 
+   }
    return eventstring;
 }
