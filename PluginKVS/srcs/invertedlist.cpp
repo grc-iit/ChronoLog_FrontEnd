@@ -87,6 +87,116 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_async_io_request(KeyT &k
       io_t->LocalPutRequest(r);
 
 }
+
+template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
+std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
+{
+
+  std::string indexname = dir;
+  indexname += "file"+filename+"index"+".h5";
+  hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+  hid_t dxpl = H5Pcreate(H5P_DATASET_XFER);
+
+  H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
+  H5Pset_dxpl_mpio(dxpl, H5FD_MPIO_COLLECTIVE);
+
+  hid_t xfer_plist = H5Pcreate(H5P_DATASET_XFER);
+  H5Pset_dxpl_mpio(xfer_plist,H5FD_MPIO_INDEPENDENT);
+
+  hsize_t maxdims[1];
+  maxdims[0] = (hsize_t)H5S_UNLIMITED;
+
+  int v_i;float v_f;double v_d;unsigned long v_l;
+  hid_t datatype;
+  KeyT key;
+  if(typeid(key)==typeid(v_i)) datatype = H5Tcopy(H5T_NATIVE_INT);
+  else if(typeid(key)==typeid(v_f)) datatype = H5Tcopy(H5T_NATIVE_FLOAT);
+  else if(typeid(key)==typeid(v_d)) datatype = H5Tcopy(H5T_NATIVE_DOUBLE);
+  else if(typeid(key)==typeid(v_l)) datatype = H5Tcopy(H5T_NATIVE_UINT64);
+
+  hid_t kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct KeyIndex<KeyT>));
+  H5Tinsert(kv1,"key",HOFFSET(struct KeyIndex<KeyT>,key),datatype);
+  H5Tinsert(kv1,"index",HOFFSET(struct KeyIndex<KeyT>,index),H5T_NATIVE_UINT64);
+
+  hid_t fid = H5Fopen(indexname.c_str(),H5F_ACC_RDONLY,fapl);
+
+  std::string d_string = attributename;
+  std::string dtable = attributename+"attr";
+  hid_t dataset_t = H5Dopen(fid,dtable.c_str(),H5P_DEFAULT);
+  hid_t file_dataspace_t = H5Dget_space(dataset_t);
+
+
+  hsize_t toffset = pre_table*2*pow(2,nbits_r);
+
+  hsize_t lsize = 2*maxsize;
+
+  cached_keyindex_mt.resize(2*maxsize);
+
+  int ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&toffset,NULL,&lsize,NULL);
+  hid_t mem_dataspace_t = H5Screate_simple(1,&lsize,NULL);
+  ret = H5Dread(dataset_t,H5T_NATIVE_INT,mem_dataspace_t,file_dataspace_t,dxpl,cached_keyindex_mt.data());
+  H5Sclose(mem_dataspace_t);
+
+  hid_t dataset_k = H5Dopen(fid,d_string.c_str(),H5P_DEFAULT);
+
+  hid_t file_dataspace = H5Dget_space(dataset_k);
+ 
+  std::vector<struct event_req<KeyT,ValueT>*> worklist1;
+     
+  while(!pending_gets->empty())
+  {
+        struct event_req<KeyT,ValueT> *r;
+        if(pending_gets->pop(r))
+        {
+           if(r->values.size()==0)
+           {
+             worklist1.push_back(r);
+           }
+        }
+  }
+
+  for(int n=0;n<worklist1.size();n++)
+  {
+       KeyT k = worklist1[n]->key;
+       uint64_t hashvalue = hashfcn()(k);
+       int pos = hashvalue%maxsize;
+       hsize_t offset = cached_keyindex_mt[2*pos+1]-cached_keyindex_mt[1];
+       hsize_t numkeys = cached_keyindex_mt[2*pos];
+      
+       std::vector<struct KeyIndex<KeyT>> keyindex;
+       keyindex.resize(numkeys);
+       ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset,NULL,&numkeys,NULL);
+       hid_t mem_dataspace = H5Screate_simple(1,&numkeys,NULL);
+       ret = H5Dread(dataset_k,kv1,mem_dataspace,file_dataspace,xfer_plist,keyindex.data());
+       H5Sclose(mem_dataspace);
+
+       uint64_t ts = UINT64_MAX;
+
+       for(int k=0;k<keyindex.size();k++)
+	      if(keyindex[k].key==k)
+	      {
+		ts = keyindex[k].index;
+		break;
+	      }
+       if(ts != UINT64_MAX) 
+       {
+	std::string eventstring = if_q->GetEmulatorEvent(filename,ts,myrank);
+
+       }
+     }
+
+     H5Sclose(file_dataspace);
+     H5Dclose(dataset_k);
+     H5Sclose(file_dataspace_t);
+     H5Dclose(dataset_t);
+     H5Tclose(kv1);
+     H5Pclose(xfer_plist);
+     H5Pclose(fapl);
+     H5Pclose(dxpl);
+     H5Fclose(fid);
+     
+}
+
 /*
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
 std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
@@ -407,6 +517,138 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::fill_invlist_from_file(std::str
   H5Dclose(dataset1);
   H5Aclose(attr_id);
   H5Fclose(fid);
+
+}
+
+template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
+void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_timestamps(int offset,bool persist)
+{
+
+ int send_v = 1;
+ int send_v_t = 0;
+ MPI_Allreduce(&send_v,&send_v_t,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+
+ std::vector<struct KeyIndex<KeyT>> KeyTimestamps;
+ uint64_t maxts = UINT64_MAX;
+ int key_pre = 0;
+ int total_keys = 0;
+ get_entries_from_tables(KeyTimestamps,key_pre,total_keys,maxts);
+
+ std::vector<struct KeyIndex<KeyT>> preKeyTimestamps;
+
+ if(index_writes == 0)
+ {
+    cached_keyindex_mt.resize(2*maxsize);
+    std::fill(cached_keyindex_mt.begin(),cached_keyindex_mt.end(),0);
+    int offset_t = pre_table*2*pow(2,nbits_r);
+    int prev_total = 0;
+    std::vector<int> numkeys_n(2*maxsize);
+    std::fill(numkeys_n.begin(),numkeys_n.end(),0);
+   
+    std::vector<struct KeyIndex<KeyT>> mergeKeyTimestamps = merge_keyoffsets(preKeyTimestamps,KeyTimestamps,numkeys_n);
+    
+    cached_keyindex.clear();
+    cached_keyindex.resize(mergeKeyTimestamps.size());
+    cached_keyindex.assign(mergeKeyTimestamps.begin(),mergeKeyTimestamps.end());
+
+    cached_keyindex_mt.clear();
+    cached_keyindex_mt.resize(2*maxsize);
+    cached_keyindex_mt.assign(numkeys_n.begin(),numkeys_n.end());
+
+    create_index_file();
+ } 
+ else
+ {
+   std::string indexname = dir;
+   indexname += "file"+filename+"index"+".h5";
+   hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
+   hid_t dxpl = H5Pcreate(H5P_DATASET_XFER);
+
+   H5Pset_fapl_mpio(fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
+   H5Pset_dxpl_mpio(dxpl, H5FD_MPIO_COLLECTIVE);
+
+   hsize_t maxdims[1];
+   maxdims[0] = (hsize_t)H5S_UNLIMITED;
+
+   int v_i;float v_f;double v_d;unsigned long v_l;
+   hid_t datatype;
+   KeyT key;
+   if(typeid(key)==typeid(v_i)) datatype = H5Tcopy(H5T_NATIVE_INT);
+   else if(typeid(key)==typeid(v_f)) datatype = H5Tcopy(H5T_NATIVE_FLOAT);
+   else if(typeid(key)==typeid(v_d)) datatype = H5Tcopy(H5T_NATIVE_DOUBLE);
+   else if(typeid(key)==typeid(v_l)) datatype = H5Tcopy(H5T_NATIVE_UINT64);
+
+   hid_t kv1 = H5Tcreate(H5T_COMPOUND,sizeof(struct KeyIndex<KeyT>));
+   H5Tinsert(kv1,"key",HOFFSET(struct KeyIndex<KeyT>,key),datatype);
+   H5Tinsert(kv1,"index",HOFFSET(struct KeyIndex<KeyT>,index),H5T_NATIVE_UINT64);
+
+   hid_t fid = H5Fopen(indexname.c_str(),H5F_ACC_RDONLY,fapl);
+
+   std::string d_string = attributename;
+   std::string dtable = attributename+"attr";
+   hid_t dataset_t = H5Dopen(fid,dtable.c_str(),H5P_DEFAULT);
+   hid_t file_dataspace_t = H5Dget_space(dataset_t);
+
+
+   hsize_t toffset = pre_table*2*pow(2,nbits_r);
+
+   hsize_t lsize = 2*maxsize;
+
+   cached_keyindex_mt.resize(2*maxsize);
+
+   int ret = H5Sselect_hyperslab(file_dataspace_t,H5S_SELECT_SET,&toffset,NULL,&lsize,NULL);
+   hid_t mem_dataspace_t = H5Screate_simple(1,&lsize,NULL);
+   ret = H5Dread(dataset_t,H5T_NATIVE_INT,mem_dataspace_t,file_dataspace_t,dxpl,cached_keyindex_mt.data());
+   H5Sclose(mem_dataspace_t);
+
+   int total_keys_l = 0;
+   for(int i=0;i<maxsize;i++) total_keys_l += cached_keyindex_mt[2*i];
+
+   cached_keyindex.resize(total_keys_l);
+
+   int total_keys = 0;
+   MPI_Allreduce(&total_keys_l,&total_keys,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+
+   hid_t dataset_k = H5Dopen(fid,d_string.c_str(),H5P_DEFAULT);
+
+   hid_t file_dataspace = H5Dget_space(dataset_k);
+
+   hsize_t offset_w = cached_keyindex_mt[1];
+   hsize_t blocksize = (hsize_t)total_keys_l;
+
+   hid_t mem_dataspace = H5Screate_simple(1,&blocksize,NULL);
+   ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset_w,NULL,&blocksize,NULL);
+   ret = H5Dread(dataset_k,kv1,mem_dataspace,file_dataspace,dxpl,cached_keyindex.data());
+   H5Sclose(mem_dataspace);
+
+
+
+   H5Sclose(file_dataspace);
+   H5Dclose(dataset_k);
+   H5Sclose(file_dataspace_t);
+   H5Dclose(dataset_t);
+   H5Tclose(kv1);
+   H5Pclose(fapl);
+   H5Pclose(dxpl);
+   H5Fclose(fid);
+
+   std::vector<int> numkeys_n(2*maxsize);
+   std::fill(numkeys_n.begin(),numkeys_n.end(),0);
+   preKeyTimestamps.assign(cached_keyindex.begin(),cached_keyindex.end());
+
+   std::vector<struct KeyIndex<KeyT>> mergeKeyTimestamps = merge_keyoffsets(preKeyTimestamps,KeyTimestamps,numkeys_n);
+
+    cached_keyindex.clear();
+    cached_keyindex.resize(mergeKeyTimestamps.size());
+    cached_keyindex.assign(mergeKeyTimestamps.begin(),mergeKeyTimestamps.end());
+
+    cached_keyindex_mt.clear();
+    cached_keyindex_mt.resize(2*maxsize);
+    cached_keyindex_mt.assign(numkeys_n.begin(),numkeys_n.end());
+
+    update_index_file();
+
+ }
 
 }
 

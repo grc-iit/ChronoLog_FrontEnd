@@ -1,8 +1,8 @@
 
 template<typename T,typename N>
-int KeyValueStoreAccessor::add_new_inverted_list(std::string &table,std::string &attr_name,int size,int ntables,N &emptykey,data_server_client *d,KeyValueStoreIO *io,int c,int data_size)
+int KeyValueStoreAccessor::add_new_inverted_list(std::string &table,std::string &attr_name,int size,int ntables,N &emptykey,data_server_client *d,KeyValueStoreIO *io,Interface_Queues *q,int c,int data_size)
 {
-      T *invlist = new T(numprocs,myrank,size,ntables,emptykey,table,attr_name,d,io,c,data_size);
+      T *invlist = new T(numprocs,myrank,size,ntables,emptykey,table,attr_name,d,io,q,c,data_size);
 
       std::string type = md.get_type(attr_name);
       int keytype = 0;
