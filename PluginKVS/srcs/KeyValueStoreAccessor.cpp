@@ -22,6 +22,7 @@ int KeyValueStoreAccessor::add_new_inverted_list(std::string &table,std::string 
       ip.first = attr_name;
       ip.second = lists.size()-1;
       secondary_attributes.insert(ip);
+
       return lists.size()-1;
 }
 template<typename T>

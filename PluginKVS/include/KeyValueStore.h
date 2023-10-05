@@ -137,14 +137,14 @@ class KeyValueStore
         		if(t > rate) break;
       		  }
 		
-		  /*if(end_loop) 
-		  ka->flush_invertedlist<T>(attr_name,true);*/
-		  /*else 
+		  if(end_loop) 
+		  ka->flush_invertedlist<T>(attr_name,true);
+		  else 
 		  {
 		     bool c = false;
 		     if(request_count%5==0) c = true;
-		     //ka->flush_invertedlist<T>(attr_name,c);
-		  }*/
+		     ka->flush_invertedlist<T>(attr_name,c);
+		  }
 		  if(end_loop) break;
 		  request_count++;
    	       }

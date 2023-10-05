@@ -422,7 +422,7 @@ class hdf5_invlist
 		return index_writes;
 	   }
 
-	   std::vector<struct keydata> get_events();
+	   void get_events();
 	   void create_async_io_request(KeyT &,std::vector<ValueT>&);
 	   void create_sync_io_request();
 	   bool put_entry(KeyT&,ValueT&);

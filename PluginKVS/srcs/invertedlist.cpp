@@ -89,9 +89,15 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_async_io_request(KeyT &k
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
-std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
+void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
 {
 
+  int exists_f = index_writes > 0 ? 1 : 0;
+  int exists_t = 0;
+  MPI_Allreduce(&exists_f,&exists_t,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+  if(exists_t == numprocs)
+  {
+   
   std::string indexname = dir;
   indexname += "file"+filename+"index"+".h5";
   hid_t fapl = H5Pcreate(H5P_FILE_ACCESS);
@@ -157,7 +163,7 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
 
   for(int n=0;n<worklist1.size();n++)
   {
-       KeyT k = worklist1[n]->key;
+       /*KeyT k = worklist1[n]->key;
        uint64_t hashvalue = hashfcn()(k);
        int pos = hashvalue%maxsize;
        hsize_t offset = cached_keyindex_mt[2*pos+1]-cached_keyindex_mt[1];
@@ -182,7 +188,8 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
        {
 	std::string eventstring = if_q->GetEmulatorEvent(filename,ts,myrank);
 
-       }
+       }*/
+       delete worklist1[n];
      }
 
      H5Sclose(file_dataspace);
@@ -194,7 +201,8 @@ std::vector<struct keydata> hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_even
      H5Pclose(fapl);
      H5Pclose(dxpl);
      H5Fclose(fid);
-     
+  }  
+   
 }
 
 /*
@@ -555,6 +563,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_timestamps(int offset,boo
     cached_keyindex_mt.resize(2*maxsize);
     cached_keyindex_mt.assign(numkeys_n.begin(),numkeys_n.end());
 
+    flush_count++;
     create_index_file();
  } 
  else
@@ -645,7 +654,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_timestamps(int offset,boo
     cached_keyindex_mt.clear();
     cached_keyindex_mt.resize(2*maxsize);
     cached_keyindex_mt.assign(numkeys_n.begin(),numkeys_n.end());
-
+    flush_count++;
     update_index_file();
 
  }
@@ -1086,7 +1095,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_index_file()
      ret = H5Dwrite(dataset_k,kv1,mem_dataspace,file_dataspace,dxpl,cached_keyindex.data());
      H5Sclose(mem_dataspace);
     
-     index_writes++;  
+     index_writes++; 
 
     H5Sclose(file_dataspace_t);
     H5Dclose(dataset_t);
