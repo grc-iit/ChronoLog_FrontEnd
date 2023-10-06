@@ -163,8 +163,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
 
   for(int n=0;n<worklist1.size();n++)
   {
-       KeyT k = worklist1[n]->key;
-       uint64_t hashvalue = hashfcn()(k);
+       KeyT key = worklist1[n]->key;
+       uint64_t hashvalue = hashfcn()(key);
        int pos = hashvalue%maxsize;
        hsize_t offset = cached_keyindex_mt[2*pos+1]-cached_keyindex_mt[1];
        hsize_t numkeys = cached_keyindex_mt[2*pos];
@@ -179,7 +179,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
        uint64_t ts = UINT64_MAX;
 
        for(int k=0;k<keyindex.size();k++)
-	      if(keyindex[k].key==k)
+	      if(keyindex[k].key==key)
 	      {
 		ts = keyindex[k].index;
 		break;
@@ -187,7 +187,10 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
        if(ts != UINT64_MAX) 
        {
 	std::string eventstring = if_q->GetEmulatorEvent(filename,ts,myrank);
-
+	if(eventstring.length() != 0)
+	{
+	   ost << eventstring << std::endl;
+	}
        }
        delete worklist1[n];
      }

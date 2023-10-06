@@ -32,7 +32,7 @@ int main(int argc,char **argv)
    int len = sizeof(int)*2+200;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int tdw = 16384*8;
+   int tdw = 65536*8;
    int td = tdw/size;
 
    auto t1 = std::chrono::high_resolution_clock::now();
