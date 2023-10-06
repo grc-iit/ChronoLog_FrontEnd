@@ -423,7 +423,6 @@ class hdf5_invlist
 	   }
 
 	   void get_events();
-	   void create_async_io_request(KeyT &,std::vector<ValueT>&);
 	   void create_sync_io_request();
 	   bool put_entry(KeyT&,ValueT&);
 	   int get_entry(KeyT&,std::vector<ValueT>&);

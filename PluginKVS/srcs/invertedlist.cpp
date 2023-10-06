@@ -54,41 +54,6 @@ int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_entry(KeyT& k,std::vector<Va
 }
 
 template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
-void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_async_io_request(KeyT &k,std::vector<ValueT> &values)
-{
-      struct request r;
-      r.name = filename;
-      r.attr_name = attributename;
-      r.id = 0;
-
-      if(typeid(k)==typeid(r.intkey))
-      {
-           r.keytype = 0;
-   	   r.intkey = (int)k;	   
-      }
-      else if(typeid(k)==typeid(r.unsignedlongkey))
-      {
-	   r.keytype = 1;
-	   r.unsignedlongkey = (uint64_t)k;
-      }
-      else if(typeid(k)==typeid(r.floatkey))
-      {
-	   r.keytype = 2;
-	   r.floatkey = (float)k;
-      }
-      else if(typeid(k)==typeid(r.doublekey))
-      {
-	   r.keytype = 2;
-	   r.doublekey = (double)k;
-      }
-      r.sender = myrank;
-      r.flush = false;
-
-      io_t->LocalPutRequest(r);
-
-}
-
-template<typename KeyT,typename ValueT,typename hashfcn,typename equalfcn>
 void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
 {
 
