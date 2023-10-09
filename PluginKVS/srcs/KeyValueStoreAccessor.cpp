@@ -58,7 +58,11 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
    assert(data.length()==value.length());
 
    std::vector<uint64_t> ts;
-   ts = if_q->PutEmulatorEvent(s,data,myrank);
+   do
+   {
+      ts = if_q->PutEmulatorEvent(s,data,myrank);
+   }while(ts[0]==UINT64_MAX && ts[1]==0);
+
    bool b = false;
    if(ts[0] != UINT64_MAX)
    {
