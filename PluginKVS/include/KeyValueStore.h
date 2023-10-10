@@ -59,6 +59,7 @@ class KeyValueStore
 		mds->bind_functions();
 		io_layer = new KeyValueStoreIO(numprocs,myrank);
 		io_layer->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
+		io_layer->io_service();
 		if_q = new Interface_Queues(numprocs,myrank);
 		if_q->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
 		std::string remfilename = "emulatoraddrs";
@@ -94,6 +95,11 @@ class KeyValueStore
 	   bool findKeyValueStoreInvList(std::string &s,std::string &attr_name);
 	   void removeKeyValueStoreInvList(std::string &s,std::string &attr_name);
 
+	   data_server_client * get_rpc_client()
+	   {
+		return ds;
+	
+	   }
 	   template<typename T,typename N>
 	   void cacheflushInvList(struct kstream_args*k)
 	   {
