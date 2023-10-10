@@ -42,3 +42,4 @@ set(LIB_FLAGS ${RPC_LIB_FLAGS} ${MPI_CXX_LIBRARIES} -lpthread -lrt)
 
 add_subdirectory(emu)
 add_subdirectory(PluginKVS)
+add_subdirectory(PubSubClient)
