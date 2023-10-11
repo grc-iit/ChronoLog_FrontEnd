@@ -176,19 +176,36 @@ bool pubsubclient::broadcast_message(std::string &s,std::string &msg)
 bool pubsubclient::publish_message(std::string &s,std::string &msg)
 {
 
-	int destid = 0;
+	auto r = client_role.find(s);
+	auto r1 = table_roles.find(s);
+	if(r==client_role.end() || r1 == table_roles.end()) return false;
 
-        if(ipaddrs[destid].compare(myipaddr)==0)
-        {
+	int role = r->second;
+
+	if(role==0) return false;
+
+	int id = r1->second;
+
+	bool b = false;
+
+	for(int i=0;i<subscribers[id].size();i++)
+	{
+
+	   int destid = subscribers[id][i];
+
+          if(ipaddrs[destid].compare(myipaddr)==0)
+          {
             tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
             std::string fcnname = "BroadcastMessage";
             tl::remote_procedure rp = thallium_shm_client->define(fcnname.c_str());
-            return rp.on(ep)(s,msg);
-         }
-         else
-         {
+            b = rp.on(ep)(s,msg);
+          }
+          else
+          {
             std::string fcnname = "BroadcastMessage";
             tl::remote_procedure rp = thallium_client->define(fcnname.c_str());
-            return rp.on(serveraddrs[destid])(s,msg);
-         }
+            b = rp.on(serveraddrs[destid])(s,msg);
+          }
+	}
+	return true;
 }

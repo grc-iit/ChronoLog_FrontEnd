@@ -108,7 +108,6 @@ class pubsubclient
                 req.respond(broadcast_message(s,msg));
            }
 
-
 	   KeyValueStore *getkvs()
 	   {
 		return ks;
