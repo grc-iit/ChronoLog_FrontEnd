@@ -449,6 +449,7 @@ class KeyValueStore
            void get_ycsb_timeseries_workload(std::string&,std::vector<uint64_t>&,std::vector<float>&,std::vector<int>&);
            void get_dataworld_workload(std::string&,std::vector<uint64_t>&,std::vector<uint64_t>&,std::vector<int>&);
            void get_ycsb_test(std::string&,std::vector<uint64_t>&,std::vector<std::string>&,std::vector<int>&);
+	   void get_keyvaluestorestructs(std::string &,std::string&,KeyValueStoreAccessor*&,int &);
 
 	   template<typename T,typename N>
 	   int spawn_kvstream(std::string &s,std::string &a,int maxsize)

@@ -42,6 +42,17 @@ class pubsubclient
 	   std::unordered_map<std::string,int> table_roles;
   	   KeyValueStore *ks; 
 	   data_server_client *ds;
+	   tl::engine *thallium_server;
+           tl::engine *thallium_shm_server;
+           tl::engine *thallium_client;
+           tl::engine *thallium_shm_client;
+           std::vector<tl::endpoint> serveraddrs;
+           std::vector<std::string> ipaddrs;
+           std::vector<std::string> shmaddrs;
+           std::string myipaddr;
+           std::string myhostname;
+	   int nservers;
+	   int serverid;
 	   std::unordered_map<std::string,int> client_role;
 	   std::unordered_map<std::string,int> mcnum;
 	   std::vector<message_cache *> mcs;
@@ -52,8 +63,36 @@ class pubsubclient
 	   {  
 		ks = new KeyValueStore(numprocs,myrank);
 		ds = ks->get_rpc_client();
+		tl::engine *t_server = ds->get_thallium_server();
+                tl::engine *t_server_shm = ds->get_thallium_shm_server();
+                tl::engine *t_client = ds->get_thallium_client();
+                tl::engine *t_client_shm = ds->get_thallium_shm_client();
+                std::vector<tl::endpoint> saddrs = ds->get_serveraddrs();
+                std::vector<std::string> ips = ds->get_ipaddrs();
+                std::vector<std::string> shm_addrs = ds->get_shm_addrs();
+                nservers = numprocs;
+                serverid = myrank;
+                thallium_server = t_server;
+                thallium_shm_server = t_server_shm;
+                thallium_client = t_client;
+                thallium_shm_client = t_client_shm;
+                ipaddrs.assign(ips.begin(),ips.end());
+                shmaddrs.assign(shm_addrs.begin(),shm_addrs.end());
+                myipaddr = ipaddrs[serverid];
+                serveraddrs.assign(saddrs.begin(),saddrs.end());
+
 	   }
 
+	   void bind_functions()
+	   {
+	       std::function<void(const tl::request &,std::string &,std::string &)> bcastMesg(
+               std::bind(&pubsubclient::ThalliumBroadcastMessage,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+
+               std::string fcnname1 = "BroadcastMessage";
+               thallium_server->define(fcnname1.c_str(),bcastMesg);
+               thallium_shm_server->define(fcnname1.c_str(),bcastMesg);
+
+	   }
 
 	   void create_pub_sub_service(std::string&,std::vector<int> &,std::vector<int> &);
 	   void add_pubs(std::string &,std::vector<int>&);
@@ -61,6 +100,15 @@ class pubsubclient
 	   void remove_pubs(std::string &,std::vector<int>&);
 	   void remove_subs(std::string &,std::vector<int>&);
 	   void add_message_cache(std::string &,int,int);
+	   bool broadcast_message(std::string&,std::string&);
+	   bool publish_message(std::string &s,std::string &);
+
+	   void ThalliumBroadcastMessage(const tl::request &req,std::string &s,std::string &msg)
+           {
+                req.respond(broadcast_message(s,msg));
+           }
+
+
 	   KeyValueStore *getkvs()
 	   {
 		return ks;

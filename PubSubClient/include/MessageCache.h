@@ -17,6 +17,7 @@ class message_cache
 	     std::string name;
 	     int num_messages;
 	     int msg_size;
+	     std::mutex m;
 	     std::vector<std::string> messages;
 	     std::string rpc_prefix;
 	     data_server_client *ds;    
@@ -33,6 +34,8 @@ class message_cache
 
 
 	    }
+
+	    void insert_message(std::string&);
 
 	    ~message_cache()
 	    {

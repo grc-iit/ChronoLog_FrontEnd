@@ -163,3 +163,32 @@ void pubsubclient::add_message_cache(std::string &s,int nmessages,int msg_size)
 	}
    }
 }
+
+bool pubsubclient::broadcast_message(std::string &s,std::string &msg)
+{
+
+
+
+
+	return true;
+}
+
+bool pubsubclient::publish_message(std::string &s,std::string &msg)
+{
+
+	int destid = 0;
+
+        if(ipaddrs[destid].compare(myipaddr)==0)
+        {
+            tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
+            std::string fcnname = "BroadcastMessage";
+            tl::remote_procedure rp = thallium_shm_client->define(fcnname.c_str());
+            return rp.on(ep)(s,msg);
+         }
+         else
+         {
+            std::string fcnname = "BroadcastMessage";
+            tl::remote_procedure rp = thallium_client->define(fcnname.c_str());
+            return rp.on(serveraddrs[destid])(s,msg);
+         }
+}

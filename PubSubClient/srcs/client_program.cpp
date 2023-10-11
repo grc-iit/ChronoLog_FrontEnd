@@ -40,19 +40,30 @@ int main(int argc,char **argv)
    }
 
    p->create_pub_sub_service(sname,pubs,subs);
-   int datasize = m.value_size();
-   int recordlen = sizeof(uint64_t)+datasize;
+   int recordlen = sizeof(uint64_t)+len;
    p->add_message_cache(sname,100,recordlen);
 
    KeyValueStore *k = p->getkvs();
 
    int s1 = k->start_session(sname,names[0],m,32768);
+   
+   KeyValueStoreAccessor *ka = nullptr;
+   int id = 0;
+   k->get_keyvaluestorestructs(sname,names[0],ka,id);
+   int datasize = m.value_size();
+   std::string data;
+   data.resize(datasize);
+   int key = random()%RAND_MAX;
+   char *key_c = (char *)(&key);
+   for(int j=0;j<sizeof(int);j++)
+      data[j] = key_c[j];
+   for(int j=0;j<datasize-sizeof(int);j++)
+       data[sizeof(int)+j] = 0;
 
+    std::string st = sname;
 
-
-
-
-
+    uint64_t ts = ka->Put_ts<integer_invlist,int,std::string>(id,st,key,data);
+    
 
 
   delete p;
