@@ -1018,7 +1018,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 	  break;
       }
 
-      if(numrounds == 1) 
+      if(numrounds == numloops[t->tid]) 
       {
 
 	struct io_request *r = new struct io_request();
@@ -1037,7 +1037,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
       for(;;)
       {
         auto t2 = std::chrono::high_resolution_clock::now();
-        if(std::chrono::duration<double>(t2-t1).count() > 50 && b) 
+        if(std::chrono::duration<double>(t2-t1).count() > loopticks[t->tid] && b) 
         {
 	   b = false;
 	   break;

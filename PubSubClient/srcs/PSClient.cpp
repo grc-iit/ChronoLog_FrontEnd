@@ -21,7 +21,8 @@ void pubsubclient::create_pub_sub_service(std::string &s,std::vector<int> &p,std
        if(std::find(p.begin(),p.end(),myrank)!=p.end())
 	 role = (role == -1) ?  1 : 2;
        std::pair<std::string,int> np(s,role);
-       client_role.insert(np);	       
+       client_role.insert(np);	      
+       if(myrank==0) std::cout <<" client role = "<<role<<std::endl; 
   }
   else
   {
@@ -157,7 +158,8 @@ void pubsubclient::add_message_cache(std::string &s,int nmessages,int msg_size)
 	  message_cache *m = new message_cache(numprocs,myrank,s,ds,msg_size,nmessages);
 	  mcs.push_back(m);
 	  std::pair<std::string,int> p(s,mcs.size()-1);
-	  mcnum.insert(p); 
+	  mcnum.insert(p);
+	 if(myrank==0) std::cout <<" cache : message size = "<<msg_size<<" num msgs = "<<nmessages<<std::endl; 
 	}
    }
 }

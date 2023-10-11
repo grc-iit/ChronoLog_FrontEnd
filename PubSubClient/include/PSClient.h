@@ -61,6 +61,10 @@ class pubsubclient
 	   void remove_pubs(std::string &,std::vector<int>&);
 	   void remove_subs(std::string &,std::vector<int>&);
 	   void add_message_cache(std::string &,int,int);
+	   KeyValueStore *getkvs()
+	   {
+		return ks;
+	   }
 
 	   ~pubsubclient()
 	   {

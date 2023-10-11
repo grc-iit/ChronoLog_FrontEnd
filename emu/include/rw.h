@@ -91,6 +91,8 @@ private:
       std::atomic<int> cstream;
       std::atomic<int> *w_reqs_pending;
       std::atomic<int> *r_reqs_pending;
+      std::vector<int> loopticks;
+      std::vector<int> numloops;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n,data_server_client *rc) : myrank(r), numprocs(np), numcores(n), dsc(rc)
 	{
@@ -128,6 +130,8 @@ public:
 	   r_reqs_pending = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
 	   t_args.resize(MAXSTREAMS);
 	   workers.resize(MAXSTREAMS);
+	   numloops.resize(MAXSTREAMS);
+	   loopticks.resize(MAXSTREAMS);
 
 	   for(int i=0;i<MAXSTREAMS;i++)
 	   {
@@ -411,6 +415,8 @@ public:
 	}
 	bool add_metadata_buffers(std::string &s,std::vector<std::string> &m)
 	{
+		if(cstream.load()==MAXSTREAMS) return false;
+
 		event_metadata em;
 		int i = 0;
 		std::string tname = m[0];
@@ -450,6 +456,8 @@ public:
 		}
 		create_write_buffer(s,em,8192);
 		int streamid = cstream.fetch_add(1);
+		numloops[streamid] = 1;
+		loopticks[streamid] = 50;
 		enable_stream[streamid].store(1);
 		spawn_write_stream(streamid,s);
 		return true;
