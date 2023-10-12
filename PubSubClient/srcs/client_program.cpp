@@ -39,9 +39,10 @@ int main(int argc,char **argv)
 	else subs.push_back(i);
    }
 
-   p->create_pub_sub_service(sname,pubs,subs);
    int recordlen = sizeof(uint64_t)+len;
-   p->add_message_cache(sname,100,recordlen);
+   p->create_pub_sub_service(sname,pubs,subs,100,recordlen);
+   p->bind_functions();
+
 
    KeyValueStore *k = p->getkvs();
 
@@ -63,7 +64,18 @@ int main(int argc,char **argv)
     std::string st = sname;
 
     uint64_t ts = ka->Put_ts<integer_invlist,int,std::string>(id,st,key,data);
-    
+    char *ts_c = (char*)(&ts);
+    std::string msg;
+    msg.resize(datasize+sizeof(uint64_t));
+    for(int i=0;i<sizeof(uint64_t);i++)
+      msg[i] = ts_c[i];
+
+    for(int i=0;i<datasize;i++)
+	msg[i+sizeof(uint64_t)] = data[i];
+
+
+    if(rank==0)
+    bool b = p->publish_message(st,msg); 
 
 
   delete p;

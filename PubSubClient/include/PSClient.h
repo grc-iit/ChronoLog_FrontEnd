@@ -57,6 +57,7 @@ class pubsubclient
 	   std::unordered_map<std::string,int> mcnum;
 	   std::vector<message_cache *> mcs;
 	   std::mutex m;
+	   int tag;
    public :
 
 	   pubsubclient(int n,int p) : numprocs(n),myrank(p)
@@ -80,7 +81,7 @@ class pubsubclient
                 shmaddrs.assign(shm_addrs.begin(),shm_addrs.end());
                 myipaddr = ipaddrs[serverid];
                 serveraddrs.assign(saddrs.begin(),saddrs.end());
-
+		tag = 80000;
 	   }
 
 	   void bind_functions()
@@ -92,9 +93,10 @@ class pubsubclient
                thallium_server->define(fcnname1.c_str(),bcastMesg);
                thallium_shm_server->define(fcnname1.c_str(),bcastMesg);
 
+		barrier();
 	   }
 
-	   void create_pub_sub_service(std::string&,std::vector<int> &,std::vector<int> &);
+	   void create_pub_sub_service(std::string&,std::vector<int> &,std::vector<int> &,int,int);
 	   void add_pubs(std::string &,std::vector<int>&);
 	   void add_subs(std::string &,std::vector<int>&);
 	   void remove_pubs(std::string &,std::vector<int>&);
@@ -102,6 +104,7 @@ class pubsubclient
 	   void add_message_cache(std::string &,int,int);
 	   bool broadcast_message(std::string&,std::string&);
 	   bool publish_message(std::string &s,std::string &);
+	   void barrier();
 
 	   void ThalliumBroadcastMessage(const tl::request &req,std::string &s,std::string &msg)
            {

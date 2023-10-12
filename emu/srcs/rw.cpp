@@ -4,34 +4,6 @@
 
 typedef int DATATYPE;
 
-void read_write_process::sync_clocks()
-{
-   int nstreams = num_dropped.size();
-
-   int total_dropped = 0;
-   for(int i=0;i<nstreams;i++) total_dropped += num_dropped[i];
-
-   int max_recorded = 0;
-   for(int i=0;i<iters_per_batch;i++)
-   {
-	for(int j=0;j<nstreams;j++)
-		max_recorded += batch_size[j]; 
-   } 
-
-   if(myrank==0)
-   {
-	std::cout <<" rank = "<<myrank<<" total_dropped = "<<total_dropped<<" max_recorded = "<<max_recorded<<std::endl;
-	std::cout <<" threshold = "<<max_recorded/4<<std::endl;
-   }
-   //if(myrank==0)//if((double)total_dropped > (double)(max_recorded/4)) 
-   {
-	CM->UpdateOffsetMaxError();
-   }
-
-   for(int i=0;i<nstreams;i++) num_dropped[i] = 0;
-
-}
-
 bool read_write_process::create_buffer(int &num_events,std::string &s)
 {
     int datasize = 0;
@@ -1158,8 +1130,8 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      if(num_req > 0)
      {
-	  CM->SynchronizeClocks();
-	  CM->ComputeErrorInterval();
+	  std::pair<uint64_t,uint64_t> p = CM->SynchronizeClocks();
+	  CM->ComputeErrorInterval(p.first,p.second);
      }
 
      while(!io_queue_async->empty())

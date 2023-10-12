@@ -35,7 +35,7 @@ class message_cache
 
 	    }
 
-	    void insert_message(std::string&);
+	    bool add_message(std::string&);
 
 	    ~message_cache()
 	    {

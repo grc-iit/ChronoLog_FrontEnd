@@ -96,8 +96,8 @@ public:
       }
       void synchronize()
       {
-	CM->SynchronizeClocks();
-	CM->ComputeErrorInterval();
+	std::pair<uint64_t,uint64_t> p = CM->SynchronizeClocks();
+	CM->ComputeErrorInterval(p.first,p.second);
 
       }
       std::string & get_serveraddr()

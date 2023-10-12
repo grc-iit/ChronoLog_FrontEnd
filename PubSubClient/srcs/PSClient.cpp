@@ -1,6 +1,6 @@
 #include "PSClient.h"
 
-void pubsubclient::create_pub_sub_service(std::string &s,std::vector<int> &p,std::vector<int> &sb)
+void pubsubclient::create_pub_sub_service(std::string &s,std::vector<int> &p,std::vector<int> &sb,int num_messages,int msg_size)
 {
    auto r = table_roles.find(s);
    if(r == table_roles.end())
@@ -39,6 +39,10 @@ void pubsubclient::create_pub_sub_service(std::string &s,std::vector<int> &p,std
 	auto r1 = client_role.find(s);
 	r1->second = role;
   }
+
+  add_message_cache(s,num_messages,msg_size);
+
+  barrier();
 }
 
 void pubsubclient::add_subs(std::string &s,std::vector<int> &sb)
@@ -166,11 +170,13 @@ void pubsubclient::add_message_cache(std::string &s,int nmessages,int msg_size)
 
 bool pubsubclient::broadcast_message(std::string &s,std::string &msg)
 {
+     auto r = mcnum.find(s);
 
+     if(r==mcnum.end()) return false;
+     int id = r->second;
+     message_cache *c = mcs[id]; 
 
-
-
-	return true;
+     return c->add_message(msg);
 }
 
 bool pubsubclient::publish_message(std::string &s,std::string &msg)
@@ -192,6 +198,7 @@ bool pubsubclient::publish_message(std::string &s,std::string &msg)
 	{
 
 	   int destid = subscribers[id][i];
+	   std::cout <<" subscriber = "<<destid<<std::endl;
 
           if(ipaddrs[destid].compare(myipaddr)==0)
           {
@@ -208,4 +215,26 @@ bool pubsubclient::publish_message(std::string &s,std::string &msg)
           }
 	}
 	return true;
+}
+
+void pubsubclient::barrier()
+{
+   MPI_Request *reqs = new MPI_Request[2*numprocs];
+   int nreq = 0;
+   int sendv = 1;
+   std::vector<int> recvv(numprocs);
+   std::fill(recvv.begin(),recvv.end(),0);
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&sendv,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recvv[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+
+   delete reqs;
 }
