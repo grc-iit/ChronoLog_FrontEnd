@@ -2,6 +2,7 @@
 
 void pubsubclient::create_pub_sub_service(std::string &s,std::vector<int> &p,std::vector<int> &sb,int num_messages,int msg_size)
 {
+   m.lock();
    auto r = table_roles.find(s);
    if(r == table_roles.end())
    { 
@@ -40,6 +41,8 @@ void pubsubclient::create_pub_sub_service(std::string &s,std::vector<int> &p,std
 	r1->second = role;
   }
 
+  m.unlock();
+
   add_message_cache(s,num_messages,msg_size);
 
   barrier();
@@ -47,6 +50,7 @@ void pubsubclient::create_pub_sub_service(std::string &s,std::vector<int> &p,std
 
 void pubsubclient::add_subs(std::string &s,std::vector<int> &sb)
 {
+    m.lock();
     auto r = table_roles.find(s);
     if(r != table_roles.end())
     {
@@ -67,10 +71,12 @@ void pubsubclient::add_subs(std::string &s,std::vector<int> &sb)
 	   r1->second = role;
 	}
     }
+    m.unlock();
 }
 
 void pubsubclient::add_pubs(std::string &s,std::vector<int> &p)
 {
+   m.lock();
    auto r = table_roles.find(s);
 
    if(r != table_roles.end())
@@ -92,10 +98,12 @@ void pubsubclient::add_pubs(std::string &s,std::vector<int> &p)
 	  r1->second = role;
 	}
    }
+   m.unlock();
 }
 
 void pubsubclient::remove_pubs(std::string &s,std::vector<int> &p)
 {
+   m.lock();
    auto r = table_roles.find(s);
 
    if(r != table_roles.end())
@@ -120,11 +128,12 @@ void pubsubclient::remove_pubs(std::string &s,std::vector<int> &p)
 	if(role==2) role = 0;
 	else if(role==1) role = -1;
    }
+   m.unlock();
 }
 
 void pubsubclient::remove_subs(std::string &s,std::vector<int> &sb)
 {
-
+	m.lock();
 	auto r = table_roles.find(s);
 	if(r != table_roles.end())
 	{
@@ -147,10 +156,12 @@ void pubsubclient::remove_subs(std::string &s,std::vector<int> &sb)
 		r1->second = role;
 	   }
 	}
+	m.unlock();
 }
 
 void pubsubclient::add_message_cache(std::string &s,int nmessages,int msg_size)
 {
+   m.lock();
    auto r = table_roles.find(s);
 
    if(r != table_roles.end())
@@ -166,6 +177,7 @@ void pubsubclient::add_message_cache(std::string &s,int nmessages,int msg_size)
 	 if(myrank==0) std::cout <<" cache : message size = "<<msg_size<<" num msgs = "<<nmessages<<std::endl; 
 	}
    }
+   m.unlock();
 }
 
 bool pubsubclient::broadcast_message(std::string &s,std::string &msg)
@@ -197,9 +209,7 @@ bool pubsubclient::publish_message(std::string &s,std::string &msg)
 	for(int i=0;i<subscribers[id].size();i++)
 	{
 
-	   int destid = subscribers[id][i];
-	   std::cout <<" subscriber = "<<destid<<std::endl;
-
+	  int destid = subscribers[id][i];
           if(ipaddrs[destid].compare(myipaddr)==0)
           {
             tl::endpoint ep = thallium_shm_client->lookup(shmaddrs[destid]);
@@ -237,4 +247,39 @@ void pubsubclient::barrier()
 
 
    delete reqs;
+}
+
+void pubsubclient::CreatePubSubWorkload(std::string &s,std::string &attr_name,KeyValueStoreMetadata &m,int numrecords,int rate,int pub_rate,bool pub)
+{
+   std::vector<int> pubs,subs;
+
+   for(int i=0;i<numprocs;i++)
+   {
+        if(i%2==0) pubs.push_back(i);
+        else subs.push_back(i);
+   }
+
+   int len = m.value_size();
+   int recordlen = sizeof(uint64_t)+len;
+   create_pub_sub_service(s,pubs,subs,100,recordlen);
+   bind_functions();
+
+   KeyValueStore *k = getkvs();
+
+   int s1 = k->start_session(s,attr_name,m,32768);
+
+   KeyValueStoreAccessor *ka = nullptr;
+   int id = 0;
+   k->get_keyvaluestorestructs(s,attr_name,ka,id);
+
+   std::string t = m.get_type(attr_name);
+
+   if(t.compare("int")==0)
+	PutRecords<integer_invlist,int>(ka,id,s,len,numrecords,rate,pub_rate,pub);
+   else if(t.compare("unsignedlong")==0)
+	PutRecords<unsigned_long_invlist,uint64_t>(ka,id,s,len,numrecords,rate,pub_rate,pub);
+   else if(t.compare("float")==0)
+	PutRecords<float_invlist,float>(ka,id,s,len,numrecords,rate,pub_rate,pub);
+   else if(t.compare("double")==0)
+	PutRecords<double_invlist,double>(ka,id,s,len,numrecords,rate,pub_rate,pub);
 }

@@ -7,19 +7,13 @@ bool message_cache::add_message(std::string &msg)
      ts_c[i] = msg[i];
 
    uint64_t ts = *(uint64_t*)(ts_c);
+ 
+   uint32_t prev = msg_count.fetch_add(1);
+   prev = prev%num_messages;
+  
+   (*locks)[prev].lock();
+   messages[prev].assign(msg.begin(),msg.end());
+   (*locks)[prev].unlock(); 
 
-   m.lock();
-   if(messages.size()==num_messages)
-   {
-	messages.erase(messages.begin());
-   }
-   messages.push_back(msg);
-
-   m.unlock();
    return true;
-
-
-
-
-
 }

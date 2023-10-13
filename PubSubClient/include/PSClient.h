@@ -105,6 +105,7 @@ class pubsubclient
 	   bool broadcast_message(std::string&,std::string&);
 	   bool publish_message(std::string &s,std::string &);
 	   void barrier();
+	   void CreatePubSubWorkload(std::string&,std::string&,KeyValueStoreMetadata&,int,int,int,bool);
 
 	   void ThalliumBroadcastMessage(const tl::request &req,std::string &s,std::string &msg)
            {
@@ -114,6 +115,32 @@ class pubsubclient
 	   KeyValueStore *getkvs()
 	   {
 		return ks;
+	   }
+
+	   template<typename T,typename N>
+	   void PutRecords(KeyValueStoreAccessor *ka,int& pos,std::string &s,int datasize,int numrecords,int rate,int pub_rate,bool pub)
+	   {
+		int freq = std::ceil((double)pub_rate/(double)rate);
+
+		for(int i=0;i<numrecords;i++)
+		{
+	           N key = random()%RAND_MAX;
+		   std::string data;
+		   data.resize(datasize);
+
+		   uint64_t ts = ka->Put_ts<T,N,std::string>(pos,s,key,data);
+
+		   if(i%freq==0 && ts != UINT64_MAX)
+		   {
+			std::string msg;
+			msg.resize(sizeof(uint64_t)+datasize);
+			for(int j=0;j<sizeof(uint64_t);j++)
+			  msg[j] = ((char*)(&ts))[j];			
+			publish_message(s,msg);
+		   }
+		   
+		   usleep(rate);
+		}
 	   }
 
 	   ~pubsubclient()
