@@ -31,10 +31,10 @@ int main(int argc,char **argv)
    int len = sizeof(int)*2+200;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int total_size = 16384;
+   int total_size = 8*65536;
    int size_per_proc = total_size/size;
-   int rate = 200000;
-   int pub_rate = 1000000;
+   int rate = 20000;
+   int pub_rate = 100000;
    bool bcast = true;
 
    auto t1 = std::chrono::high_resolution_clock::now();
