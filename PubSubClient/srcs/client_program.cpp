@@ -31,16 +31,46 @@ int main(int argc,char **argv)
    int len = sizeof(int)*2+200;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int total_size = 4096;
+   int total_size = 16384;
    int size_per_proc = total_size/size;
-   int rate = 20000;
-   int pub_rate = 100000;
+   int rate = 200000;
+   int pub_rate = 1000000;
    bool bcast = true;
+
+   auto t1 = std::chrono::high_resolution_clock::now();
 
    p->CreatePubSubWorkload(sname,names[0],m,size_per_proc,rate,pub_rate,bcast);
 
-  delete p;
 
+   delete p;
+
+   auto t2 = std::chrono::high_resolution_clock::now();
+   double time_taken = std::chrono::duration<double>(t2-t1).count();
+   int tag = 12300;
+
+   MPI_Request *reqs = new MPI_Request[2*size];
+   int nreq = 0;
+
+   std::vector<double> recvv(size);
+   std::fill(recvv.begin(),recvv.end(),0);
+
+   for(int i=0;i<size;i++)
+   {
+	MPI_Isend(&time_taken,1,MPI_DOUBLE,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recvv[i],1,MPI_DOUBLE,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+   time_taken = DBL_MIN;
+   for(int i=0;i<size;i++)
+	  if(recvv[i] > time_taken) time_taken = recvv[i];
+
+   if(rank==0) std::cout <<" Time taken = "<<time_taken<<" seconds"<<std::endl;
+   delete reqs;
 
   MPI_Finalize();
 
