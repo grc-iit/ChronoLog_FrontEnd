@@ -35,11 +35,17 @@ int main(int argc,char **argv)
    int tdw = 65536*8;
    int td = tdw/size;
 
+   int nloops = 1;
+   int nticks = 50;
+   int ifreq = 200;
+   /*nticks = freq for backup to nvme
+    * nloops*nticks = freq for backup to disk*/
+     /*ifreq is frequency for index backups*/
    auto t1 = std::chrono::high_resolution_clock::now();
     
-   int s1 = k->start_session(sname,names[0],m,32768);
+   int s1 = k->start_session(sname,names[0],m,32768,nloops,nticks,ifreq);
 
-   k->create_keyvalues<integer_invlist,int>(s1,td,20000);
+   //k->create_keyvalues<integer_invlist,int>(s1,td,10000);
 
    k->close_sessions();
 

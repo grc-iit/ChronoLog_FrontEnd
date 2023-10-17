@@ -56,13 +56,21 @@ int main(int argc,char **argv)
 
    std::string sname3 = "table5";
    KeyValueStoreMetadata m3(sname3,n,types,names,lens,len);
-
+  
    auto t1 = std::chrono::high_resolution_clock::now();
-
-   int s1 = k->start_session(sname,names[0],m,32768);
-   int s2 = k->start_session(sname1,names[1],m1,32768);
-   int s3 = k->start_session(sname2,names[0],m2,32768);
-   int s4 = k->start_session(sname3,names[0],m3,32768);
+   int nloops = 1;
+   int nticks = 50;
+   int ifreq = 200;
+   int s1 = k->start_session(sname,names[0],m,32768,nloops,nticks,ifreq);
+   nloops = 2;
+   nticks = 50;
+   int s2 = k->start_session(sname1,names[1],m1,32768,nloops,nticks,ifreq);
+   nloops = 1;
+   nticks = 100;
+   int s3 = k->start_session(sname2,names[0],m2,32768,nloops,nticks,ifreq);
+   nloops = 1;
+   nticks = 100;
+   int s4 = k->start_session(sname3,names[0],m3,32768,nloops,nticks,ifreq);
 
    int tdw = 8192*8;
    int td = tdw/size;

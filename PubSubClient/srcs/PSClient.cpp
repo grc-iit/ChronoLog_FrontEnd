@@ -265,8 +265,10 @@ void pubsubclient::CreatePubSubWorkload(std::string &s,std::string &attr_name,Ke
    bind_functions();
 
    KeyValueStore *k = getkvs();
-
-   int s1 = k->start_session(s,attr_name,m,32768);
+   int nloops = 1;
+   int nticks = 50;
+   int ifreq = 200;
+   int s1 = k->start_session(s,attr_name,m,32768,nloops,nticks,ifreq);
 
    KeyValueStoreAccessor *ka = nullptr;
    int id = 0;

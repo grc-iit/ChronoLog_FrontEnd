@@ -197,8 +197,8 @@ public:
 	   std::function<void(const tl::request &,std::string &)> CheckFile(
 	   std::bind(&read_write_process::ThalliumCheckFile,this,std::placeholders::_1,std::placeholders::_2));
 
-	   std::function<void(const tl::request &,std::string &,std::vector<std::string> &)> AddService(
-	   std::bind(&read_write_process::ThalliumPrepareStream,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+	   std::function<void(const tl::request &,std::string &,std::vector<std::string> &,int &,int &)> AddService(
+	   std::bind(&read_write_process::ThalliumPrepareStream,this,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4,std::placeholders::_5));
 
 	   thallium_server->define("EmulatorPrepareStream",AddService);
 	   thallium_shm_server->define("EmulatorPrepareStream",AddService);
@@ -413,7 +413,7 @@ public:
 		m1.unlock();
 		return em;
 	}
-	bool add_metadata_buffers(std::string &s,std::vector<std::string> &m)
+	bool add_metadata_buffers(std::string &s,std::vector<std::string> &m,int &nloops,int &nticks)
 	{
 		if(cstream.load()==MAXSTREAMS) return false;
 
@@ -456,8 +456,9 @@ public:
 		}
 		create_write_buffer(s,em,8192);
 		int streamid = cstream.fetch_add(1);
-		numloops[streamid] = 1;
-		loopticks[streamid] = 50;
+		numloops[streamid] = nloops;
+		loopticks[streamid] = (nticks < 50) ? 50 : nticks;
+		loopticks[streamid] = (loopticks[streamid] > 500) ? 500 : loopticks[streamid];
 		enable_stream[streamid].store(1);
 		spawn_write_stream(streamid,s);
 		return true;
@@ -550,9 +551,9 @@ public:
         {
                 req.respond(create_buffer(num_events,s));
         }
-	void ThalliumPrepareStream(const tl::request &req,std::string &s,std::vector<std::string> &m)
+	void ThalliumPrepareStream(const tl::request &req,std::string &s,std::vector<std::string> &m,int &n1,int &n2)
 	{
-		req.respond(add_metadata_buffers(s,m));
+		req.respond(add_metadata_buffers(s,m,n1,n2));
 	
 	}
         void ThalliumAddEvent(const tl::request &req, std::string &s,std::string &data)
