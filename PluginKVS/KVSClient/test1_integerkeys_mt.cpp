@@ -62,17 +62,19 @@ int main(int argc,char **argv)
    int nticks = 50;
    int ifreq = 200;
    int s1 = k->start_session(sname,names[0],m,32768,nloops,nticks,ifreq);
-   nloops = 2;
+
+   nloops = 1;
    nticks = 50;
    int s2 = k->start_session(sname1,names[1],m1,32768,nloops,nticks,ifreq);
+   
    nloops = 1;
-   nticks = 100;
+   nticks = 50;
    int s3 = k->start_session(sname2,names[0],m2,32768,nloops,nticks,ifreq);
    nloops = 1;
-   nticks = 100;
+   nticks = 50;
    int s4 = k->start_session(sname3,names[0],m3,32768,nloops,nticks,ifreq);
 
-   int tdw = 8192*8;
+   int tdw = 65536*8;
    int td = tdw/size;
    int numthreads = 4;
 
@@ -84,7 +86,7 @@ int main(int argc,char **argv)
 	args[i].k = k;
 	args[i].index = i;
 	args[i].nreq = td;
-	args[i].rate = 20000;
+	args[i].rate = 10000;
 
 	std::thread t{wthread,&args[i]};
 	workers[i] = std::move(t);

@@ -32,7 +32,7 @@ int main(int argc,char **argv)
    int len = sizeof(int)*2+200;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int tdw = 65536*8;
+   int tdw = 65536*16;
    int td = tdw/size;
 
    int nloops = 1;
@@ -45,7 +45,7 @@ int main(int argc,char **argv)
     
    int s1 = k->start_session(sname,names[0],m,32768,nloops,nticks,ifreq);
 
-   //k->create_keyvalues<integer_invlist,int>(s1,td,10000);
+   k->create_keyvalues<integer_invlist,int>(s1,td,10000);
 
    k->close_sessions();
 
