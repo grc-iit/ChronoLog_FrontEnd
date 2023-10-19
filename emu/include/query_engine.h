@@ -55,13 +55,29 @@ class query_engine
 	   Q->server_client_addrs(t_server,t_client,t_server_shm,t_client_shm,ipaddrs,shmaddrs,server_addrs);
    	   Q->bind_functions();
 	   query_number.store(0);
-	   MPI_Barrier(MPI_COMM_WORLD);	  
+	   int nreq = 0;
+	   MPI_Request *reqs = new MPI_Request[2*numprocs];
+	   int send_v = 1;
+	   int tag = 10000;
+	   std::vector<int> recvv(numprocs);
+	   std::fill(recvv.begin(),recvv.end(),0);
+
+	   for(int i=0;i<numprocs;i++)
+	   {	
+	     MPI_Isend(&send_v,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	     nreq++;
+	     MPI_Irecv(&recvv[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	     nreq++;
+	   }
+
+	   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+	   delete reqs;
 	   S = new query_parser(numprocs,myrank);
 	   ds = rwp->get_sorter();
 	   end_session.store(0);
 	   end_request.store(0);
-	   numthreads = 2;
-	   t_args.resize(numthreads);
+	   numthreads = 0;
+	   /*t_args.resize(numthreads);
 	   workers.resize(numthreads);
 	   std::function<void(struct thread_arg_q *)> QSFunc(
            std::bind(&query_engine::service_query,this, std::placeholders::_1));
@@ -82,7 +98,7 @@ class query_engine
 		std::thread qr{QRFunc,&t_args[i]};
 		workers[i] = std::move(qr);
 	     }
-	   }
+	   }*/
 
 	}
 

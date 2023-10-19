@@ -945,13 +945,12 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 
 }
 
-int read_write_process::endsessioncount()
+int read_write_process::endsessioncount(int tag_p)
 {
      int send_v = end_of_session.load();
      std::vector<int> recv_v(numprocs);
      std::fill(recv_v.begin(),recv_v.end(),0);
      MPI_Request *reqs = new MPI_Request[2*numprocs];
-     int tag_p = 1500; 
 
      int nreq = 0;
      for(int i=0;i<numprocs;i++)
@@ -982,7 +981,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 
    while(true)
    {
-      int nprocs = endsessioncount();
+      int nprocs = endsessioncount(1500);
       t1 = std::chrono::high_resolution_clock::now();
       if(nprocs==numprocs) 
       {
@@ -992,7 +991,6 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 
       if(numrounds == numloops[t->tid]) 
       {
-
 	struct io_request *r = new struct io_request();
         r->name = t->name;
         r->from_nvme = true;
@@ -1002,7 +1000,6 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 
         w_reqs_pending[t->tid].store(1);
         while(w_reqs_pending[t->tid].load()!=0);
-
 	numrounds = 0;
       }
 
@@ -1052,12 +1049,10 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 
      w_reqs_pending[t->tid].store(1);
      while(w_reqs_pending[t->tid].load()!=0);
-
      numrounds = 0;
 
    }
-
-
+   end_of_io_session.store(1);
 }
 
 void read_write_process::io_polling(struct thread_arg_w *t)
@@ -1083,11 +1078,11 @@ void read_write_process::io_polling(struct thread_arg_w *t)
      int end_sessions = end_of_io_session.load()==0 ? 0 : 1;
      end_io = io_queue_async->empty() ? end_sessions : 0;
 
-     int empty_all;
+     int empty_all = 0;
 
      MPI_Allreduce(&end_io,&empty_all,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
-     if(empty_all==numprocs) 
+     if(empty_all == numprocs) 
      {
 	     break;
      }
@@ -1211,6 +1206,8 @@ void read_write_process::io_polling(struct thread_arg_w *t)
      }
 
   }
+
+  session_ended.store(1); 
 
 }
 

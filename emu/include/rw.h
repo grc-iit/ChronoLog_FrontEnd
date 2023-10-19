@@ -93,6 +93,7 @@ private:
       std::atomic<int> *r_reqs_pending;
       std::vector<int> loopticks;
       std::vector<int> numloops;
+      std::atomic<int> session_ended;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n,data_server_client *rc) : myrank(r), numprocs(np), numcores(n), dsc(rc)
 	{
@@ -121,6 +122,7 @@ public:
 	   end_of_session.store(0);
 	   end_of_io_session.store(0);
 	   num_streams.store(0);
+	   session_ended.store(0);
 	   cstream.store(0);
 	   num_io_threads = 1;
 	   file_interval = new std::vector<std::pair<std::atomic<uint64_t>,std::atomic<uint64_t>>> (MAXSTREAMS);
@@ -156,6 +158,8 @@ public:
 	}
 	~read_write_process()
 	{
+	   for(int i=0;i<cstream.load();i++) workers[i].join();
+	   for(int i=0;i<num_io_threads;i++) io_threads[i].join();
 	   delete dm;
 	   delete ds;
 	   delete nm;
@@ -226,12 +230,14 @@ public:
 	  end_of_session.store(1);
 
 	}
+	bool is_session_ended()
+	{
+
+	   if(session_ended.load()==1) return true;
+	   else return false;
+	}
 	void end_sessions()
 	{
-		for(int i=0;i<cstream.load();i++)
-			workers[i].join();
-		end_of_io_session.store(1);
-		for(int i=0;i<num_io_threads;i++) io_threads[i].join();
 
 	}
 	void sync_queue_push(struct io_request *r)
@@ -605,7 +611,7 @@ public:
 	void data_stream(struct thread_arg_w*);
 	bool create_buffer(int &,std::string &);
 	std::vector<uint64_t> add_event(std::string&,std::string&);
-        int endsessioncount();	
+        int endsessioncount(int);	
 };
 
 #endif

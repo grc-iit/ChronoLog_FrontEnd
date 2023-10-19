@@ -516,14 +516,19 @@ class KeyValueStore
 	   {
 		std::string s = "endsession";
 		bool b = if_q->EndEmulatorSession(s,myrank);
-
-		for(int i=0;i<nstreams.load();i++) stream_flags[i].store(1);
-		for(int i=0;i<nstreams.load();i++) kstreams[i].join();
-
+		
+	        for(int i=0;i<nstreams.load();i++) stream_flags[i].store(1);
+                for(int i=0;i<nstreams.load();i++) kstreams[i].join();
+	
 		io_layer->end_io();
 
 		s = "shutdown";
-		b = if_q->ShutDownEmulator(s,myrank);
+		b = false;
+		do
+		{
+		  b = false;
+		  b = if_q->ShutDownEmulator(s,myrank);
+		}while(!b);
 
 	   }
 	   ~KeyValueStore()
