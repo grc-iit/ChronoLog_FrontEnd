@@ -70,7 +70,6 @@ private:
       boost::lockfree::queue<struct io_request*> *io_queue_async;
       boost::lockfree::queue<struct io_request*> *io_queue_sync;
       std::atomic<int> end_of_session;
-      std::atomic<int> end_of_io_session;
       std::atomic<int> num_streams;
       int num_io_threads;
       std::vector<struct thread_arg_w> t_args_io;
@@ -94,6 +93,8 @@ private:
       std::vector<int> loopticks;
       std::vector<int> numloops;
       std::atomic<int> session_ended;
+      std::atomic<int> qe_ended;
+      std::atomic<int> *end_of_stream_session;
 public:
 	read_write_process(int r,int np,ClockSynchronization<ClocksourceCPPStyle> *C,int n,data_server_client *rc) : myrank(r), numprocs(np), numcores(n), dsc(rc)
 	{
@@ -120,8 +121,8 @@ public:
 	   io_queue_async = new boost::lockfree::queue<struct io_request*> (128);
 	   io_queue_sync = new boost::lockfree::queue<struct io_request*> (128);
 	   end_of_session.store(0);
-	   end_of_io_session.store(0);
 	   num_streams.store(0);
+	   qe_ended.store(0);
 	   session_ended.store(0);
 	   cstream.store(0);
 	   num_io_threads = 1;
@@ -130,6 +131,7 @@ public:
 	   enable_stream = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
 	   w_reqs_pending = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
 	   r_reqs_pending = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
+	   end_of_stream_session = (std::atomic<int>*)std::malloc(MAXSTREAMS*sizeof(std::atomic<int>));
 	   t_args.resize(MAXSTREAMS);
 	   workers.resize(MAXSTREAMS);
 	   numloops.resize(MAXSTREAMS);
@@ -144,7 +146,7 @@ public:
 		enable_stream[i].store(0);
 		w_reqs_pending[i].store(0);
 		r_reqs_pending[i].store(0);
-
+		end_of_stream_session[i].store(0);
 	   }
 	   std::function<void(struct thread_arg_w *)> IOFunc(
            std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
@@ -170,6 +172,7 @@ public:
 	   std::free(enable_stream);
 	   std::free(w_reqs_pending);
 	   std::free(r_reqs_pending);
+	   std::free(end_of_stream_session);
 	   H5close();
 
 	}
@@ -236,9 +239,9 @@ public:
 	   if(session_ended.load()==1) return true;
 	   else return false;
 	}
-	void end_sessions()
+	void end_qe()
 	{
-
+	    qe_ended.store(1);
 	}
 	void sync_queue_push(struct io_request *r)
 	{

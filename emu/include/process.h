@@ -192,6 +192,7 @@ public:
 
       bool end_sessions(std::string &s)
       {
+	QE->end_session_flag();
 	rwp->end_session_flag();
 	return true;
       }

@@ -76,8 +76,8 @@ class query_engine
 	   ds = rwp->get_sorter();
 	   end_session.store(0);
 	   end_request.store(0);
-	   numthreads = 0;
-	   /*t_args.resize(numthreads);
+	   numthreads = 1;
+	   t_args.resize(numthreads);
 	   workers.resize(numthreads);
 	   std::function<void(struct thread_arg_q *)> QSFunc(
            std::bind(&query_engine::service_query,this, std::placeholders::_1));
@@ -98,7 +98,7 @@ class query_engine
 		std::thread qr{QRFunc,&t_args[i]};
 		workers[i] = std::move(qr);
 	     }
-	   }*/
+	   }
 
 	}
 
@@ -142,16 +142,20 @@ class query_engine
 
 	~query_engine()
 	{
+	    for(int i=0;i<workers.size();i++) workers[i].join();
 	    delete Q;
 	    delete S;
 	    //delete hs;
 	}
 
+	void end_session_flag()
+	{
+	   end_session.store(1);
+	}
 	void end_sessions()
 	{
 	   std::string s = "endsession";
-	   send_query(s);
-
+	   //send_query(s);
 	   for(int i=0;i<workers.size();i++) workers[i].join();
 	}
 

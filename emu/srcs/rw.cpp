@@ -1052,7 +1052,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
      numrounds = 0;
 
    }
-   end_of_io_session.store(1);
+   end_of_stream_session[t->tid].store(1);
 }
 
 void read_write_process::io_polling(struct thread_arg_w *t)
@@ -1072,15 +1072,23 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      std::atomic_thread_fence(std::memory_order_seq_cst);
 
-     while(cstream.load()==0 && end_of_io_session.load()==0);
+     while(cstream.load()==0 && end_of_session.load()==0);
 
-     int end_io=0;
-     int end_sessions = end_of_io_session.load()==0 ? 0 : 1;
-     end_io = io_queue_async->empty() ? end_sessions : 0;
+     int end_io = end_of_session.load();
+
+     for(int i=0;i<cstream.load();i++)
+     {
+	if(end_of_stream_session[i].load()==0) end_io = 0;
+     }
+
+     int end_sessions = 0;
+     if(end_io == 1 && qe_ended.load()==1) end_sessions = 1; 
+
+     if(!io_queue_async->empty()) end_sessions = 0;
 
      int empty_all = 0;
 
-     MPI_Allreduce(&end_io,&empty_all,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+     MPI_Allreduce(&end_sessions,&empty_all,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
      if(empty_all == numprocs) 
      {

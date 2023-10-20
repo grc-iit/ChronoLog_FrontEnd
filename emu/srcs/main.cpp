@@ -67,8 +67,6 @@ int main(int argc,char **argv)
 */
   while(np->process_end()==0);
 
-  np->end_sessions_t();  
-
   t2 = std::chrono::high_resolution_clock::now();
   t = std::chrono::duration<double> (t2-t1).count();
 
