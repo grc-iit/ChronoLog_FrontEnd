@@ -981,7 +981,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 
    while(true)
    {
-      int nprocs = endsessioncount(1500);
+      int nprocs = endsessioncount(t->tid);
       t1 = std::chrono::high_resolution_clock::now();
       if(nprocs==numprocs) 
       {
@@ -1003,6 +1003,7 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 	numrounds = 0;
       }
 
+      if(myrank==0)
       for(;;)
       {
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -1012,6 +1013,25 @@ void read_write_process::data_stream(struct thread_arg_w *t)
 	   break;
         }
       }
+
+      MPI_Request *reqs = new MPI_Request[2*numprocs];
+      int nreq = 0;
+      int send_v = 1,recv_v = 0;
+      if(myrank==0)
+      {
+	for(int i=0;i<numprocs;i++)
+	{
+	  MPI_Isend(&send_v,1,MPI_INT,i,t->tid,MPI_COMM_WORLD,&reqs[nreq]);
+	  nreq++;
+	}
+      }
+
+      MPI_Irecv(&recv_v,1,MPI_INT,0,t->tid,MPI_COMM_WORLD,&reqs[nreq]);
+      nreq++;
+
+      MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+      delete reqs;
 
       if(enable_stream[t->tid].load()==1)
       {

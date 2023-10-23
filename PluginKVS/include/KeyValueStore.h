@@ -153,6 +153,7 @@ class KeyValueStore
 		  }
 
       		  auto t1 = std::chrono::high_resolution_clock::now();
+		  if(myrank==0)
                   while(true)
                   {
         		auto t2 = std::chrono::high_resolution_clock::now();
@@ -161,6 +162,20 @@ class KeyValueStore
         		if(t > (double)rate) break;
       		  }
 		
+		  nreq = 0;
+		  if(myrank==0)
+		  for(int i=0;i<numprocs;i++)
+		  {
+		    MPI_Isend(&send_v,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+		    nreq++;
+
+		  }
+		  
+		  MPI_Irecv(&recv_v[0],1,MPI_INT,0,tag,MPI_COMM_WORLD,&reqs[nreq]);
+		  nreq++;
+
+		  MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
 		  if(end_loop) 
 		  ka->flush_invertedlist<T>(attr_name,true);
 		  else 
