@@ -364,15 +364,13 @@ class KeyValueStore
 		   }
 		   else if(ops[i]==1)
 		   {
-			b = ka->Get_resp<T,N>(pos,st,keys[i],ids);
+			b = ka->Get<T,N>(pos,st,keys[i],ids);
 			ids++;
 
 		   }
 		   usleep(rate);
 			
 		}
-
-		std::vector<std::pair<int,std::string>> resp_ids = ka->Completed_Gets<T,N>(pos,st);
 
 	   }
 

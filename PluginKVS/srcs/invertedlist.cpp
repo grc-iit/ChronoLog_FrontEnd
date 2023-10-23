@@ -10,8 +10,8 @@ int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::partition_no(KeyT &k)
       mask = mask >> (64-nbits);
       key = key & mask;
       key = key >> (nbits-nbits_p);   
-      int id = (int)key%numprocs;
-      int rem = ntables%numprocs;
+      int id = (int)(key); // key%numprocs;
+      /*int rem = ntables%numprocs;
       int offset = rem*(tables_per_proc+1);
       int pid = -1;
       if(id < offset)
@@ -22,7 +22,8 @@ int hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::partition_no(KeyT &k)
       {
 	id = id-offset;
 	pid = rem+(id/tables_per_proc);
-      }
+      }*/
+      pid = id;
       return pid;
 }
 
@@ -133,6 +134,8 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
   {
        KeyT key = worklist1[n]->key;
        uint64_t hashvalue = hashfcn()(key);
+       int pid = partition_no(key);
+       assert (pid == myrank);
        int pos = hashvalue%maxsize;
        hsize_t offset = cached_keyindex_mt[2*pos+1]-cached_keyindex_mt[1];
        hsize_t numkeys = cached_keyindex_mt[2*pos];
@@ -155,6 +158,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
        if(ts != UINT64_MAX) 
        {
 	std::string eventstring = if_q->GetEmulatorEvent(filename,ts,myrank);
+	std::cout <<" ts = "<<ts<<" myrank = "<<myrank<<std::endl;
 	if(eventstring.length() != 0)
 	{
 	   ost << eventstring << std::endl;

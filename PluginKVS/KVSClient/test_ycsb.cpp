@@ -41,11 +41,7 @@ int main(int argc,char **argv)
    int ifreq = 200;
    int s = k->start_session(sname,names[0],m,32768,nloops,nticks,ifreq);
 
-   std::vector<uint64_t> keys_n(keys.begin(),keys.begin()+80000);
-   std::vector<std::string> values_n(values.begin(),values.begin()+80000);
-   std::vector<int> op_n(op.begin(),op.begin()+80000);
-
-   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys_n,values_n,op_n,20000);
+   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
 
    MPI_Request *reqs = new MPI_Request[2*size];
    int nreq = 0;
@@ -63,7 +59,7 @@ int main(int argc,char **argv)
    }
    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
-   /*sname = "loadbrun";
+   sname = "loadrun";
 
    filename = sname + ".log";
    keys.clear();
@@ -71,11 +67,17 @@ int main(int argc,char **argv)
    op.clear();
    k->get_ycsb_test(filename,keys,values,op);
 
+   std::vector<uint64_t> keys_n;
+   keys_n.assign(keys.begin(),keys.begin()+100);
+   std::vector<std::string> values_n;
+   values_n.assign(values.begin(),values.begin()+100);
+   std::vector<int> op_n;
+   op_n.assign(op.begin(),op.begin()+100);
 
-   k->create_keyvalues_ordered<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
+   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys_n,values_n,op_n,20000);
 
    std::cout <<" rank = "<<rank<<" keyvalues = "<<keys.size()<<std::endl;
-*/
+
    delete reqs;
 
    k->close_sessions();
