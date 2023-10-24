@@ -527,6 +527,9 @@ class KeyValueStore
 
 	   void close_sessions()
 	   {
+
+		io_layer->query_service_end();
+
 		std::string s = "endsession";
 		bool b = if_q->EndEmulatorSession(s,myrank);
 		
