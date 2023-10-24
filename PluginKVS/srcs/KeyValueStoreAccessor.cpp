@@ -126,7 +126,6 @@ bool KeyValueStoreAccessor::Get(int pos,std::string &s,N &key,int id)
    else
    {
 	pid = invlist->partition_no(key);
-	std::cout <<" key = "<<key<<" pid = "<<pid<<std::endl;
 	if(!invlist->CheckLocalFileExists())
 	{
 	   std::string filename = "file";

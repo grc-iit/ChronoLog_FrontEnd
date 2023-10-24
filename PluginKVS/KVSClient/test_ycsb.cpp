@@ -36,6 +36,10 @@ int main(int argc,char **argv)
    std::string filename = sname+".log"; 
    k->get_ycsb_test(filename,keys,values,op);
 
+   std::vector<uint64_t> keys_n;
+   std::vector<std::string> values_n;
+   std::vector<int> op_n;
+
    int nloops = 2;
    int nticks = 50;
    int ifreq = 200;
@@ -67,16 +71,11 @@ int main(int argc,char **argv)
    op.clear();
    k->get_ycsb_test(filename,keys,values,op);
 
-   std::vector<uint64_t> keys_n;
-   keys_n.assign(keys.begin(),keys.begin()+100);
-   std::vector<std::string> values_n;
-   values_n.assign(values.begin(),values.begin()+100);
-   std::vector<int> op_n;
-   op_n.assign(op.begin(),op.begin()+100);
-
+   keys_n.assign(keys.begin(),keys.begin()+10000);
+   values_n.assign(values.begin(),values.begin()+10000);
+   op_n.assign(op.begin(),op.begin()+10000);
+  
    k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys_n,values_n,op_n,20000);
-
-   std::cout <<" rank = "<<rank<<" keyvalues = "<<keys.size()<<std::endl;
 
    delete reqs;
 

@@ -1325,7 +1325,6 @@ std::string read_write_process::FindEventFile(std::string &s,uint64_t &ts)
 	r->mints = ts;
 	r->maxts = ts;
         io_queue_async->push(r);
-        std::cout <<" ts = "<<ts<<" rank = "<<myrank<<std::endl;	
    }
    return eventstring;
 }
