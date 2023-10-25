@@ -280,7 +280,23 @@ void KeyValueStoreIO::io_service()
 
 void KeyValueStoreIO::query_service_end()
 {
-   
+   int reqc=0;
+   int sendv=1;
+   MPI_Request *reqs = new MPI_Request[2*nservers];
+   std::vector<int> recvv;
+   recvv.resize(nservers);
+   std::fill(recvv.begin(),recvv.end(),0);
+
+   for(int i=0;i<nservers;i++)
+   {
+	MPI_Isend(&sendv,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[reqc]);
+	reqc++;
+	MPI_Irecv(&recvv[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[reqc]);
+	reqc++;
+   }
+
+   MPI_Waitall(reqc,reqs,MPI_STATUS_IGNORE);
+
    for(int i=0;i<service_queries.size();i++)
    {
      if(service_queries[i].first==0)
@@ -306,10 +322,7 @@ void KeyValueStoreIO::query_service_end()
      }
    }
 
-   int reqc = 0;
-   MPI_Request *reqs = new MPI_Request[2*nservers];
-   int sendv = 1;
-   std::vector<int> recvv(nservers);
+   reqc = 0;
    std::fill(recvv.begin(),recvv.end(),0);
 
    for(int i=0;i<nservers;i++)

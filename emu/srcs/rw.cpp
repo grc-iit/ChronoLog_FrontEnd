@@ -520,70 +520,88 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 
         int pos = 4;
 
-	std::vector<char> *data_buffer = new std::vector<char> ();
+	std::vector<std::vector<int>> block_requests;
+	block_requests.resize(numblocks);
 
 	for(int n=0;n<my_requests[i].size();n++)
 	{
-             uint64_t mints = my_requests[i][n]->mints;
-	     uint64_t maxts = my_requests[i][n]->maxts;
-   
-	     std::vector<int> blockids;
+	  uint64_t mints = my_requests[i][n]->mints;
+	  uint64_t maxts = my_requests[i][n]->maxts;
+          std::vector<int> blockids;
 
-	     for(int j=0;j<numblocks;j++)
-             {
-	       uint64_t bmin = attrs[pos+j*4+0];
-	       uint64_t bmax = attrs[pos+j*4+1];
-	      if(mints >= bmin && mints <= bmax ||
-	      maxts >= bmin && maxts <= bmax ||
-	      mints < bmin && bmax < maxts)
-	      {
-	         blockids.push_back(j);
-	      }
-            }
+	  for(int j=0;j<numblocks;j++)
+	  {
+		uint64_t bmin = attrs[pos+j*4+0];
+		uint64_t bmax = attrs[pos+j*4+1];
+		if(mints >= bmin && mints <= bmax ||
+	          maxts >= bmin && maxts <= bmax ||			
+		  mints < bmin && bmax < maxts)
+		    blockids.push_back(j);
+	  }
 
-	    int total_records = 0;
-	    hsize_t offset = 0;
-            for(int j=0;j<blockids.size();j++)
-            {
-	         hsize_t block_size = attrs[pos+blockids[j]*4+3];
-	         total_records += block_size;
-            }
+	  for(int j=0;j<blockids.size();j++)
+	  {
+		block_requests[blockids[j]].push_back(n);
+
+	  }
+
+	}
+
+	std::vector<char> *data_buffer = new std::vector<char> ();
+
+	for(int n=0;n<block_requests.size();n++)
+	{
+	   if(block_requests[n].size()>0)
+	   {
+		data_buffer->clear();
+
+		int total_records = 0;
+		hsize_t offset = 0;
+
+            	for(int j=0;j<n;j++)
+                {
+	             hsize_t block_size = attrs[pos+j*4+3];
+	             offset += block_size;
+                }
+
+		total_records = attrs[pos+n*4+3];
             
-	    if(total_records>0)
-	    {
-              data_buffer->resize(total_records*keydatasize);
-	      int data_buffp = 0;
-	      char *databuff = data_buffer->data();
-	      for(int j=0;j<blockids.size();j++)
-	      {
-		int bid = blockids[j];
-		hsize_t block_size = attrs[pos+bid*4+3];
-		offset = 0;
-		for(int k=0;k<bid;k++)
-		  offset += attrs[pos+k*4+3];
+                data_buffer->resize(total_records*keydatasize);
+		hsize_t block_size = (hsize_t)total_records;
                 ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&block_size,NULL);
                 mem_dataspace = H5Screate_simple(1,&block_size, NULL);
-                ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,databuff);
+                ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,data_buffer->data());
                 H5Sclose(mem_dataspace); 
-		databuff += block_size*keydatasize;
-	      }
-            }
-	    for(int j=0;j<total_records*keydatasize;j+=keydatasize)
-	    {
-		uint64_t ts = *(uint64_t*)(&((*data_buffer)[j]));
-		if(ts >= my_requests[i][n]->mints && ts <= my_requests[i][n]->maxts)
-		{
-		   std::string eventstring;
-		   eventstring.resize(keydatasize);
-		   for(int k=0;k<keydatasize;k++)
-			eventstring[k] = (*data_buffer)[j+k];
-		  ost << eventstring << std::endl; 
-		}
-	    }
-	    delete my_requests[i][n];
-	    my_requests[i][n] = nullptr;
+	        for(int j=0;j<block_requests[n].size();j++)
+	        {
+		  int id = block_requests[n][j];
+		  uint64_t mints = my_requests[i][id]->mints;
+		  uint64_t maxts = my_requests[i][id]->maxts;
+
+		  for(int k=0;k<total_records*keydatasize;k+=keydatasize)
+		  {
+		    uint64_t ts = *(uint64_t*)(&((*data_buffer)[k]));
+		    if(ts >= mints && ts <= maxts)
+		    {
+			std::string eventstring;
+			eventstring.resize(keydatasize);
+			for(int m=0;m<keydatasize;m++)
+			  eventstring[m] = (*data_buffer)[k+m];
+			ost << eventstring << std::endl;
+		     }
+		     else if(ts > maxts) break;
+		   }
+	         }
+	   }
+
 	}
-	     
+
+	for(int n=0;n<my_requests[i].size();n++)
+	{
+	  delete my_requests[i][n];
+	  my_requests[i][n] = nullptr;
+	}	
+
        delete data_buffer;	       
        H5Aclose(attr_id);
        H5Sclose(file_dataspace);
