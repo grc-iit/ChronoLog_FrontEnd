@@ -45,7 +45,7 @@ int main(int argc,char **argv)
    int ifreq = 200;
    int s = k->start_session(sname,names[0],m,32768,nloops,nticks,ifreq);
 
-   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
+   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,40000);
 
    MPI_Request *reqs = new MPI_Request[2*size];
    int nreq = 0;
@@ -71,11 +71,7 @@ int main(int argc,char **argv)
    op.clear();
    k->get_ycsb_test(filename,keys,values,op);
 
-   keys_n.assign(keys.begin(),keys.begin()+10000);
-   values_n.assign(values.begin(),values.begin()+10000);
-   op_n.assign(op.begin(),op.begin()+10000);
-  
-   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys_n,values_n,op_n,20000);
+   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
 
    delete reqs;
 
