@@ -349,6 +349,8 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	H5Sclose(memdataspace);
     }
 
+    merge_inverted_list(sts[i],blockcounts[i],data_arrays[i],fid,async_dxpl);
+
     attrs[0] += total_records[i];
     int pos = attrs[3];
     pos = 4+pos*4;
@@ -1081,7 +1083,7 @@ void read_write_process::create_inverted_list(std::string &s,std::vector<std::ve
 }
 
 
-void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vector<int>>& bcounts,std::pair<std::vector<struct event>*,std::vector<char>*> &data_array, hid_t &fid, hid_t &dataset_pl,hid_t &tx_pl)
+void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vector<int>>& bcounts,std::pair<std::vector<struct event>*,std::vector<char>*> &data_array, hid_t &fid,hid_t &tx_pl)
 {
    std::string d_string = "data_inv";
    int total_size = 32768;
@@ -1098,7 +1100,7 @@ void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vec
    mask = mask << (64-total_bits);
    mask = mask >> (64-total_bits);
 
-   int maxsize = pow(2,total_bits-numbits_p);
+   uint64_t maxsize = (uint64_t)pow(2,total_bits-numbits_p);
 
    std::string da_string = "data_table";
    
@@ -1216,7 +1218,7 @@ void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vec
         uint64_t ts = recv_buffer[i];
         uint64_t pos = recv_buffer[i+1];
         uint64_t hashvalue = ts;
-        int index = hashvalue%maxsize;
+        uint64_t index = hashvalue%maxsize;
         std::pair<uint64_t,uint64_t> p;
         p.first = ts; p.second = pos;
         ts_f[index].push_back(p);
@@ -1236,6 +1238,7 @@ void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vec
    int ret = H5Sselect_hyperslab(file_dataspace_t, H5S_SELECT_SET,&offset_t,NULL,&total_size_l,NULL);
    hid_t memspace_t = H5Screate_simple(1,&total_size_l, NULL);
    ret = H5Dread(dataset_t,H5T_NATIVE_INT, memspace_t, file_dataspace_t, tx_pl,prev_table.data());
+   H5Sclose(memspace_t);
 
    int prev_total_l = 0;
    for(int i=0;i<maxsize;i++) prev_total_l += prev_table[2*i];
@@ -1256,16 +1259,81 @@ void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vec
 
     hsize_t dims[1];
     dims[0] = (hsize_t)(prev_total+total_keys);
-    maxsize = H5S_UNLIMITED;
     H5Dset_extent(dataset_inv, dims);
     hid_t filedataspace = H5Dget_space(dataset_inv);
+    
+    std::vector<struct ts_offset> *prev_keys = new std::vector<struct ts_offset> ();
+    prev_keys->resize(prev_total_l);
 
+    hsize_t offset_prev = (hsize_t)prev_table[1];
+    hsize_t blocksize = (hsize_t)prev_total_l;
 
+    ret = H5Sselect_hyperslab(filedataspace, H5S_SELECT_SET,&offset_prev,NULL,&blocksize,NULL); 
+    hid_t memspace = H5Screate_simple(1,&blocksize, NULL);
+    ret = H5Dread(dataset_inv,s11, memspace, filedataspace, tx_pl,prev_keys->data());
+    H5Sclose(memspace);
+   
+    for(int i=0;i<prev_keys->size();i++)
+    {
+	uint64_t ts = (*prev_keys)[i].ts;
+	uint64_t index = (*prev_keys)[i].offset;
+	uint64_t hashvalue = ts;
+	uint64_t pos = hashvalue%maxsize;
+	std::pair<uint64_t,uint64_t> p;
+        p.first = ts; p.second = index;	
+	ts_f[pos].push_back(p);
+    }
+    
+    delete prev_keys;
 
+    std::vector<struct ts_offset> *mkeys = new std::vector<struct ts_offset> ();
+    
+    for(int i=0;i<ts_f.size();i++)
+    {
+	prev_table[2*i] = ts_f[i].size();
+       for(int j=0;j<ts_f[i].size();j++)
+       {
+	  struct ts_offset t;
+	  t.ts = ts_f[i][j].first;
+	  t.offset = ts_f[i][j].second;
+	  mkeys->push_back(t);
+       }
+    }
+    
+    prev_table[1] = 0;
+    for(int i=1;i<maxsize;i++)
+	    prev_table[2*i+1] = prev_table[2*(i-1)+1]+prev_table[2*(i-1)]; 
 
+    std::fill(recvv.begin(),recvv.end(),0);
+    total_l = mkeys->size();
+    
+    MPI_Allgather(&total_l,1,MPI_INT,recvv.data(),1,MPI_INT,MPI_COMM_WORLD);
+
+    int prev_v = 0;
+    for(int i=0;i<myrank;i++)
+	    prev_v += recvv[i];
+
+    blocksize = (hsize_t)total_l;
+    offset_prev = (hsize_t)prev_v;
+    ret = H5Sselect_hyperslab(filedataspace, H5S_SELECT_SET,&offset_prev,NULL,&blocksize,NULL);
+    memspace = H5Screate_simple(1,&blocksize, NULL);
+    ret = H5Dwrite(dataset_inv,s11, memspace, filedataspace, tx_pl,mkeys->data());
+    H5Sclose(memspace);
+
+    for(int i=0;i<maxsize;i++)
+	 prev_table[2*i+1] += prev_v;
+
+   ret = H5Sselect_hyperslab(file_dataspace_t, H5S_SELECT_SET,&offset_t,NULL,&total_size_l,NULL);
+   memspace_t = H5Screate_simple(1,&total_size_l, NULL);
+   ret = H5Dwrite(dataset_t,H5T_NATIVE_INT, memspace_t, file_dataspace_t, tx_pl,prev_table.data());
+   H5Sclose(memspace_t);
+
+   delete mkeys;
    H5Dclose(dataset_inv);
    H5Dclose(dataset_t);
-
+   H5Sclose(filedataspace);
+   H5Sclose(file_dataspace_t);
+   H5Tclose(s11);
 
 }
 void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>& data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int> &bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
