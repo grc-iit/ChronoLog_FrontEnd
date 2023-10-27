@@ -479,6 +479,7 @@ public:
 		   bool is_big_endian = true;
 		   em.add_attr(attrnames[j],attrsizes[j],is_signed,is_big_endian);
 		}
+		em.set_invlist(false);
 		create_write_buffer(s,em,8192);
 		int streamid = cstream.fetch_add(1);
 		numloops[streamid] = nloops;
