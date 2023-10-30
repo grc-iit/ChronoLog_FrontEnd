@@ -15,6 +15,7 @@
 //#include "h5_async_lib.h"
 #include <thread>
 #include <fstream>
+#include "city.h"
 
 using namespace boost;
 

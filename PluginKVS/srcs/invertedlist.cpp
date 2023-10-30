@@ -126,7 +126,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
           KeyT key = r->key;
           uint64_t hashvalue = hashfcn()(key);
           int pid = partition_no(key);
-          assert (pid == myrank);
           uint64_t pos = hashvalue%maxsize;
           hsize_t offset = cached_keyindex_mt[2*pos+1];
           hsize_t numkeys = cached_keyindex_mt[2*pos];

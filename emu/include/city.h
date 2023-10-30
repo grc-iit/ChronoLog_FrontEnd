@@ -110,5 +110,10 @@ inline uint64 Hash128to64(const uint128& x) {
     return b;
 }
 
+inline uint64_t unsignedlonghash(uint64_t &n)
+{
+   uint64_t h = std::hash<uint64_t>()(n);
+   return h;
+}
 
 #endif  // CITY_HASH_H_

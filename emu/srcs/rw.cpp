@@ -558,7 +558,7 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 	  for(int n=0;n<inv_requests.size();n++)
 	  {	
 		uint64_t ts = inv_requests[n]->mints;
-		uint64_t hashvalue = ts;
+		uint64_t hashvalue = unsignedlonghash(ts);
 		uint64_t pid = hashvalue & mask;
 		pid = pid >> (nbits-nbits_p);
 		send_counts[pid]++;
@@ -582,7 +582,7 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 	  for(int n=0;n<inv_requests.size();n++)
 	  {
 		uint64_t ts = inv_requests[n]->mints;
-		uint64_t hashvalue = ts;
+		uint64_t hashvalue = unsignedlonghash(ts);
 		uint64_t pid = hashvalue & mask;
 		pid = pid >> (nbits-nbits_p);
 		send_buffer[send_displ[pid]] = ts;
@@ -615,7 +615,7 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 		for(int j=0;j<recv_counts[i];j++)
 		{
 		  uint64_t ts = recv_buffer[recv_displ[i]+j];
-		  uint64_t hashvalue = ts;
+		  uint64_t hashvalue = unsignedlonghash(ts);
 		  uint64_t pos = hashvalue%maxsize;
 		  int offset = table_offset[2*pos+1]-table_offset[1];
 		  int numkeys = table_offset[2*pos];
@@ -1131,7 +1131,7 @@ void read_write_process::create_inverted_list(std::string &s,std::vector<std::ve
    for(int i=0;i<timestamp_offsets.size();i++)
    {
 	uint64_t ts = timestamp_offsets[i].first;
-	uint64_t hashvalue = ts;
+	uint64_t hashvalue = unsignedlonghash(ts);
 	uint64_t key = hashvalue & mask;
 	int id = key >> (total_bits-numbits_p);
 	int pid = id%numprocs;
@@ -1179,7 +1179,7 @@ void read_write_process::create_inverted_list(std::string &s,std::vector<std::ve
    {
 	uint64_t ts = recv_buffer[i];
 	uint64_t pos = recv_buffer[i+1];
-	uint64_t hashvalue = ts;
+	uint64_t hashvalue = unsignedlonghash(ts);
 	int index = hashvalue%maxsize;
 	std::pair<uint64_t,uint64_t> p;
 	p.first = ts; p.second = pos;
@@ -1350,7 +1350,7 @@ void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vec
     for(int i=0;i<timestamp_offsets.size();i++)
    {
         uint64_t ts = timestamp_offsets[i].first;
-        uint64_t hashvalue = ts;
+        uint64_t hashvalue = unsignedlonghash(ts);
         uint64_t key = hashvalue & mask;
         int id = key >> (total_bits-numbits_p);
         int pid = id%numprocs;
@@ -1398,7 +1398,7 @@ void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vec
    {
         uint64_t ts = recv_buffer[i];
         uint64_t pos = recv_buffer[i+1];
-        uint64_t hashvalue = ts;
+        uint64_t hashvalue = unsignedlonghash(ts);
         uint64_t index = hashvalue%maxsize;
         std::pair<uint64_t,uint64_t> p;
         p.first = ts; p.second = pos;
@@ -1458,7 +1458,7 @@ void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vec
     {
 	uint64_t ts = (*prev_keys)[i].ts;
 	uint64_t index = (*prev_keys)[i].offset;
-	uint64_t hashvalue = ts;
+	uint64_t hashvalue = unsignedlonghash(ts);
 	uint64_t pos = hashvalue%maxsize;
 	std::pair<uint64_t,uint64_t> p;
         p.first = ts; p.second = index;	
