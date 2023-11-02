@@ -40,12 +40,14 @@ int main(int argc,char **argv)
    std::vector<std::string> values_n;
    std::vector<int> op_n;
 
-   int nloops = 2;
+   auto t1 = std::chrono::high_resolution_clock::now();
+
+   int nloops = 1;
    int nticks = 50;
    int ifreq = 200;
    int s = k->start_session(sname,names[0],m,32768,nloops,nticks,ifreq);
 
-   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,40000);
+   k->create_keyvalues<unsigned_long_invlist,uint64_t>(s,keys,values,op,20000);
 
    MPI_Request *reqs = new MPI_Request[2*size];
    int nreq = 0;
@@ -77,7 +79,16 @@ int main(int argc,char **argv)
 
    k->close_sessions();
 
+   auto t2 = std::chrono::high_resolution_clock::now();
+
+   double t_t = std::chrono::duration<double> (t2-t1).count();
+
    delete k;
+
+   double time_taken = 0;
+   MPI_Allreduce(&t_t,&time_taken,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+   if(rank == 0) std::cout <<" Time taken = "<<time_taken<<" number of puts-gets = "<<keys.size()<<std::endl;
+
    MPI_Finalize();
 
 }
