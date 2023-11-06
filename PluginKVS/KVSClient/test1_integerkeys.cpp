@@ -28,16 +28,16 @@ int main(int argc,char **argv)
    lens.push_back(sizeof(int));
    types.push_back("char");
    names.push_back("value3");
-   lens.push_back(200);
-   int len = sizeof(int)*2+200;
+   lens.push_back(1000);
+   int len = sizeof(int)*2+1000;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int tdw = 65536*16;
+   int tdw = 20000;
    int td = tdw/size;
 
-   int nloops = 1;
+   int nloops = 4;
    int nticks = 50;
-   int ifreq = 200;
+   int ifreq = 100;
    /*nticks = freq for backup to nvme
     * nloops*nticks = freq for backup to disk*/
      /*ifreq is frequency for index backups*/
@@ -45,7 +45,7 @@ int main(int argc,char **argv)
     
    int s1 = k->start_session(sname,names[0],m,32768,nloops,nticks,ifreq);
 
-   k->create_keyvalues<integer_invlist,int>(s1,td,10000);
+   k->create_keyvalues<integer_invlist,int>(s1,td,200000);
 
    k->close_sessions();
 

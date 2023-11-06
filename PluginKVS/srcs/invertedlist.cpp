@@ -139,12 +139,20 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::get_events()
 
           uint64_t ts = UINT64_MAX;
 
+	  std::vector<uint64_t> ts_s;
+
           for(int k=0;k<keyindex.size();k++)
 	  if(keyindex[k].key==key)
 	  {
 		ts = keyindex[k].index;
-		break;
+		ts_s.push_back(ts);
 	  }
+
+	  if(ts_s.size()>0)
+	  {
+		ts = ts_s[ts_s.size()-1];
+	  }
+
           if(ts != UINT64_MAX) 
           {
 	     std::string eventstring = if_q->GetEmulatorEvent(filename,ts,myrank);

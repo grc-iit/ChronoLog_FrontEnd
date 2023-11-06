@@ -441,35 +441,40 @@ class KeyValueStore
 		N prevkey=0;
 		int ids = 0;
 		std::vector<N> keys;
-		std::vector<N> keys_p;
-		for(int i=0;i<nops;i++)
-		{	
-		    N key = random()%RAND_MAX; 
-		    op = random()%2;
-		    if(op==0)
-		    { 
-		      if(!ka->Put<T,N,std::string>(pos,st,key,data))
-		      {
-		      }
-		      prevkey = key;
-		      ids++;
-		      if(ids < 100) keys_p.push_back(key);
-		    }
-		    else if(prevkey != 0) 
-		    {
-		      key = prevkey;
-		      b = ka->Get<T,N> (pos,st,key,ids);
-		      ids++;
-		    }
-		    
-		    usleep(rate); 
-		}
-
-		for(int i=0;i<keys_p.size();i++)
+		for(int n=0;n<5;n++)
 		{
-		   b = ka->Get<T,N> (pos,st,keys_p[i],ids);
-		   ids++;
-
+		   std::vector<N> keys_p;
+		   int keyp = 0;
+		   for(int i=0;i<nops;i++)
+		   {	
+		       N key = random()%RAND_MAX; 
+		       op = random()%2;
+		       if(op==0)
+		       { 
+		         if(!ka->Put<T,N,std::string>(pos,st,key,data))
+		         {
+		         }
+		         prevkey = key;
+			 keys.push_back(key);
+		         ids++;
+		         usleep(rate);
+			 keyp++;
+		       }
+		       else if(prevkey != 0) 
+		       {
+		         key = prevkey;
+		         /*b = ka->Get<T,N> (pos,st,key,ids);
+		         ids++;*/
+		       }
+		   }
+		    
+		   for(int i=0;i<keyp;i++)
+		   {
+		     int p = random()%keys.size();
+		     N key = keys[p];
+		     b = ka->Get<T,N> (pos,st,key,ids);
+		     ids++;
+		   }
 		}
 
 	   }

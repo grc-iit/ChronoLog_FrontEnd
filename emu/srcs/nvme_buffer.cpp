@@ -47,63 +47,87 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
 
 void nvme_buffers::copy_to_nvme(std::string &s,std::vector<struct event> *inp,int numevents)
 {
+
     std::string fname = prefix+s;
     auto r = nvme_fnames.find(fname);
 
     if(r == nvme_fnames.end()) return;
 
     int index = r->second.first;
-    event_metadata em = (r->second).second;
-    int datasize = em.get_datasize();
 
-    MyEventVect *ev = nvme_ebufs[index];
-    MyEventDataVect *ed = nvme_dbufs[index];
-
-    int psize = ev->size();
-    int psized = ed->size();
-
-    if(numevents > 0)
+    boost::unique_lock<boost::shared_mutex> lk(*(file_locks[index]));
     {
-      try
+      int sendv = 1;
+      std::vector<int> recvv(numprocs);
+      std::fill(recvv.begin(),recvv.end(),0);
+      int tag = index;
+      MPI_Request *reqs = new MPI_Request[2*numprocs];
+      int nreq = 0;
+
+      for(int i=0;i<numprocs;i++)
       {
-        ev->resize(psize+numevents);
-        ed->resize(psized+numevents*datasize);
+	MPI_Isend(&sendv,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recvv[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
       }
-      catch(const std::exception &except)
+
+      MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+      delete reqs;
+
+      event_metadata em = (r->second).second;
+      int datasize = em.get_datasize();
+
+      MyEventVect *ev = nvme_ebufs[index];
+      MyEventDataVect *ed = nvme_dbufs[index];
+
+      int psize = ev->size();
+      int psized = ed->size();
+
+      if(numevents > 0)
       {
-	std::cout <<except.what()<<std::endl;
-	exit(-1);
+        try
+        {
+          ev->resize(psize+numevents);
+          ed->resize(psized+numevents*datasize);
+        }
+        catch(const std::exception &except)
+        {
+	  std::cout <<except.what()<<std::endl;
+	  exit(-1);
+        }
       }
-    }
 
-    int p = psize;
-    int pd = psized;
+      int p = psize;
+      int pd = psized;
 
-    uint64_t mints = UINT64_MAX;
-    uint64_t maxts = 0;
+      uint64_t mints = UINT64_MAX;
+      uint64_t maxts = 0;
 
-    if(numevents > 0)
-    {
+      if(numevents > 0)
+      {
 	int len = numevents-1;
 	mints = (*inp)[0].ts;
 	maxts = (*inp)[len].ts;
-    }
+      }
 
-    for(int i=0;i<numevents;i++)
-    {
-      uint64_t ts = (*inp)[i].ts;
-      (*ev)[p].ts = ts;
-      std::memcpy((&((*ed)[pd])),(*inp)[i].data,datasize);
-      (*ev)[p].data = (&((*ed)[pd]));
-      p++;
-      pd += datasize;
-    }
+      for(int i=0;i<numevents;i++)
+      {
+        uint64_t ts = (*inp)[i].ts;
+        (*ev)[p].ts = ts;
+        std::memcpy((&((*ed)[pd])),(*inp)[i].data,datasize);
+        (*ev)[p].data = (&((*ed)[pd]));
+        p++;
+        pd += datasize;
+      }
 
-    nvme_files[index]->flush();
+      nvme_files[index]->flush();
 
-    add_block(index,numevents);
+      add_block(index,numevents);
 
-    update_interval(index,mints,maxts);
+      update_interval(index,mints,maxts);
+   }
 }
 
 void nvme_buffers::add_block(int index,int numevents)
@@ -142,25 +166,49 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
 
       int index = r->second.first;
 
-      MyEventVect *ev = nvme_ebufs[index];
-      MyEventDataVect *ed = nvme_dbufs[index];
-      int datasize = em.get_datasize();
-
-      try
+      boost::unique_lock<boost::shared_mutex> lk(*(file_locks[index]));
       {
-        ev->erase(ev->begin(),ev->begin()+numevents);
-        ed->erase(ed->begin(),ed->begin()+(numevents*datasize));
+
+	int sendv = 1;
+	int tag = index;
+	std::vector<int> recvv(numprocs);
+	std::fill(recvv.begin(),recvv.end(),0);
+
+	MPI_Request *reqs = new MPI_Request[2*numprocs];
+        int nreq = 0;
+
+	for(int i=0;i<numprocs;i++)
+	{
+	   MPI_Isend(&sendv,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	   MPI_Irecv(&recvv[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	   nreq++;
+	}
+
+	MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+	delete reqs;
+
+        MyEventVect *ev = nvme_ebufs[index];
+        MyEventDataVect *ed = nvme_dbufs[index];
+        int datasize = em.get_datasize();
+
+        try
+        {
+          ev->erase(ev->begin(),ev->begin()+numevents);
+          ed->erase(ed->begin(),ed->begin()+(numevents*datasize));
+        }
+        catch(const std::exception &except)
+        {
+	  std::cout <<except.what()<<std::endl;
+	  exit(-1);
+        }
+
+
+        nvme_files[index]->flush();
+
+        remove_blocks(index,nblocks);
       }
-      catch(const std::exception &except)
-      {
-	std::cout <<except.what()<<std::endl;
-	exit(-1);
-      }
-
-
-      nvme_files[index]->flush();
-
-      remove_blocks(index,nblocks);
 
       //update_interval(index);
 
@@ -333,7 +381,7 @@ int nvme_buffers::get_proc(std::string &s,uint64_t ts)
 
    int pid = -1;
 
-   int prev_value=0;
+   /*int prev_value=0;
    int new_value=4;
 
    do
@@ -341,8 +389,10 @@ int nvme_buffers::get_proc(std::string &s,uint64_t ts)
 	prev_value = 0;
 	new_value = 4;
    }while(!buffer_state[index]->compare_exchange_strong(prev_value,new_value));
+*/
 
-
+   boost::shared_lock<boost::shared_mutex> lk(*(file_locks[index]));
+   {
    for(int i=0;i<nvme_intervals[index].size();i++)
    {
        bool found = false;
@@ -356,8 +406,9 @@ int nvme_buffers::get_proc(std::string &s,uint64_t ts)
         }
         if(found) break;
    }
+   }
 
-   buffer_state[index]->store(0);
+   //buffer_state[index]->store(0);
 
    return pid;
 
@@ -377,7 +428,7 @@ bool nvme_buffers::find_event(std::string &s,uint64_t ts,struct event *e)
       em = (r->second).second;
    }
 
-   int prev_value = 0;
+   /*int prev_value = 0;
    int new_value = 4;
 
    do
@@ -385,16 +436,18 @@ bool nvme_buffers::find_event(std::string &s,uint64_t ts,struct event *e)
 	prev_value = 0;
 	new_value = 4;
    }while(!buffer_state[index]->compare_exchange_strong(prev_value,new_value));
-
+*/
    bool ret = false;
-
-   MyEventVect *ev = nvme_ebufs[index];
-
-   e->ts = UINT64_MAX;
-   int datasize = em.get_datasize();
-
-   for(int i=0;i<ev->size();i++)
+   boost::shared_lock<boost::shared_mutex> lk(*(file_locks[index]));
    {
+
+     MyEventVect *ev = nvme_ebufs[index];
+
+     e->ts = UINT64_MAX;
+     int datasize = em.get_datasize();
+
+     for(int i=0;i<ev->size();i++)
+     {
 	if((*ev)[i].ts==ts)
 	{
 	   e->ts = (*ev)[i].ts;
@@ -402,9 +455,10 @@ bool nvme_buffers::find_event(std::string &s,uint64_t ts,struct event *e)
 	   ret = true;
 	   break; 
 	}
+     }
    }
 
-   buffer_state[index]->store(0);
+   //buffer_state[index]->store(0);
    return ret;
 
 }
@@ -418,6 +472,26 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
      int datasize = em.get_datasize();
 
      index = r->second.first;
+
+     boost::shared_lock<boost::shared_mutex> lk(*(file_locks[index]));
+     {
+	
+      int sendv = 1;
+      std::vector<int> recvv(numprocs);
+      std::fill(recvv.begin(),recvv.end(),0);
+      MPI_Request *reqs = new MPI_Request[2*numprocs];
+
+      int nreq = 0;
+      for(int i=0;i<numprocs;i++)
+      {
+	MPI_Isend(&sendv,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recvv[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+      }
+      MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+     delete reqs;
 
      MyEventVect *ev = nvme_ebufs[index];
 
@@ -447,6 +521,7 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
      for(int i=0;i<numblocks[index].size();i++)
      {
 	blockcounts.push_back(numblocks[index][i]);
+     }
      }
 
      //nvme_ebufs[index]->clear();
