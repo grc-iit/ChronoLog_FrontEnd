@@ -431,6 +431,13 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
      if(r == file_names.end()) end = true;
      m1.unlock();
 
+     int nreqs = my_requests[i].size();
+
+     int total_reqs = 0;
+     MPI_Allreduce(&nreqs,&total_reqs,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+
+     if(total_reqs == 0) continue;
+
      int file_exists = (end == true) ? 0 : 1;
 
      int file_exists_t = 0;
@@ -680,6 +687,8 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 	std::vector<std::vector<int>> block_requests;
 	block_requests.resize(numblocks);
 
+	auto t1 = std::chrono::high_resolution_clock::now();
+
 	for(int n=0;n<my_requests[i].size();n++)
 	{
 	  uint64_t mints = my_requests[i][n]->mints;
@@ -752,6 +761,9 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 	   }
 
 	}
+
+	auto t2 = std::chrono::high_resolution_clock::now();
+	double t = std::chrono::duration<double> (t2-t1).count();
 
 	for(int n=0;n<my_requests[i].size();n++)
 	{
@@ -1707,6 +1719,11 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
     bool clear_nvme = false;
 
+    double c = 0;
+    double d = 0;
+
+    int nloops = 0;
+
    while(true)
    {
 
@@ -1732,7 +1749,12 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      if(empty_all == numprocs) 
      {
-	     break;
+	    double io_read_time = 0;
+	    double io_write_time = 0;
+	    MPI_Allreduce(&c,&io_read_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+	    MPI_Allreduce(&d,&io_write_time,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+	    if(myrank==0) std::cout <<" io_read_time = "<<io_read_time<<" io_write_time = "<<io_write_time<<" nloops = "<<nloops<<std::endl;
+	    break;
      }
 
      int valid_stream = cstream.load();
@@ -1834,8 +1856,14 @@ void read_write_process::io_polling(struct thread_arg_w *t)
       for(int i=0;i<inactive_reqs.size();i++)
 	      io_queue_async->push(inactive_reqs[i]);
 
+      auto t1 = std::chrono::high_resolution_clock::now();
+
       pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
       
+      auto t2 = std::chrono::high_resolution_clock::now();
+
+      d += std::chrono::duration<double> (t2-t1).count();
+
       snames.clear();
       data.clear();
       total_records.clear();
@@ -1844,15 +1872,21 @@ void read_write_process::io_polling(struct thread_arg_w *t)
       bcounts.clear();
       blockcounts.clear();
 
+     t1 = std::chrono::high_resolution_clock::now();
+
      pread(read_reqs,active_valid_stream);
 
+     t2 = std::chrono::high_resolution_clock::now();
+
+     c += std::chrono::duration<double> (t2-t1).count();
+
+     nloops++;
       for(int i=0;i<active_valid_stream;i++)
            for(int j=0;j<read_reqs[i].size();j++)
                  if(read_reqs[i][j] != nullptr)
                    io_queue_async->push(read_reqs[i][j]);
 
      }
-
   }
 
   session_ended.store(1); 
