@@ -103,8 +103,8 @@ class ClockSynchronization
 	 else unit.store(1);
 	 myoffset.store(0);
 	 maxError.store(0);
-	 epsilon.store(200000000);  //400 microseconds (scheduling, measurement errors)
-	 delay.store(500000); // 200 microseconds network delay for reasonably large messages
+	 epsilon.store(1000000000);  //400 microseconds (scheduling, measurement errors)
+	 delay.store(2000000000); // 200 microseconds network delay for reasonably large messages
 	 uint64_t dd = delay.load()/unit.load();
 	 delay.store(dd);
 	 uint64_t en = epsilon.load()/unit.load();
@@ -168,6 +168,7 @@ class ClockSynchronization
 	if(diff <= 2*errorm+delay.load()+epsilon.load()) return true;
 	else 
 	{
+	        std::cout <<" ts = "<<ts<<" diff = "<<diff<<" error = "<<errorm<<" delay = "<<delay.load()<<" eps = "<<epsilon.load()<<" out of range"<<std::endl;
 		//throw std::runtime_error("Timestamp out of range");
 		return false;
 	}

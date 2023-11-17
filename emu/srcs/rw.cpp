@@ -76,58 +76,6 @@ std::vector<uint64_t> read_write_process::add_event(std::string &s,std::string &
     return res;
 }
 
-void read_write_process::create_events(int num_events,std::string &s,double arrival_rate)
-{
-    int datasize = 0;
-    int index = -1;
-    event_metadata em;
-    m1.lock();
-    auto r = write_names.find(s);
-    if(r != write_names.end())
-    {
-      index = (r->second).first;
-      em = (r->second).second;
-    }
-    m1.unlock();
-
-    datasize = em.get_datasize();
-  
-    assert(index != -1 && datasize >  0 && num_events > 0);
-
-    atomic_buffer *ab = dm->get_atomic_buffer(index);
-
-    ab->buffer_size.store(0);
-    try
-    {
-      ab->buffer->resize(num_events);
-      ab->datamem->resize(num_events*datasize);
-      for(int i=0;i<ab->valid->size();i++)
-	      (*ab->valid)[i].store(0);
-    }
-    catch(const std::exception &except)
-    {
-	std::cout <<except.what()<<std::endl;
-	exit(-1);
-    }
-
-    int num_dropped = 0;
-
-    boost::shared_lock<boost::shared_mutex> lk(ab->m); 
-
-    for(int i=0;i<num_events;i++)
-    {
-	event e;
-	uint64_t ts = CM->Timestamp();
-
-	e.ts = ts;
-	      
-	bool b = dm->add_event(e,index,em);
-	if(!b) num_dropped++;
-	usleep(20000);
-    }
-
-}
-
 
 void read_write_process::sort_events(std::string &s)
 {
@@ -155,20 +103,23 @@ void read_write_process::sort_events(std::string &s)
       boost::unique_lock<boost::shared_mutex> lk1(myevents[index]->m);
       { 
         ds->get_unsorted_data(myevents[index]->buffer,myevents[index]->datamem,index);
-        uint64_t min_v,max_v;
+        uint64_t min_v=UINT64_MAX,max_v=0;
         int numevents = myevents[index]->buffer_size.load();
 	int maxevents = myevents[index]->buffer->size();
         myevents[index]->buffer_size.store(0);
         if(ds->sort_data(index,index,numevents,min_v,max_v,em))
         myevents[index]->buffer_size.store(myevents[index]->buffer->size());
-
         uint64_t minv = std::min(min_v,(*write_interval)[index].first.load());
         (*write_interval)[index].first.store(minv);
         (*write_interval)[index].second.store(max_v);
-      
+	uint64_t mink = UINT64_MAX;
+	uint64_t maxk = 0;
+	dm->get_valid_range(index,mink,maxk);
+	if(myrank==0) std::cout <<" sort : mints = "<<min_v<<" max_v = "<<max_v<<" m : mink = "<<mink<<" maxk = "<<maxk<<std::endl;
         nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
-      
         clear_write_events(index,min_v,max_v);
+	myevents[index]->buffer->clear();
+	myevents[index]->datamem->clear();
 	myevents[index]->buffer->resize(maxevents);
 	myevents[index]->datamem->resize(maxevents*datasize);
 
@@ -182,9 +133,13 @@ void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& 
    if(index != -1)
    {
 	dm->clear_write_buffer_no_lock(index);
-	uint64_t min_n = max_k+1;
-	uint64_t max_n = UINT64_MAX;
-	dm->set_valid_range(index,min_n,max_n);
+	if(min_k != UINT64_MAX && max_k != 0)
+	{
+	  uint64_t min_n = max_k+1;
+	  uint64_t max_n = UINT64_MAX;
+	  dm->set_valid_range(index,min_n,max_n);
+	  if(myrank==0) std::cout <<" next range min_n = "<<min_n<<" max_n = "<<max_n<<std::endl;
+	}
 	num_dropped[index] = 0;
    }
 
@@ -404,9 +359,9 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   {
 	     int tag_p = 100;
 	     int keyvaluesize = sizeof(uint64_t)+metadata[d].get_datasize();
-	     while(nm->get_buffer(nm_index,tag_p,2)==false);
+	     /*while(nm->get_buffer(nm_index,tag_p,2)==false);
 	     nm->erase_from_nvme(sts[d],data_arrays[d].second->size()/keyvaluesize,bcounts[d]);
-	     nm->release_buffer(nm_index);
+	     nm->release_buffer(nm_index);*/
 	   }
 	}
 	if(data_arrays[d].second != nullptr) delete data_arrays[d].second;
@@ -1045,9 +1000,9 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   else
 	   {
 	     int tag_p = 100;
-	     while(nm->get_buffer(nm_index,tag_p,2)==false);
+	     /*while(nm->get_buffer(nm_index,tag_p,2)==false);
 	     nm->erase_from_nvme(sts[d],data_arrays[d].second->size()/keyvaluesize,bcounts[d]);
-	     nm->release_buffer(nm_index);
+	     nm->release_buffer(nm_index);*/
 	   }
 	}
 	if(data_arrays[d].second != nullptr) delete data_arrays[d].second;
@@ -1563,7 +1518,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 	   maxkeys_e.push_back(maxkeys[i]);	   
 	}
    }
-
+/*
    try
    {
       pwrite_files(sts_n,trec_n,off_n,darray_n,minkeys_n,maxkeys_n,clear_nvme,bcounts,blockcounts);
@@ -1573,7 +1528,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
    {
 	std::cout <<except.what()<<std::endl;
 	exit(-1);
-   }
+   }*/
 
 }
 

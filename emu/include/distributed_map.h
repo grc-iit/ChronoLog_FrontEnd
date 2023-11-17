@@ -166,10 +166,9 @@ class distributed_hashmap
    }
    int LocalInsert(KeyT &k,ValueT &v,int index)
   {
-      if(!CM->NearTime(k) || !(k>=range[index].first && k <= range[index].second))
+      if(!(CM->NearTime(k) && (k>=range[index].first && k <= range[index].second)))
       {
 	 dropped_events.fetch_add(1);
-	 std::cout <<" dropped event"<<std::endl;
 	 return 2;
       }
         
@@ -213,6 +212,11 @@ class distributed_hashmap
   {
 	range[index].first = min_k;
 	range[index].second = max_k;
+  }
+  void get_valid_range(int index,uint64_t &min_k,uint64_t &max_k)
+  {
+	min_k = range[index].first;
+	max_k = range[index].second;
   }
   bool LocalClearMap(int index)
   {

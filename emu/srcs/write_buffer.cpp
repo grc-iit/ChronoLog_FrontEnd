@@ -52,6 +52,11 @@ void databuffers::set_valid_range(int index,uint64_t &n1,uint64_t &n2)
         dmap->set_valid_range(index,n1,n2);
 }
 
+void databuffers::get_valid_range(int index,uint64_t &n1,uint64_t &n2)
+{
+	dmap->get_valid_range(index,n1,n2);
+}
+
 int databuffers::add_event(int index,uint64_t ts,std::string &data,event_metadata &em)
 {
 

@@ -9,7 +9,7 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
      if(r == nvme_fnames.end())
      {
           file_mapping::remove(fname.c_str());
-          int maxsize = 65536*VALUESIZE;
+          int maxsize = MAXFILESIZE;
           managed_mapped_file *mf = new managed_mapped_file(create_only,fname.c_str(),maxsize);
           const allocator_event_t allocator_e(mf->get_segment_manager());
 	  const allocator_char_t allocator_c(mf->get_segment_manager());
@@ -42,6 +42,7 @@ void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)
 	  bs->store(0);
 	  buffer_state.push_back(bs);
 	  total_blocks[file_names.size()-1] = 0;
+	  maxts[file_names.size()-1] = 0;
       }
 }
 
@@ -195,8 +196,12 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
 
         try
         {
-          ev->erase(ev->begin(),ev->begin()+numevents);
-          ed->erase(ed->begin(),ed->begin()+(numevents*datasize));
+	   ev->clear();
+	   ed->clear();
+	   nvme_ebufs[index]->clear();
+	   nvme_dbufs[index]->clear();
+          //ev->erase(ev->begin(),ev->begin()+numevents);
+          //ed->erase(ed->begin(),ed->begin()+(numevents*datasize));
         }
         catch(const std::exception &except)
         {
@@ -206,7 +211,6 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
 
 
         nvme_files[index]->flush();
-
         remove_blocks(index,nblocks);
       }
 
@@ -473,7 +477,7 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
 
      index = r->second.first;
 
-     boost::shared_lock<boost::shared_mutex> lk(*(file_locks[index]));
+     boost::unique_lock<boost::shared_mutex> lk(*(file_locks[index]));
      {
 	
       int sendv = 1;
@@ -515,6 +519,11 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
 	 std::memcpy((&((*data_mem)[p])),(*ev)[i].data,datasize);
 	 p+=datasize;
      }
+
+
+     nvme_ebufs[index]->clear();
+     nvme_dbufs[index]->clear();
+     nvme_files[index]->flush();
 
      bc = total_blocks[index];
 

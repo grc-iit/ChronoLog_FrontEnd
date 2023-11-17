@@ -62,7 +62,11 @@ bool dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
    for(int i=0;i<numprocs;i++) num_splitters += splitter_counts[i];
 
    
-   if(num_splitters==0) return false;
+   if(num_splitters==0) 
+   {
+	   delete reqs;
+	   return false;
+   }
 
    if(num_splitters > 0)
    {
@@ -274,12 +278,12 @@ bool dsort::sort_data(int index,int tag,int size,uint64_t& min_v,uint64_t &max_v
 
     min_v = UINT64_MAX;
     max_v = 0;
-    for(int i=0;i<numprocs;i+=2)
+    for(int i=0;i<2*numprocs;i+=2)
     {
 	if(recv_ts[i] < min_v) min_v = recv_ts[i];
 	if(recv_ts[i+1] > max_v) max_v = recv_ts[i+1];
     }
+    delete reqs; 
     return true;
    }
-   delete reqs; 
 }

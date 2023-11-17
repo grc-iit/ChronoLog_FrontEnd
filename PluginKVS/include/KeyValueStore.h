@@ -442,7 +442,7 @@ class KeyValueStore
 		int ids = 0;
 		std::vector<std::vector<N>> keys;
 		
-		for(int n=0;n<5;n++)
+		for(int n=0;n<10;n++)
 		{
 		   std::vector<N> keys_p;
 		   int keyp = 0;
@@ -464,11 +464,11 @@ class KeyValueStore
 		       else if(prevkey != 0) 
 		       {
 		         key = prevkey;
-		         b = ka->Get<T,N> (pos,st,key,ids);
-		         ids++;
+		         /*b = ka->Get<T,N> (pos,st,key,ids);
+		         ids++;*/
 		       }
 		   }
-		   /*
+		   
 		   keys.push_back(keys_p);
 		    
 		   for(int i=0;i<keyp;i++)
@@ -478,7 +478,7 @@ class KeyValueStore
 		     N key = keys[p1][p2];
 		     b = ka->Get<T,N> (pos,st,key,ids);
 		     ids++;
-		   }*/
+		   }
 		}
 
 	   }

@@ -14,7 +14,7 @@
 #include "event_metadata.h"
 #include <mutex>
 
-#define MAXFILESIZE 32768*VALUESIZE
+#define MAXFILESIZE 65536*5000
 
 using namespace boost::interprocess;
 
@@ -45,7 +45,8 @@ class nvme_buffers
 	std::vector<boost::mutex*> blocks;
 	std::mutex n1;
 	std::vector<int> total_blocks;
-	std::vector<std::vector<std::vector<int>>> numblocks; 
+	std::vector<std::vector<std::vector<int>>> numblocks;
+        std::vector<uint64_t> maxts;	
   public:
 	nvme_buffers(int np,int rank) : numprocs(np), myrank(rank)
 	{
@@ -53,6 +54,7 @@ class nvme_buffers
 	   total_blocks.resize(MAXSTREAMS);
 	   numblocks.resize(MAXSTREAMS);
 	   nvme_intervals.resize(MAXSTREAMS);
+	   maxts.resize(MAXSTREAMS);
 	}
 	~nvme_buffers()
 	{
