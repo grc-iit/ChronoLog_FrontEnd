@@ -122,12 +122,29 @@ void read_write_process::sort_events(std::string &s)
 	myevents[index]->datamem->clear();
 	myevents[index]->buffer->resize(maxevents);
 	myevents[index]->datamem->resize(maxevents*datasize);
-
+	fence(index);
       }
       
       nm->release_buffer(nm_index);
 }
 
+void read_write_process::fence(int index)
+{
+    MPI_Request *reqs = new MPI_Request[2*numprocs];
+    int n = 0;
+    int sendv = 1;
+    std::vector<int> recvv(numprocs);
+
+    for(int i=0;i<numprocs;i++)
+    {
+      MPI_Isend(&sendv,1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[n]);
+      n++;
+      MPI_Irecv(&recvv[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[n]);
+      n++;
+    }
+
+    MPI_Waitall(n,reqs,MPI_STATUS_IGNORE);
+}
 void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& max_k)
 {
    if(index != -1)
