@@ -196,12 +196,8 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
 
         try
         {
-	   ev->clear();
-	   ed->clear();
-	   nvme_ebufs[index]->clear();
-	   nvme_dbufs[index]->clear();
-          //ev->erase(ev->begin(),ev->begin()+numevents);
-          //ed->erase(ed->begin(),ed->begin()+(numevents*datasize));
+          ev->erase(ev->begin(),ev->begin()+numevents);
+          ed->erase(ed->begin(),ed->begin()+(numevents*datasize));
         }
         catch(const std::exception &except)
         {
@@ -477,7 +473,7 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
 
      index = r->second.first;
 
-     boost::unique_lock<boost::shared_mutex> lk(*(file_locks[index]));
+     boost::shared_lock<boost::shared_mutex> lk(*(file_locks[index]));
      {
 	
       int sendv = 1;
@@ -520,10 +516,6 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
 	 p+=datasize;
      }
 
-
-     nvme_ebufs[index]->clear();
-     nvme_dbufs[index]->clear();
-     nvme_files[index]->flush();
 
      bc = total_blocks[index];
 
