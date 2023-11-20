@@ -115,17 +115,38 @@ void read_write_process::sort_events(std::string &s)
 	uint64_t mink = UINT64_MAX;
 	uint64_t maxk = 0;
 	dm->get_valid_range(index,mink,maxk);
-	if(myrank==0) std::cout <<" sort : mints = "<<min_v<<" max_v = "<<max_v<<" m : mink = "<<mink<<" maxk = "<<maxk<<std::endl;
         nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
         clear_write_events(index,min_v,max_v);
 	myevents[index]->buffer->clear();
 	myevents[index]->datamem->clear();
 	myevents[index]->buffer->resize(maxevents);
 	myevents[index]->datamem->resize(maxevents*datasize);
+	fence(index);
 
       }
       
       nm->release_buffer(nm_index);
+}
+
+void read_write_process::fence(int tag)
+{
+   MPI_Request *reqs = new MPI_Request[2*numprocs];
+   int nreq = 0;
+   int sendv = 1;
+   std::vector<int> recvv(numprocs);
+   std::fill(recvv.begin(),recvv.end(),0);
+
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&sendv,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recvv[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
+
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+
 }
 
 void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& max_k)
@@ -138,7 +159,6 @@ void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& 
 	  uint64_t min_n = max_k+1;
 	  uint64_t max_n = UINT64_MAX;
 	  dm->set_valid_range(index,min_n,max_n);
-	  if(myrank==0) std::cout <<" next range min_n = "<<min_n<<" max_n = "<<max_n<<std::endl;
 	}
 	num_dropped[index] = 0;
    }
@@ -359,9 +379,9 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   {
 	     int tag_p = 100;
 	     int keyvaluesize = sizeof(uint64_t)+metadata[d].get_datasize();
-	     /*while(nm->get_buffer(nm_index,tag_p,2)==false);
+	     while(nm->get_buffer(nm_index,tag_p,2)==false);
 	     nm->erase_from_nvme(sts[d],data_arrays[d].second->size()/keyvaluesize,bcounts[d]);
-	     nm->release_buffer(nm_index);*/
+	     nm->release_buffer(nm_index);
 	   }
 	}
 	if(data_arrays[d].second != nullptr) delete data_arrays[d].second;
@@ -1000,9 +1020,9 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   else
 	   {
 	     int tag_p = 100;
-	     /*while(nm->get_buffer(nm_index,tag_p,2)==false);
+	     while(nm->get_buffer(nm_index,tag_p,2)==false);
 	     nm->erase_from_nvme(sts[d],data_arrays[d].second->size()/keyvaluesize,bcounts[d]);
-	     nm->release_buffer(nm_index);*/
+	     nm->release_buffer(nm_index);
 	   }
 	}
 	if(data_arrays[d].second != nullptr) delete data_arrays[d].second;
@@ -1518,7 +1538,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 	   maxkeys_e.push_back(maxkeys[i]);	   
 	}
    }
-/*
+
    try
    {
       pwrite_files(sts_n,trec_n,off_n,darray_n,minkeys_n,maxkeys_n,clear_nvme,bcounts,blockcounts);
@@ -1528,7 +1548,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
    {
 	std::cout <<except.what()<<std::endl;
 	exit(-1);
-   }*/
+   }
 
 }
 

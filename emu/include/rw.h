@@ -633,7 +633,8 @@ public:
 	std::vector<uint64_t> add_event(std::string&,std::string&);
         int endsessioncount(int);
         void create_inverted_list(std::string &,std::vector<std::vector<int>>&,std::pair<std::vector<struct event>*,std::vector<char>*>&,hid_t &,hid_t&,hid_t &);	
-        void merge_inverted_list(std::string &,std::vector<std::vector<int>>&,std::pair<std::vector<struct event>*,std::vector<char>*>&,hid_t &,hid_t &);	
+        void merge_inverted_list(std::string &,std::vector<std::vector<int>>&,std::pair<std::vector<struct event>*,std::vector<char>*>&,hid_t &,hid_t &);
+  	void fence(int);	
 };
 
 #endif
