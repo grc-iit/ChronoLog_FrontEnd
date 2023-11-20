@@ -122,7 +122,6 @@ void read_write_process::sort_events(std::string &s)
 	myevents[index]->buffer->resize(maxevents);
 	myevents[index]->datamem->resize(maxevents*datasize);
 	fence(index);
-
       }
       
       nm->release_buffer(nm_index);
