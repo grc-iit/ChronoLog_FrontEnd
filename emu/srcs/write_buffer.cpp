@@ -64,6 +64,7 @@ int databuffers::add_event(int index,uint64_t ts,std::string &data,event_metadat
 	int v = myrank;
 	int b = dmap->Insert(ts,v,index);
 
+	if(b==2) std::cout <<" rank = "<<myrank<<" dropped event out of range"<<std::endl;
 	if(b==1)
 	{
 	   bool d = false;

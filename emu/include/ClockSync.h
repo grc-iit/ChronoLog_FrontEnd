@@ -103,8 +103,8 @@ class ClockSynchronization
 	 else unit.store(1);
 	 myoffset.store(0);
 	 maxError.store(0);
-	 epsilon.store(10000000000);  //400 microseconds (scheduling, measurement errors)
-	 delay.store(40000); // 200 microseconds network delay for reasonably large messages
+	 epsilon.store(100000000);  //100 milliseconds (scheduling, measurement errors)
+	 delay.store(40000); // 40 microseconds network delay for reasonably large messages
 	 uint64_t dd = delay.load()/unit.load();
 	 delay.store(dd);
 	 uint64_t en = epsilon.load()/unit.load();
