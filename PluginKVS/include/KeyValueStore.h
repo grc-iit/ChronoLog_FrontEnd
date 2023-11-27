@@ -225,6 +225,27 @@ class KeyValueStore
                int nde = (k->wdelay < 50) ? 50 : k->wdelay; 	
 	       nde = (nde > 500) ? 500 : nde; 
 	       bool b = if_q->CreateEmulatorStream(s,metastring,myrank,nloops,nde);
+
+	       MPI_Request *reqs = new MPI_Request[2*numprocs];
+	       int nreq = 0;
+
+	       int sendv = 1;
+	       std::vector<int> recvv(numprocs);
+	       std::fill(recvv.begin(),recvv.end(),0);
+	       int tag = k->tid;
+
+	       for(int i=0;i<numprocs;i++)
+	       {
+		  MPI_Isend(&sendv,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+		  nreq++;
+		  MPI_Irecv(&recvv[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+		  nreq++;
+	       }
+
+	       MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+
+	       delete reqs;
 	   }
 
 	   template<typename T,typename N>
@@ -464,11 +485,11 @@ class KeyValueStore
 		       else if(prevkey != 0) 
 		       {
 		         key = prevkey;
-		         /*b = ka->Get<T,N> (pos,st,key,ids);
-		         ids++;*/
+		         b = ka->Get<T,N> (pos,st,key,ids);
+		         ids++;
 		       }
 		   }
-		   
+		   /*
 		   keys.push_back(keys_p);
 		    
 		   for(int i=0;i<keyp;i++)
@@ -478,7 +499,7 @@ class KeyValueStore
 		     N key = keys[p1][p2];
 		     b = ka->Get<T,N> (pos,st,key,ids);
 		     ids++;
-		   }
+		   }*/
 		}
 
 	   }
