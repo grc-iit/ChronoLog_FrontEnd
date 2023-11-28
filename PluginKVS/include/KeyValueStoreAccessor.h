@@ -131,6 +131,13 @@ class KeyValueStoreAccessor
 		return r->second;
 	  }
 
+	  template<typename T>
+	  int num_gets(int pos)
+	  {
+		 T *invlist = reinterpret_cast<T*>(lists[pos].second);
+		 return invlist->num_gets();
+	  }
+
 	  template<typename T,typename N>
 	  int add_new_inverted_list(std::string &,std::string &,int,int,N&,data_server_client*,KeyValueStoreIO*,Interface_Queues*,int,int);
 	  template<typename T>

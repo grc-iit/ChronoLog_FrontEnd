@@ -153,7 +153,7 @@ class KeyValueStore
 		  }
 
       		  auto t1 = std::chrono::high_resolution_clock::now();
-		  if(myrank==0)
+		  /*if(myrank==0)
                   while(true)
                   {
         		auto t2 = std::chrono::high_resolution_clock::now();
@@ -174,16 +174,16 @@ class KeyValueStore
 		  MPI_Irecv(&recv_v[0],1,MPI_INT,0,tag,MPI_COMM_WORLD,&reqs[nreq]);
 		  nreq++;
 
-		  MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+		  MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);*/
 
-		  if(end_loop) 
+		  /*if(end_loop) 
 		  ka->flush_invertedlist<T>(attr_name,true);
 		  else 
 		  {
 		     bool c = false;
 		     if(request_count%5==0) c = true;
 		     ka->flush_invertedlist<T>(attr_name,c);
-		  }
+		  }*/
 		  if(end_loop) break;
 		  request_count++;
    	       }
@@ -443,7 +443,7 @@ class KeyValueStore
 
 	   }
 	   template<typename T,typename N>
-	   void create_keyvalues(int s_id,int nops,int rate)
+	   int create_keyvalues(int s_id,int nops,int rate)
 	   {
 		std::string s = k_args[s_id].tname;
    		std::string attr_name = k_args[s_id].attr_name;
@@ -462,8 +462,10 @@ class KeyValueStore
 		N prevkey=0;
 		int ids = 0;
 		std::vector<std::vector<N>> keys;
-		
-		for(int n=0;n<10;n++)
+		int numgets = 0;
+		int numputs = 0;
+
+		for(int n=0;n<1;n++)
 		{
 		   std::vector<N> keys_p;
 		   int keyp = 0;
@@ -476,10 +478,11 @@ class KeyValueStore
 		         if(!ka->Put<T,N,std::string>(pos,st,key,data))
 		         {
 		         }
+			 else numputs++;
 		         prevkey = key;
 			 keys_p.push_back(key);
 		         ids++;
-		         usleep(rate);
+		         //usleep(rate);
 			 keyp++;
 		       }
 		       else if(prevkey != 0) 
@@ -500,8 +503,10 @@ class KeyValueStore
 		     b = ka->Get<T,N> (pos,st,key,ids);
 		     ids++;
 		   }*/
+		   
 		}
-
+		int numgets = ka->num_gets<T>(pos);
+		return numgets;
 	   }
 
            void get_testworkload(std::string &,std::vector<int>&,std::vector<uint64_t>&,int);
