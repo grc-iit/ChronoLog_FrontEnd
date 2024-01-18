@@ -320,7 +320,7 @@ double read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std:
 	char *data_p = data_arrays[i].second->data()+offset_p*keyvaluesize;
 
         hsize_t one = 1;
-        ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset_t,NULL,&one,&block_size);
+        ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset_t,NULL,&block_size,NULL);
     
         ret = H5Dwrite(dataset1,s2, memdataspace, file_dataspace,async_dxpl,data_p);
 
