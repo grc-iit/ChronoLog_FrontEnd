@@ -115,7 +115,6 @@ void read_write_process::sort_events(std::string &s)
 	uint64_t mink = UINT64_MAX;
 	uint64_t maxk = 0;
 	dm->get_valid_range(index,mink,maxk);
-	if(myrank==0) std::cout <<" sort : mints = "<<min_v<<" max_v = "<<max_v<<" m : mink = "<<mink<<" maxk = "<<maxk<<std::endl;
         nm->copy_to_nvme(s,myevents[index]->buffer,myevents[index]->buffer_size.load());
         clear_write_events(index,min_v,max_v);
 	myevents[index]->buffer->clear();
@@ -128,23 +127,27 @@ void read_write_process::sort_events(std::string &s)
       nm->release_buffer(nm_index);
 }
 
-void read_write_process::fence(int index)
+void read_write_process::fence(int tag)
 {
-    MPI_Request *reqs = new MPI_Request[2*numprocs];
-    int n = 0;
-    int sendv = 1;
-    std::vector<int> recvv(numprocs);
+   MPI_Request *reqs = new MPI_Request[2*numprocs];
+   int nreq = 0;
+   int sendv = 1;
+   std::vector<int> recvv(numprocs);
+   std::fill(recvv.begin(),recvv.end(),0);
 
-    for(int i=0;i<numprocs;i++)
-    {
-      MPI_Isend(&sendv,1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[n]);
-      n++;
-      MPI_Irecv(&recvv[i],1,MPI_INT,i,index,MPI_COMM_WORLD,&reqs[n]);
-      n++;
-    }
+   for(int i=0;i<numprocs;i++)
+   {
+	MPI_Isend(&sendv,1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+	MPI_Irecv(&recvv[i],1,MPI_INT,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+	nreq++;
+   }
 
-    MPI_Waitall(n,reqs,MPI_STATUS_IGNORE);
+   MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+
 }
+
 void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& max_k)
 {
    if(index != -1)
@@ -155,7 +158,6 @@ void read_write_process::clear_write_events(int index,uint64_t& min_k,uint64_t& 
 	  uint64_t min_n = max_k+1;
 	  uint64_t max_n = UINT64_MAX;
 	  dm->set_valid_range(index,min_n,max_n);
-	  if(myrank==0) std::cout <<" next range min_n = "<<min_n<<" max_n = "<<max_n<<std::endl;
 	}
 	num_dropped[index] = 0;
    }
@@ -205,7 +207,7 @@ void read_write_process::spawn_write_streams(std::vector<std::string> &snames,st
 
 }
 
-void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>>&blockcounts)
+double read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::vector<hsize_t>&total_records,std::vector<hsize_t>&offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>>&blockcounts)
 {
     hid_t       fid;
     hid_t       acc_tpl;
@@ -239,6 +241,8 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     std::vector<event_metadata> metadata;
     std::vector<int> valid_id;
 
+    double w_time = 0;
+
     for(int i=0;i<sts.size();i++)
     {
    
@@ -260,10 +264,12 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     }
     m1.unlock();
 
+    double w_time_l = 0;
+
     if(index==-1) 
     {
 	throw std::runtime_error("data stream buffer does not exist");
-	return;
+	return w_time_l;
     }
 
     int datasize = em.get_datasize();
@@ -271,6 +277,8 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     metadata.push_back(em);
 
     if(data_arrays[i].second == nullptr || total_records[i]==0) continue;
+
+    auto t1 = std::chrono::high_resolution_clock::now();
 
     adims[0] = datasize;
     hid_t s1 = H5Tarray_create(H5T_NATIVE_CHAR,1,adims);
@@ -312,7 +320,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	char *data_p = data_arrays[i].second->data()+offset_p*keyvaluesize;
 
         hsize_t one = 1;
-        ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset_t,NULL,&one,&block_size);
+        ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&offset_t,NULL,&block_size,NULL);
     
         ret = H5Dwrite(dataset1,s2, memdataspace, file_dataspace,async_dxpl,data_p);
 
@@ -337,6 +345,12 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     attrs[pos] = total_records[i];
 
     ret = H5Awrite(attr_id,H5T_NATIVE_UINT64,attrs.data());
+
+    auto t2 = std::chrono::high_resolution_clock::now();
+
+    w_time_l = std::chrono::duration<double> (t2-t1).count();
+
+    w_time += w_time_l;
 
     ret = H5Aclose(attr_id);
     H5Sclose(file_dataspace);
@@ -376,22 +390,23 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
 	   {
 	     int tag_p = 100;
 	     int keyvaluesize = sizeof(uint64_t)+metadata[d].get_datasize();
-	     /*while(nm->get_buffer(nm_index,tag_p,2)==false);
+	     while(nm->get_buffer(nm_index,tag_p,2)==false);
 	     nm->erase_from_nvme(sts[d],data_arrays[d].second->size()/keyvaluesize,bcounts[d]);
-	     nm->release_buffer(nm_index);*/
+	     nm->release_buffer(nm_index);
 	   }
 	}
 	if(data_arrays[d].second != nullptr) delete data_arrays[d].second;
 	prefix += bcounts[d];
     }
 
+    return w_time;
 
 }
 
-bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_requests,int maxstreams)
+double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_requests,int maxstreams)
 {
 
-
+   double total_read_time = 0;
    for(int i=0;i<my_requests.size();i++)
    {
      std::string s = t_args[i].name;
@@ -404,6 +419,8 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
      m1.unlock();
 
      int nreqs = my_requests[i].size();
+     
+     double read_time_i = 0;
 
      int total_reqs = 0;
      MPI_Allreduce(&nreqs,&total_reqs,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
@@ -428,6 +445,8 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
        hsize_t attr_space[1];
        attr_space[0] = MAXBLOCKS*4+4;
        const char *attr_name[1];
+
+       auto t1 = std::chrono::high_resolution_clock::now();
 
        std::string filename_r = s+"results"+std::to_string(myrank)+".txt";
 
@@ -659,8 +678,6 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 	std::vector<std::vector<int>> block_requests;
 	block_requests.resize(numblocks);
 
-	auto t1 = std::chrono::high_resolution_clock::now();
-
 	for(int n=0;n<my_requests[i].size();n++)
 	{
 	  uint64_t mints = my_requests[i][n]->mints;
@@ -737,6 +754,7 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
 	auto t2 = std::chrono::high_resolution_clock::now();
 	double t = std::chrono::duration<double> (t2-t1).count();
 
+	read_time_i = t;
 	for(int n=0;n<my_requests[i].size();n++)
 	{
 	  delete my_requests[i][n];
@@ -754,8 +772,9 @@ bool read_write_process::pread(std::vector<std::vector<struct io_request*>>&my_r
        H5Fclose(fid);  
        if(ost.is_open()) ost.close();
      }
+     total_read_time += read_time_i;
    }
-    return true;
+    return total_read_time;
 }
 
 std::pair<std::vector<struct event>*,std::vector<char>*> read_write_process::create_data_spaces(std::string &s,hsize_t &poffset,hsize_t &trecords,uint64_t &minkey,uint64_t &maxkey,bool from_nvme,int &nblocks,std::vector<std::vector<int>> &blockcounts)
@@ -848,7 +867,7 @@ std::pair<std::vector<struct event>*,std::vector<char>*> read_write_process::cre
    return p;
 }
 
-void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<hsize_t>&total_records,std::vector<hsize_t> &offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>> &data_arrays,std::vector<uint64_t>& minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
+double read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<hsize_t>&total_records,std::vector<hsize_t> &offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>> &data_arrays,std::vector<uint64_t>& minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int>&bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
 {
 
 
@@ -874,6 +893,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
   std::vector<event_metadata> metadata;
   std::vector<int> valid_id;
 
+  double w_time = 0;
   for(int i=0;i<sts.size();i++)
   {
 
@@ -900,10 +920,12 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	m1.unlock();
 
 
+	double w_time_l = 0;
+
 	if(index == -1)
 	{
 	   throw std::runtime_error("data stream buffer does not exist");
-	   return;
+	   return w_time_l;
 	}
 
 	if(data_arrays[i].second==nullptr||total_records[i]==0)
@@ -922,7 +944,9 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
   	hid_t s2 = H5Tcreate(H5T_COMPOUND,keyvaluesize);
   	H5Tinsert(s2,"key",HOFFSET(struct event,ts),H5T_NATIVE_UINT64);
   	H5Tinsert(s2,"data",HOFFSET(struct event,data),s1);
-	
+
+	auto t1 = std::chrono::high_resolution_clock::now();
+
         int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
         hid_t file_dataspace = H5Screate_simple(1,&total_records[i],maxdims);
 	hsize_t boffset = 0;
@@ -977,6 +1001,11 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         attr_id[0] = H5Acreate(dataset1, attr_name[0], H5T_NATIVE_UINT64, attr_space[0], H5P_DEFAULT, H5P_DEFAULT);
         ret = H5Awrite(attr_id[0], H5T_NATIVE_UINT64, attr_data.data());
 
+	auto t2 = std::chrono::high_resolution_clock::now();
+
+	w_time_l = std::chrono::duration<double> (t2-t1).count();
+
+	w_time += w_time_l;
 
 	H5Sclose(attr_space[0]);
         H5Aclose(attr_id[0]);
@@ -1017,15 +1046,16 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
 	   else
 	   {
 	     int tag_p = 100;
-	     /*while(nm->get_buffer(nm_index,tag_p,2)==false);
+	     while(nm->get_buffer(nm_index,tag_p,2)==false);
 	     nm->erase_from_nvme(sts[d],data_arrays[d].second->size()/keyvaluesize,bcounts[d]);
-	     nm->release_buffer(nm_index);*/
+	     nm->release_buffer(nm_index);
 	   }
 	}
 	if(data_arrays[d].second != nullptr) delete data_arrays[d].second;
 	prefix += bcounts[d];
     }
-   
+  
+    return w_time; 
 }
 
 void read_write_process::create_inverted_list(std::string &s,std::vector<std::vector<int>>& bcounts,std::pair<std::vector<struct event>*,std::vector<char>*> &data_array, hid_t &fid, hid_t &dataset_pl,hid_t &tx_pl)
@@ -1501,7 +1531,7 @@ void read_write_process::merge_inverted_list(std::string &s,std::vector<std::vec
    H5Tclose(s11);
 
 }
-void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>& data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int> &bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
+double read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_t>& total_records,std::vector<hsize_t>& offsets,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>& data_arrays,std::vector<uint64_t>&minkeys,std::vector<uint64_t>&maxkeys,bool clear_nvme,std::vector<int> &bcounts,std::vector<std::vector<std::vector<int>>> &blockcounts)
 {
 
    std::vector<std::string> sts_n, sts_e;
@@ -1536,10 +1566,11 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 	}
    }
 
+   double t1 = 0, t2 = 0;
    try
    {
-      pwrite_files(sts_n,trec_n,off_n,darray_n,minkeys_n,maxkeys_n,clear_nvme,bcounts,blockcounts);
-      pwrite_extend_files(sts_e,trec_e,off_e,darray_e,minkeys_e,maxkeys_e,clear_nvme,bcounts,blockcounts);
+      t1 = pwrite_files(sts_n,trec_n,off_n,darray_n,minkeys_n,maxkeys_n,clear_nvme,bcounts,blockcounts);
+      t2 = pwrite_extend_files(sts_e,trec_e,off_e,darray_e,minkeys_e,maxkeys_e,clear_nvme,bcounts,blockcounts);
    }
    catch(const std::exception &except)
    {
@@ -1547,6 +1578,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 	exit(-1);
    }
 
+   return t1+t2;
 }
 
 int read_write_process::endsessioncount(int tag_p)
@@ -1830,11 +1862,12 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
       auto t1 = std::chrono::high_resolution_clock::now();
 
-      pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
+      double w_time = pwrite(snames,total_records,offsets,data,minkeys,maxkeys,clear_nvme,bcounts,blockcounts);
       
       auto t2 = std::chrono::high_resolution_clock::now();
 
-      d += std::chrono::duration<double> (t2-t1).count();
+      d += w_time;
+      //d += std::chrono::duration<double> (t2-t1).count();
 
       snames.clear();
       data.clear();
@@ -1846,11 +1879,11 @@ void read_write_process::io_polling(struct thread_arg_w *t)
 
      t1 = std::chrono::high_resolution_clock::now();
 
-     pread(read_reqs,active_valid_stream);
+     double read_time = pread(read_reqs,active_valid_stream);
 
      t2 = std::chrono::high_resolution_clock::now();
 
-     c += std::chrono::duration<double> (t2-t1).count();
+     c += read_time;
 
      nloops++;
       for(int i=0;i<active_valid_stream;i++)

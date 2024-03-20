@@ -100,7 +100,7 @@ std::pair<uint64_t,uint64_t> ClockSynchronization<Clocksource>::SynchronizeClock
    msb = msb >> 63;
    uint64_t offsetv = offset_l;
    offsetv = offsetv << 1;
-   offsetv = offsetv >> 1; 
+   offsetv = offsetv >> 1;
    std::free(reqs);
    std::pair<uint64_t,uint64_t> p(msb,offsetv);
    return p;
@@ -147,6 +147,7 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval(uint64_t msb,uint64
 		MPI_Status s;
 		MPI_Recv(&tstamps[i],1,MPI_UINT64_T,i,tag,MPI_COMM_WORLD,&s);
 		nreq++;
+		uint64_t st = tstamps[i];
 		tstamps[i] += delay.load();
 		ts = clock->getTimestamp()/unit.load();
 		if(msb==0) ts+=offset; else ts-=offset;
@@ -183,7 +184,7 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval(uint64_t msb,uint64
 	}
 
 	uint64_t mbit = msb;
-	mbit << 63;
+	mbit = mbit << 63;
 	mbit = mbit | offset;
 	myoffset.store(mbit); maxError.store(merror);
 	boost::uint128_type eoffset;

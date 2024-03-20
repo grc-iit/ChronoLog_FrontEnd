@@ -480,7 +480,7 @@ public:
 		   em.add_attr(attrnames[j],attrsizes[j],is_signed,is_big_endian);
 		}
 		em.set_invlist(false);
-		create_write_buffer(s,em,8192);
+		create_write_buffer(s,em,MAXBUFFERSIZE);
 		int streamid = cstream.fetch_add(1);
 		numloops[streamid] = nloops;
 		loopticks[streamid] = (nticks < 50) ? 50 : nticks;
@@ -621,10 +621,10 @@ public:
 	void create_events(int num_events,std::string &s,double);
 	void clear_write_events(int,uint64_t&,uint64_t&);
 	void get_range(std::string &s);
-	void pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool,std::vector<int>&,std::vector<std::vector<std::vector<int>>>&);
-	void pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool,std::vector<int>&,std::vector<std::vector<std::vector<int>>>&);
-	void pwrite_files(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool,std::vector<int>&,std::vector<std::vector<std::vector<int>>>&);
-	bool pread(std::vector<std::vector<io_request*>>&,int);
+	double pwrite_extend_files(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool,std::vector<int>&,std::vector<std::vector<std::vector<int>>>&);
+	double pwrite(std::vector<std::string>&,std::vector<hsize_t>&,std::vector<hsize_t>&,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool,std::vector<int>&,std::vector<std::vector<std::vector<int>>>&);
+	double pwrite_files(std::vector<std::string> &,std::vector<hsize_t> &,std::vector<hsize_t>&,std::vector<std::pair<std::vector<struct event>*,std::vector<char>*>>&,std::vector<uint64_t>&,std::vector<uint64_t>&,bool,std::vector<int>&,std::vector<std::vector<std::vector<int>>>&);
+	double pread(std::vector<std::vector<io_request*>>&,int);
 	std::pair<std::vector<struct event>*,std::vector<char>*>
 	create_data_spaces(std::string &,hsize_t&,hsize_t&,uint64_t&,uint64_t&,bool,int&,std::vector<std::vector<int>>&);
 	void io_polling(struct thread_arg_w*);
@@ -634,7 +634,7 @@ public:
         int endsessioncount(int);
         void create_inverted_list(std::string &,std::vector<std::vector<int>>&,std::pair<std::vector<struct event>*,std::vector<char>*>&,hid_t &,hid_t&,hid_t &);	
         void merge_inverted_list(std::string &,std::vector<std::vector<int>>&,std::pair<std::vector<struct event>*,std::vector<char>*>&,hid_t &,hid_t &);
-	void fence(int);	
+  	void fence(int);	
 };
 
 #endif

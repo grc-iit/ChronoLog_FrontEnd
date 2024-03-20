@@ -103,8 +103,8 @@ class ClockSynchronization
 	 else unit.store(1);
 	 myoffset.store(0);
 	 maxError.store(0);
-	 epsilon.store(1000000000);  //400 microseconds (scheduling, measurement errors)
-	 delay.store(2000000000); // 200 microseconds network delay for reasonably large messages
+	 epsilon.store(100000000);  //100 milliseconds (scheduling, measurement errors)
+	 delay.store(40000); // 40 microseconds network delay for reasonably large messages
 	 uint64_t dd = delay.load()/unit.load();
 	 delay.store(dd);
 	 uint64_t en = epsilon.load()/unit.load();
@@ -146,9 +146,13 @@ class ClockSynchronization
 	 uint64_t den = mb << 1;
 	 den = den >> 1;
 	 if(!mbit)
-	 return clock->getTimestamp()/unit.load()+den;
+	 {
+	  return clock->getTimestamp()/unit.load()+den;
+	 }
 	 else
+	 {
 	  return clock->getTimestamp()/unit.load()-den;
+	 }
      }
 
      bool NearTime(uint64_t ts)
@@ -168,7 +172,8 @@ class ClockSynchronization
 	if(diff <= 2*errorm+delay.load()+epsilon.load()) return true;
 	else 
 	{
-	        std::cout <<" ts = "<<ts<<" diff = "<<diff<<" error = "<<errorm<<" delay = "<<delay.load()<<" eps = "<<epsilon.load()<<" out of range"<<std::endl;
+		std::cout <<" rank = "<<myrank<<" myts = "<<myts<<" offset = "<<den<<" s = "<<mbit<<" ts = "<<ts<<std::endl;
+	        //std::cout <<" rank = "<<myrank<<" myts = "<<myts<<" ts = "<<ts<<" diff = "<<diff<<" error = "<<2*errorm+delay.load()+epsilon.load()<<" out of range"<<std::endl;
 		//throw std::runtime_error("Timestamp out of range");
 		return false;
 	}
