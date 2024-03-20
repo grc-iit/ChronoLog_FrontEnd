@@ -814,7 +814,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_index_file()
     hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
     int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
     hid_t fid = H5Fcreate(indexname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT,fapl);
-
+    if(serverid==0) std::cout <<" file create"<<std::endl;
     hsize_t totalt = 2*totalsize; 
     hid_t file_dataspace_t = H5Screate_simple(1,&totalt,maxdims);
 

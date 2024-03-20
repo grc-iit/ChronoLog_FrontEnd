@@ -28,11 +28,11 @@ int main(int argc,char **argv)
    lens.push_back(sizeof(int));
    types.push_back("char");
    names.push_back("value3");
-   lens.push_back(1000);
-   int len = sizeof(int)*2+1000;
+   lens.push_back(128);
+   int len = sizeof(int)*2+128;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int tdw = 20000;
+   int tdw = 20;
    int td = tdw/size;
 
    int nloops = 4;

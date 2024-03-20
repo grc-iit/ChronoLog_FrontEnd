@@ -136,7 +136,7 @@ class hdf5_invlist
 	     datasize = data_size;
 	     if(myrank==0) std::cout <<" totalsize = "<<totalsize<<" number of tables = "<<ntables<<" totalbits = "<<nbits<<" nbits_per_table = "<<nbits_r<<" datasize = "<<datasize<<std::endl;
 
-	     dir = "/home/asasidharan/FrontEnd/build/emu/"; 
+	     dir = "/scratch/bbrr/aparna1/"; 
 	     maxsize = numtables*pow(2,nbits_r);
 	     if_q = q;
 	     int prefix = 0;

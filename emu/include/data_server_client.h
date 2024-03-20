@@ -122,14 +122,14 @@ class data_server_client
            shmaddrs.push_back(addr);
         }
 
-	server_addr = "ofi+sockets://";
+	server_addr = "ofi+tcp://";
         server_addr += myipaddr;
         server_addr = server_addr+":"+std::to_string(port_addr);
         thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,4);
         //std::cout <<" server_addr = "<<server_addr<<std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
 
-        thallium_client = new tl::engine("ofi+sockets",THALLIUM_CLIENT_MODE,true,4);
+        thallium_client = new tl::engine("ofi+tcp",THALLIUM_CLIENT_MODE,true,4);
         thallium_shm_client = new tl::engine("na+sm",THALLIUM_CLIENT_MODE,true,4);
 
 	std::vector<std::string> serverstrings;
@@ -137,7 +137,7 @@ class data_server_client
 	for(int i=0;i<nservers;i++)
         {
                 int portno = base_port;
-                std::string serveraddr_1 = "ofi+sockets://";
+                std::string serveraddr_1 = "ofi+tcp://";
                 serveraddr_1 += ipaddrs[i];
                 serveraddr_1 += ":";
                 int spos = std::distance(ipaddrs.begin(),std::find(ipaddrs.begin(),ipaddrs.end(),ipaddrs[i]));

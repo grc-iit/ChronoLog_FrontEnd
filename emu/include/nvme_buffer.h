@@ -50,7 +50,7 @@ class nvme_buffers
   public:
 	nvme_buffers(int np,int rank) : numprocs(np), myrank(rank)
 	{
-	   prefix = "/mnt/nvme/asasidharan/rank"+std::to_string(myrank);
+	   prefix = "/tmp/rank"+std::to_string(myrank);
 	   total_blocks.resize(MAXSTREAMS);
 	   numblocks.resize(MAXSTREAMS);
 	   nvme_intervals.resize(MAXSTREAMS);

@@ -76,7 +76,7 @@ int main(int argc,char **argv)
   MPI_Request *reqs = new MPI_Request[2*size];
 
   int nreq = 0;
-  int tag = 300000;
+  int tag = 123;
 
   for(int i=0;i<size;i++)
   {

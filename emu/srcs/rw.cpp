@@ -246,7 +246,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     hid_t async_dxpl = H5Pcreate(H5P_DATASET_XFER);
     H5Pset_fapl_mpio(async_fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
     H5Pset_dxpl_mpio(async_dxpl, H5FD_MPIO_COLLECTIVE);
-    std::string filename = "file"+sts[i]+".h5";
+    std::string filename = "/scratch/bbrr/aparna1/file"+sts[i]+".h5";
     fid = H5Fopen(filename.c_str(), H5F_ACC_RDWR, async_fapl);
 
     event_metadata em;
@@ -353,7 +353,7 @@ void read_write_process::pwrite_extend_files(std::vector<std::string>&sts,std::v
     for(int i=0;i<valid_id.size();i++)
     {
 	int d = valid_id[i];
-	std::string filename = "file"+sts[d]+".h5";
+	std::string filename = "/scratch/bbrr/aparna1/file"+sts[d]+".h5";
 	int ps = -1;
 	m1.lock();
 	auto r = std::find(file_names.begin(),file_names.end(),filename);
@@ -882,7 +882,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
         H5Pset_fapl_mpio(async_fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
         H5Pset_dxpl_mpio(async_dxpl, H5FD_MPIO_COLLECTIVE);
         attr_space[0] = H5Screate_simple(1, attr_size, NULL);
-        std::string filename = "file"+sts[i]+".h5";
+        std::string filename = "/scratch/bbrr/aparna1/file"+sts[i]+".h5";
         hsize_t chunkdims[1];
         chunkdims[0] = total_records[i];
         hsize_t maxdims[1];
@@ -995,7 +995,7 @@ void read_write_process::pwrite_files(std::vector<std::string> &sts,std::vector<
     for(int i=0;i<valid_id.size();i++)
     {
 	int d = valid_id[i];
-	std::string filename = "file"+sts[d]+".h5";
+	std::string filename = "/scratch/bbrr/aparna1/file"+sts[d]+".h5";
 	int ps = -1;
 	m1.lock();
         file_names.insert(filename);
@@ -1513,7 +1513,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 
    for(int i=0;i<sts.size();i++)
    {
-	std::string fname = "file"+sts[i]+".h5";
+	std::string fname = "/scratch/bbrr/aparna1/file"+sts[i]+".h5";
         auto r = std::find(file_names.begin(),file_names.end(),fname);
 
         if(r == file_names.end())
@@ -1535,7 +1535,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
 	   maxkeys_e.push_back(maxkeys[i]);	   
 	}
    }
-/*
+
    try
    {
       pwrite_files(sts_n,trec_n,off_n,darray_n,minkeys_n,maxkeys_n,clear_nvme,bcounts,blockcounts);
@@ -1545,7 +1545,7 @@ void read_write_process::pwrite(std::vector<std::string>& sts,std::vector<hsize_
    {
 	std::cout <<except.what()<<std::endl;
 	exit(-1);
-   }*/
+   }
 
 }
 

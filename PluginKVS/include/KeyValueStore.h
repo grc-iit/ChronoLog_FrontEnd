@@ -471,14 +471,14 @@ class KeyValueStore
 		   
 		   keys.push_back(keys_p);
 		    
-		   for(int i=0;i<keyp;i++)
+		   /*for(int i=0;i<keyp;i++)
 		   {
 		     int p1 = random()%keys.size();
 		     int p2 = random()%keys[p1].size();
 		     N key = keys[p1][p2];
 		     b = ka->Get<T,N> (pos,st,key,ids);
 		     ids++;
-		   }
+		   }*/
 		}
 
 	   }

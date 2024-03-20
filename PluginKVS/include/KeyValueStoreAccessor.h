@@ -3,7 +3,7 @@
 
 #include "KeyValueStoreMetadata.h"
 #include "invertedlist.h"
-#include "external_sort.h"
+//include "external_sort.h"
 #include "util_t.h"
 
 #include <thallium.hpp>
