@@ -139,6 +139,8 @@ class KeyValueStoreAccessor
 	  }
 
 	  template<typename T,typename N>
+	  void compute_sketch();
+	  template<typename T,typename N>
 	  int add_new_inverted_list(std::string &,std::string &,int,int,N&,data_server_client*,KeyValueStoreIO*,Interface_Queues*,int,int);
 	  template<typename T>
 	  bool delete_inverted_list(int);

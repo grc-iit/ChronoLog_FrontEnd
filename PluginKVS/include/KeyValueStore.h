@@ -124,8 +124,9 @@ class KeyValueStore
    	 	MPI_Request *reqs = new MPI_Request[2*numprocs];
 
 		bool end_loop = false;
-		int rate = (k->ifreq < 50) ? 50 : k->ifreq;
-		rate = (rate > 500) ? 500 : rate;
+		//int rate = (k->ifreq < 50) ? 50 : k->ifreq;
+		//rate = (rate > 500) ? 500 : rate;
+		int rate = 50;
 		int request_count=0;
 
 		while(true)
@@ -153,7 +154,7 @@ class KeyValueStore
 		  }
 
       		  auto t1 = std::chrono::high_resolution_clock::now();
-		  /*if(myrank==0)
+		  if(myrank==0)
                   while(true)
                   {
         		auto t2 = std::chrono::high_resolution_clock::now();
@@ -174,16 +175,16 @@ class KeyValueStore
 		  MPI_Irecv(&recv_v[0],1,MPI_INT,0,tag,MPI_COMM_WORLD,&reqs[nreq]);
 		  nreq++;
 
-		  MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);*/
+		  MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
-		  /*if(end_loop) 
+		  if(end_loop) 
 		  ka->flush_invertedlist<T>(attr_name,true);
 		  else 
 		  {
 		     bool c = false;
 		     if(request_count%5==0) c = true;
 		     ka->flush_invertedlist<T>(attr_name,c);
-		  }*/
+		  }
 		  if(end_loop) break;
 		  request_count++;
    	       }
@@ -482,15 +483,15 @@ class KeyValueStore
 		         prevkey = key;
 			 keys_p.push_back(key);
 		         ids++;
-		         //usleep(rate);
+		         usleep(rate);
 			 keyp++;
 		       }
-		       else if(prevkey != 0) 
+		       /*else if(prevkey != 0) 
 		       {
 		         key = prevkey;
 		         b = ka->Get<T,N> (pos,st,key,ids);
 		         ids++;
-		       }
+		       }*/
 		   }
 		   /*
 		   keys.push_back(keys_p);*/
@@ -503,7 +504,8 @@ class KeyValueStore
 		     b = ka->Get<T,N> (pos,st,key,ids);
 		     ids++;
 		   }*/
-		int numgets = ka->num_gets<T>(pos);
+		}
+		//numgets = ka->num_gets<T>(pos);
 		return numgets;
 	   }
 

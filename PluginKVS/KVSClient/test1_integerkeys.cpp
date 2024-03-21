@@ -32,7 +32,7 @@ int main(int argc,char **argv)
    int len = sizeof(int)*2+128;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int tdw = 20;
+   int tdw = 100000;
    int td = tdw/size;
 
    int nloops = 4;
@@ -47,7 +47,7 @@ int main(int argc,char **argv)
 
    auto t1_v = std::chrono::high_resolution_clock::now();
 
-   int numgets = k->create_keyvalues<integer_invlist,int>(s1,td,400000);
+   int numgets = k->create_keyvalues<integer_invlist,int>(s1,td,200000);
 
    auto t2_v = std::chrono::high_resolution_clock::now();
    double t_v = std::chrono::duration<double> (t2_v-t1_v).count();

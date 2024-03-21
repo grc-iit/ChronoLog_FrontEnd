@@ -217,6 +217,14 @@ std::vector<uint64_t> KeyValueStoreAccessor::get_entry(int pos,N &key)
    return values;
 }
 
+template<typename T,typename N>
+void KeyValueStoreAccessor::compute_sketch()
+{
+
+
+
+}
+
 template<typename T>
 void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name,bool p)
 {
@@ -261,3 +269,4 @@ void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name,bool p)
     bool ret = kio->LocalPutSyncRequest(r);
 
 }
+

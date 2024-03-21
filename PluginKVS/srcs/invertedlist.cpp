@@ -288,7 +288,7 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::flush_timestamps(int offset,boo
  int send_v_t = 0;
  MPI_Allreduce(&send_v,&send_v_t,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
 
- if(send_v_t != numprocs) return;
+ //if(send_v_t != numprocs) return;
 
  std::vector<struct KeyIndex<KeyT>> KeyTimestamps;
  uint64_t maxts = UINT64_MAX;
@@ -814,7 +814,6 @@ void hdf5_invlist<KeyT,ValueT,hashfcn,equalfcn>::create_index_file()
     hid_t dataset_pl = H5Pcreate(H5P_DATASET_CREATE);
     int ret = H5Pset_chunk(dataset_pl,1,chunkdims);
     hid_t fid = H5Fcreate(indexname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT,fapl);
-    if(serverid==0) std::cout <<" file create"<<std::endl;
     hsize_t totalt = 2*totalsize; 
     hid_t file_dataspace_t = H5Screate_simple(1,&totalt,maxdims);
 

@@ -91,7 +91,6 @@ void KeyValueStoreIO::io_function(struct thread_arg *t)
            get_common_requests(sync_reqs,common_reqs);	   
 
 	   std::vector<std::string> completed_reqs;
-	   if(serverid==0 && common_reqs.size()) std::cout <<" num reqs = "<<common_reqs.size()<<std::endl;
 	   for(int i=0;i<common_reqs.size();i++)
 	   {
 	      std::string newname = common_reqs[i]->name+common_reqs[i]->attr_name;
