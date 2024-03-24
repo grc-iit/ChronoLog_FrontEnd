@@ -44,6 +44,13 @@ struct io_request
    hsize_t total_records;
 };
 
+struct pack_io_request
+{
+uint64_t mints;
+uint64_t maxts;
+uint64_t blockid;
+};
+
 struct ts_offset
 {
   uint64_t ts;
@@ -92,6 +99,7 @@ private:
       std::vector<std::string> shmaddrs;
       std::string myipaddr;
       int iters_per_batch;
+      MPI_Datatype block_req;
       std::atomic<int> *enable_stream;
       std::atomic<int> cstream;
       std::atomic<int> *w_reqs_pending;
@@ -153,6 +161,15 @@ public:
 		r_reqs_pending[i].store(0);
 		end_of_stream_session[i].store(0);
 	   }
+
+	   int nblocks = 1;
+           int blens[1];
+           MPI_Aint displ[1];
+           MPI_Datatype types[1];
+           blens[0] = 3;displ[0] = 0;types[0] = MPI_UINT64_T;
+           MPI_Type_create_struct(nblocks,blens,displ,types,&block_req);
+           MPI_Type_commit(&block_req);
+
 	   std::function<void(struct thread_arg_w *)> IOFunc(
            std::bind(&read_write_process::io_polling,this, std::placeholders::_1));
 
@@ -178,6 +195,7 @@ public:
 	   std::free(w_reqs_pending);
 	   std::free(r_reqs_pending);
 	   std::free(end_of_stream_session);
+	   MPI_Type_free(&block_req);
 	   H5close();
 
 	}

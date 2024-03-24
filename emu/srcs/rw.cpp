@@ -489,194 +489,57 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
     
         file_dataspace = H5Dget_space(dataset1);
 
-	if(em.get_invlist())
-	{
-	  std::vector<struct io_request *> inv_requests;
-	  std::vector<struct io_request*> temp;
-	  for(int n=0;n<my_requests[i].size();n++)
-	  {
-	     uint64_t mints = my_requests[i][n]->mints;
-	     uint64_t maxts = my_requests[i][n]->maxts;
-	     if(mints == maxts)
-		 inv_requests.push_back(my_requests[i][n]);
-	     else temp.push_back(my_requests[i][n]);
-	  }
-
-	  my_requests[i].assign(temp.begin(),temp.end());
-          std::string d_string = "data_inv";
-	  std::string da_string = "data_table";
-	 
-	  hid_t s11 = H5Tcreate(H5T_COMPOUND,sizeof(struct ts_offset));
-   	  H5Tinsert(s11,"ts",HOFFSET(struct ts_offset,ts),H5T_NATIVE_UINT64);
-   	  H5Tinsert(s11,"offset",HOFFSET(struct ts_offset,offset),H5T_NATIVE_UINT64);
-
-	  int total_size = 32768;
-	  int nbits = log2(total_size);
-	  int nprocs = nearest_power_two(numprocs);
-	  int nbits_p = log2(nprocs);
-	  uint64_t mask = UINT64_MAX;
-	  mask = mask << (64-nbits);
-	  mask = mask >> (64-nbits);
-	  int nbits_r = nbits-nbits_p;
-	  int maxsize = pow(2,nbits_r);
-	  hid_t dataset_t = H5Dopen(fid,da_string.c_str(),H5P_DEFAULT);
-	  hid_t filedataspace_t = H5Dget_space(dataset_t);
-          hsize_t toffset = myrank*2*maxsize;
-	  hsize_t blocksize = 2*maxsize;
-	  std::vector<int> table_offset;
-	  table_offset.resize(2*maxsize);
-
-	  ret = H5Sselect_hyperslab(filedataspace_t, H5S_SELECT_SET,&toffset,NULL,&blocksize,NULL);
-          hid_t mem_dataspace = H5Screate_simple(1,&blocksize, NULL);
-          ret = H5Dread(dataset_t,H5T_NATIVE_INT, mem_dataspace, filedataspace_t, xfer_plist,table_offset.data());
-          H5Sclose(mem_dataspace);
-
-	  std::vector<struct ts_offset> *table_index = new std::vector<struct ts_offset> ();
-	  toffset = table_offset[1];
-	  blocksize = 0;
-	  for(int i=0;i<maxsize;i++) blocksize += table_offset[2*i];
-	  table_index->resize(blocksize);
-
-	  hid_t dataset_inv = H5Dopen(fid,d_string.c_str(),H5P_DEFAULT);
-	  hid_t filedataspace_inv = H5Dget_space(dataset_inv);
-	  ret = H5Sselect_hyperslab(filedataspace_inv,H5S_SELECT_SET,&toffset,NULL,&blocksize,NULL);
-	  hid_t memspace = H5Screate_simple(1,&blocksize,NULL);
-	  ret = H5Dread(dataset_inv,s11,memspace,filedataspace_inv,xfer_plist,table_index->data());
-	  H5Sclose(memspace);
-	 
-	  std::vector<int> send_counts,recv_counts,send_displ,recv_displ;
-	  std::vector<uint64_t> send_buffer,recv_buffer;
-	  send_counts.resize(numprocs); recv_counts.resize(numprocs);
-	  send_displ.resize(numprocs); recv_displ.resize(numprocs);
-	  std::fill(send_counts.begin(),send_counts.end(),0);
-	  std::fill(recv_counts.begin(),recv_counts.end(),0);
-	  std::fill(send_displ.begin(),send_displ.end(),0);
-	  std::fill(recv_displ.begin(),recv_displ.end(),0);
-
-	  for(int n=0;n<inv_requests.size();n++)
-	  {	
-		uint64_t ts = inv_requests[n]->mints;
-		uint64_t hashvalue = unsignedlonghash(ts);
-		uint64_t pid = hashvalue & mask;
-		pid = pid >> (nbits-nbits_p);
-		send_counts[pid]++;
-	  }
-
-	  MPI_Alltoall(send_counts.data(),1,MPI_INT,recv_counts.data(),1,MPI_INT,MPI_COMM_WORLD);
-
-	  send_displ[0] = 0;
-	  for(int i=1;i<numprocs;i++) send_displ[i] = send_displ[i-1]+send_counts[i-1];
-
-	  int total_size_s = 0;
-	  for(int i=0;i<numprocs;i++) total_size_s += send_counts[i];
-
-	  send_buffer.resize(total_size_s);
-
-	  total_size_s = 0;
-	  for(int i=0;i<numprocs;i++) total_size_s += recv_counts[i];
-
-	  recv_buffer.resize(total_size_s);
-
-	  for(int n=0;n<inv_requests.size();n++)
-	  {
-		uint64_t ts = inv_requests[n]->mints;
-		uint64_t hashvalue = unsignedlonghash(ts);
-		uint64_t pid = hashvalue & mask;
-		pid = pid >> (nbits-nbits_p);
-		send_buffer[send_displ[pid]] = ts;
-		send_displ[pid]++;
-	  }
-
-	  send_displ[0] = 0;
-	  for(int i=1;i<numprocs;i++) send_displ[i] = send_displ[i-1]+send_counts[i-1];
-
-	  recv_displ[0] = 0;
-	  for(int i=1;i<numprocs;i++) recv_displ[i] = recv_displ[i-1]+recv_counts[i-1];
-
-	  MPI_Alltoallv(send_buffer.data(),send_counts.data(),send_displ.data(),MPI_UINT64_T,recv_buffer.data(),recv_counts.data(),recv_displ.data(),MPI_UINT64_T,MPI_COMM_WORLD);
-
-	  int rbuf_size = send_buffer.size();
-	  send_buffer.clear();
-	  int sbuf_size = recv_buffer.size();
-	  send_buffer.resize(sbuf_size);
-
-	  std::vector<int> recv_counts_t;
-	  recv_counts_t.assign(send_counts.begin(),send_counts.end());
-
-	  for(int i=0;i<numprocs;i++) send_counts[i] = recv_counts[i];
-
-	  send_displ[0] = 0;
-	  for(int i=1;i<numprocs;i++) send_displ[i] = send_displ[i-1]+send_counts[i-1];
-
-	  for(int i=0;i<numprocs;i++)
-	  {
-		for(int j=0;j<recv_counts[i];j++)
-		{
-		  uint64_t ts = recv_buffer[recv_displ[i]+j];
-		  uint64_t hashvalue = unsignedlonghash(ts);
-		  uint64_t pos = hashvalue%maxsize;
-		  int offset = table_offset[2*pos+1]-table_offset[1];
-		  int numkeys = table_offset[2*pos];
-		  uint64_t offset_ts = UINT64_MAX;
-		  for(int k=0;k<numkeys;k++)
-		  {
-			if((*table_index)[offset+k].ts == ts) 
-			{
-		          offset_ts = (*table_index)[offset+k].offset;
-			  break;
-			}
-		  }
-		  send_buffer[send_displ[i]] = offset_ts;
-		  send_displ[i]++;
-		}
-	  }
-
-	  recv_counts.assign(recv_counts_t.begin(),recv_counts_t.end());
-	  recv_buffer.resize(rbuf_size);
-	  send_displ[0] = 0;
-	  for(int i=1;i<numprocs;i++) send_displ[i] = send_displ[i-1]+send_counts[i-1];
-	  recv_displ[0] = 0;
-	  for(int i=1;i<numprocs;i++) recv_displ[i] = recv_displ[i-1]+recv_counts[i-1];
-
-	  MPI_Alltoallv(send_buffer.data(),send_counts.data(),send_displ.data(),MPI_UINT64_T,recv_buffer.data(),recv_counts.data(),recv_displ.data(),MPI_UINT64_T,MPI_COMM_WORLD);
-
-	  blocksize = 1;
-	  std::vector<char> datab;
-	  datab.resize(keydatasize);
-
-	  for(int i=0;i<recv_buffer.size();i++)
-	  {
-		toffset = (hsize_t)recv_buffer[i];
-		if(toffset != UINT64_MAX)
-		{
-		  ret = H5Sselect_hyperslab(file_dataspace,H5S_SELECT_SET,&toffset,NULL,&blocksize,NULL);
-                  hid_t memspace = H5Screate_simple(1,&blocksize,NULL);
-                  ret = H5Dread(dataset1,s2,memspace,file_dataspace,xfer_plist,datab.data());
-                  H5Sclose(memspace);
-		}
-	  }
-
-	  delete table_index;
-
-	  for(int n=0;n<inv_requests.size();n++)
-		 delete inv_requests[n];
-	  H5Dclose(dataset_t);
-	  H5Sclose(filedataspace_t);
-	  H5Dclose(dataset_inv);
-	  H5Sclose(filedataspace_inv);
-	  H5Tclose(s11);
-
-	}
-
         int total_k = attrs[0];
         int k_size = attrs[1];
         int data_size = attrs[2];
         int numblocks = attrs[3];
+        int blocks_per_proc = numblocks/numprocs;
+	int rem = numblocks%numprocs;
+
+	int offset = rem*(blocks_per_proc+1);
+	int sblock = 0;
+	int eblock = 0;
+	for(int k=0;k<myrank;k++)
+	{
+	   int blockp = blocks_per_proc;
+	   if(k < rem) blockp++;
+	   sblock += blockp;
+	}
+
+	if(myrank < rem) eblock = sblock+blocks_per_proc+1;
+	else eblock = sblock+blocks_per_proc;
 
         int pos = 4;
 
 	std::vector<std::vector<int>> block_requests;
 	block_requests.resize(numblocks);
+	std::vector<int> dest_procs;
+	dest_procs.resize(numblocks);
+	std::vector<int> send_counts,recv_counts;
+	std::vector<int> send_displ,recv_displ;
+	std::vector<struct pack_io_request> send_buffer, recv_buffer;
+
+	send_counts.resize(numprocs); recv_counts.resize(numprocs);
+	send_displ.resize(numprocs); recv_displ.resize(numprocs);
+	std::fill(send_counts.begin(),send_counts.end(),0);
+	std::fill(recv_counts.begin(),recv_counts.end(),0);
+	std::fill(send_displ.begin(),send_displ.end(),0);
+	std::fill(recv_displ.begin(),recv_displ.end(),0);
+
+	for(int k=0;k<numblocks;k++)
+	{
+	   int proc_id = -1;
+	   if(k < offset) proc_id = k/(blocks_per_proc+1);
+	   else 
+	   {
+		int bd = k-offset;
+		proc_id = rem+(bd/blocks_per_proc);
+	   }
+	   dest_procs[k] = proc_id;
+	}
+
+	std::vector<std::vector<int>> request_blocks;
+	request_blocks.resize(my_requests[i].size());
 
 	for(int n=0;n<my_requests[i].size();n++)
 	{
@@ -693,13 +556,58 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
 		  mints < bmin && bmax < maxts)
 		    blockids.push_back(j);
 	  }
-
+          
 	  for(int j=0;j<blockids.size();j++)
-	  {
-		block_requests[blockids[j]].push_back(n);
+	  request_blocks[n].push_back(blockids[j]);
+	}
 
-	  }
+	for(int n=0;n<request_blocks.size();n++)
+	{
+	   for(int j=0;j<request_blocks[n].size();j++)
+	   {
+		int blockid = request_blocks[n][j];
+		int pid = dest_procs[blockid];
+		send_counts[pid]++;
+	   }
+	}
+	
+        MPI_Alltoall(send_counts.data(),1,MPI_INT,recv_counts.data(),1,MPI_INT,MPI_COMM_WORLD);
 
+	for(int k=1;k<numprocs;k++) send_displ[k] = send_displ[k-1]+send_counts[k-1];
+	for(int k=1;k<numprocs;k++) recv_displ[k] = recv_displ[k-1]+recv_counts[k-1];
+
+	int total_size = 0;
+	for(int k=0;k<numprocs;k++) total_size += send_counts[k];
+
+	send_buffer.resize(total_size);
+
+	for(int n=0;n<request_blocks.size();n++)
+	{
+	   for(int j=0;j<request_blocks[n].size();j++)
+	   {
+		int blockid = request_blocks[n][j];
+		int pid = dest_procs[blockid];
+		send_buffer[send_displ[pid]].mints = my_requests[i][n]->mints;
+		send_buffer[send_displ[pid]].maxts = my_requests[i][n]->maxts;
+		send_buffer[send_displ[pid]].blockid = blockid;
+		send_displ[pid]++;
+	   }
+	}
+
+	send_displ[0] = 0;
+	for(int k=1;k<numprocs;k++) send_displ[k] = send_displ[k-1]+send_counts[k-1];
+
+	total_size = 0;
+	for(int k=0;k<numprocs;k++) total_size += recv_counts[k];
+
+	recv_buffer.resize(total_size);
+
+	MPI_Alltoallv(send_buffer.data(),send_counts.data(),send_displ.data(),block_req,recv_buffer.data(),recv_counts.data(),recv_displ.data(),block_req,MPI_COMM_WORLD);
+
+	for(int k=0;k<recv_buffer.size();k++)
+	{
+	   int blockid = recv_buffer[k].blockid;
+	   block_requests[blockid].push_back(k);
 	}
 
 	std::vector<char> *data_buffer = new std::vector<char> ();
@@ -730,8 +638,8 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
 	        for(int j=0;j<block_requests[n].size();j++)
 	        {
 		  int id = block_requests[n][j];
-		  uint64_t mints = my_requests[i][id]->mints;
-		  uint64_t maxts = my_requests[i][id]->maxts;
+		  uint64_t mints = recv_buffer[id].mints;
+		  uint64_t maxts = recv_buffer[id].maxts;
 
 		  for(int k=0;k<total_records*keydatasize;k+=keydatasize)
 		  {
