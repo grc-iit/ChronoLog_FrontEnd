@@ -410,7 +410,7 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
    for(int i=0;i<my_requests.size();i++)
    {
      std::string s = t_args[i].name;
-     std::string filename = "file";
+     std::string filename = "/scratch/bbrr/aparna1/file";
      filename += s+".h5";
      bool end = false;
      m1.lock();
@@ -892,14 +892,20 @@ double read_write_process::pwrite_files(std::vector<std::string> &sts,std::vecto
   std::vector<hid_t> type_ids;
   std::vector<event_metadata> metadata;
   std::vector<int> valid_id;
+  int stripe_size = 4096;
 
   double w_time = 0;
   for(int i=0;i<sts.size();i++)
   {
 
+	MPI_Info info = MPI_INFO_NULL;
+        MPI_Info_create(&info);
+        std::string stripes = std::to_string(stripe_size);
+        MPI_Info_set(info, "striping_unit", stripes.c_str());
+
         hid_t async_fapl = H5Pcreate(H5P_FILE_ACCESS);
         hid_t async_dxpl = H5Pcreate(H5P_DATASET_XFER);
-        H5Pset_fapl_mpio(async_fapl, MPI_COMM_WORLD, MPI_INFO_NULL);
+        H5Pset_fapl_mpio(async_fapl, MPI_COMM_WORLD,info);
         H5Pset_dxpl_mpio(async_dxpl, H5FD_MPIO_COLLECTIVE);
         attr_space[0] = H5Screate_simple(1, attr_size, NULL);
         std::string filename = "/scratch/bbrr/aparna1/file"+sts[i]+".h5";
