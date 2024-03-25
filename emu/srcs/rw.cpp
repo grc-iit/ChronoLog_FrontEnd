@@ -511,7 +511,7 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
 
         int pos = 4;
 
-	std::vector<std::vector<int>> block_requests;
+	std::vector<std::vector<struct pack_io_request>> block_requests;
 	block_requests.resize(numblocks);
 	std::vector<int> dest_procs;
 	dest_procs.resize(numblocks);
@@ -557,8 +557,7 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
 		    blockids.push_back(j);
 	  }
           
-	  for(int j=0;j<blockids.size();j++)
-	  request_blocks[n].push_back(blockids[j]);
+	  request_blocks[n].assign(blockids.begin(),blockids.end());
 	}
 
 	for(int n=0;n<request_blocks.size();n++)
@@ -607,8 +606,14 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
 	for(int k=0;k<recv_buffer.size();k++)
 	{
 	   int blockid = recv_buffer[k].blockid;
-	   block_requests[blockid].push_back(k);
+	   struct pack_io_request p;
+	   p.mints = recv_buffer[k].mints;
+	   p.maxts = recv_buffer[k].maxts;
+	   p.blockid = recv_buffer[k].blockid;
+	   block_requests[blockid].push_back(p);
 	}
+
+	send_buffer.clear(); recv_buffer.clear();
 
 	std::vector<char> *data_buffer = new std::vector<char> ();
 
@@ -634,27 +639,55 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
                 ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&block_size,NULL);
                 mem_dataspace = H5Screate_simple(1,&block_size, NULL);
                 ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,data_buffer->data());
-                H5Sclose(mem_dataspace); 
-	        for(int j=0;j<block_requests[n].size();j++)
-	        {
-		  int id = block_requests[n][j];
-		  uint64_t mints = recv_buffer[id].mints;
-		  uint64_t maxts = recv_buffer[id].maxts;
+                H5Sclose(mem_dataspace);
 
-		  for(int k=0;k<total_records*keydatasize;k+=keydatasize)
+		/*point queries only*/
+		if(1)
+		{
+		  std::sort(block_requests[n].begin(),block_requests[n].end(),compare_min);
+
+		  int k=0;
+		  int j=0;
+		  while(k < total_records*keydatasize)
 		  {
+		    if(j==block_requests[n].size()) break;
+
 		    uint64_t ts = *(uint64_t*)(&((*data_buffer)[k]));
-		    if(ts >= mints && ts <= maxts)
+		    
+		    if(ts == block_requests[n][j].mints)
 		    {
+			    std::string eventstring;
+			    eventstring.resize(keydatasize);
+			    for(int m=0;m<keydatasize;m++)
+			      eventstring[m] = (*data_buffer)[k+m];
+			    ost << eventstring << std::endl;
+			    j++;
+		    }
+		    else if(block_requests[n][j].mints > ts) k+=keydatasize; 
+		  }
+		}
+	        else
+		{
+	          for(int j=0;j<block_requests[n].size();j++)
+	          {
+		    uint64_t mints = block_requests[n][j].mints;
+		    uint64_t maxts = block_requests[n][j].maxts;
+
+		    for(int k=0;k<total_records*keydatasize;k+=keydatasize)
+		    {
+		      uint64_t ts = *(uint64_t*)(&((*data_buffer)[k]));
+		      if(ts >= mints && ts <= maxts)
+		      {
 			std::string eventstring;
 			eventstring.resize(keydatasize);
 			for(int m=0;m<keydatasize;m++)
 			  eventstring[m] = (*data_buffer)[k+m];
 			ost << eventstring << std::endl;
-		     }
-		     else if(ts > maxts) break;
+		      }
+		      else if(ts > maxts) break;
 		   }
 	         }
+		}
 	   }
 
 	}

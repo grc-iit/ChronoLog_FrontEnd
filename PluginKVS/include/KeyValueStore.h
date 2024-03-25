@@ -465,7 +465,7 @@ class KeyValueStore
 		int numgets = 0;
 		int numputs = 0;
 
-		for(int n=0;n<1;n++)
+		for(int n=0;n<5;n++)
 		{
 		   std::vector<N> keys_p;
 		   int keyp = 0;

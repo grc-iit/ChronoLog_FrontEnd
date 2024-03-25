@@ -630,6 +630,10 @@ public:
 	    req.respond(FindEventFile(s,ts));
 	}
 
+	static bool compare_min(struct pack_io_request &p1,struct pack_io_request &p2)
+	{
+	    return p1.mints < p2.mints;
+	}
 
 	std::string FindEventFile(std::string&,uint64_t &);
 	std::string FindEvent(std::string&,uint64_t&);

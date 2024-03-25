@@ -7,7 +7,7 @@ std::pair<uint64_t,uint64_t> ClockSynchronization<Clocksource>::SynchronizeClock
 {
      
      int nreq = 0;  	
-     int tag = 50000;     
+     int tag = 5000;     
      MPI_Request *reqs = (MPI_Request *)std::malloc(2*numprocs*sizeof(MPI_Request));
 
      int send_v = 1;
@@ -23,6 +23,7 @@ std::pair<uint64_t,uint64_t> ClockSynchronization<Clocksource>::SynchronizeClock
      }
      MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
 
+     tag = 5001;
      uint64_t offset_l=0;
      nreq = 0;
 
@@ -118,7 +119,7 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval(uint64_t msb,uint64
            std::vector<int> recvreq(numprocs);
            std::fill(recvreq.begin(),recvreq.end(),0);
 	    uint64_t merror;
-            int tag = 50000;
+            int tag = 5000;
 
             nreq = 0;
             for(int i=0;i<numprocs;i++)
@@ -130,6 +131,8 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval(uint64_t msb,uint64
             }
 	
 	    MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+	    tag=5001;
 
 	    nreq = 0;
 
@@ -199,6 +202,7 @@ void ClockSynchronization<Clocksource>::ComputeErrorInterval(uint64_t msb,uint64
 	std::fill(times2.begin(),times2.end(),0);
 	times1[myrank] = Timestamp();
 
+	tag = 5000;
 	nreq = 0;
 
 	uint64_t send_v = 1;
