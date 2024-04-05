@@ -68,6 +68,7 @@ class KeyValueStoreAccessor
 	    std::mutex accessor_mutex;
 	    int inserts;
 	    struct stream_analytics sa;
+	    struct stream_analytics sa_t;
    public :
 	  KeyValueStoreAccessor(int np,int p,KeyValueStoreMetadata &m,KeyValueStoreIO *io,Interface_Queues *ifq,data_server_client *ds)
           {
@@ -152,6 +153,8 @@ class KeyValueStoreAccessor
 	  void create_summary(int rows,int cols);
 	  template<typename T,typename N>
 	  void compute_summary(N &);
+	  template<typename T,typename N>
+	  void collect_summary(int);
 	  template<typename T,typename N>
 	  int add_new_inverted_list(std::string &,std::string &,int,int,N&,data_server_client*,KeyValueStoreIO*,Interface_Queues*,int,int);
 	  template<typename T>

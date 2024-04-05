@@ -505,6 +505,9 @@ class KeyValueStore
 		     ids++;
 		   }
 		}
+
+		int ctag = tag; 
+		ka->collect_summary<T,N>(ctag);
 		//numgets = ka->num_gets<T>(pos);
 		return numgets;
 	   }

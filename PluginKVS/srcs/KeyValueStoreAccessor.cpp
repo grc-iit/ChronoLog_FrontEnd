@@ -254,6 +254,97 @@ void KeyValueStoreAccessor::compute_summary(N &key)
 	}
 }
 
+template<typename T,typename N>
+void KeyValueStoreAccessor::collect_summary(int tag)
+{
+  MPI_Request *reqs = new MPI_Request[2*numprocs];
+
+  std::vector<double> avg_count;
+  avg_count.resize(2);
+  avg_count[0]=sa.average;
+  avg_count[1]=sa.count;
+
+  std::vector<double> recv_values;
+  recv_values.resize(2*numprocs);
+  std::fill(recv_values.begin(),recv_values.end(),0);
+
+  int nreq = 0;
+
+  for(int i=0;i<numprocs;i++)
+  {
+     MPI_Isend(avg_count.data(),2,MPI_DOUBLE,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+     nreq++;
+     MPI_Irecv(&recv_values[2*i],2,MPI_DOUBLE,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+     nreq++;
+  }
+
+  MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+
+  double sum = 0;
+  double count_t = 0;
+  for(int i=0;i<numprocs;i++)
+  {
+	sum += recv_values[2*i]*recv_values[2*i+1];
+        count_t += recv_values[2*i+1];
+  }
+
+  double average = sum/count_t;
+
+  std::vector<double> send_buffer;
+  std::vector<double> recv_buffer;
+
+  send_buffer.resize(sa.nrows*sa.ncols);
+  recv_buffer.resize(sa.nrows*sa.ncols*numprocs);
+  std::fill(send_buffer.begin(),send_buffer.end(),0);
+  std::fill(recv_buffer.begin(),recv_buffer.end(),0);
+
+  for(int i=0;sa.sketch_table.size();i++)
+  {
+     for(int j=0;j<sa.sketch_table[i].size();j++)
+     {
+        send_buffer[i*sa.ncols+j] = sa.sketch_table[i][j];
+     }
+  }
+
+  nreq = 0;
+  for(int i=0;i<numprocs;i++)
+  {
+      MPI_Isend(send_buffer.data(),sa.nrows*sa.ncols,MPI_DOUBLE,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+      nreq++;
+      MPI_Irecv(&recv_buffer[i*sa.nrows*sa.ncols],sa.nrows*sa.ncols,MPI_DOUBLE,i,tag,MPI_COMM_WORLD,&reqs[nreq]);
+      nreq++;
+  }
+
+  MPI_Waitall(nreq,reqs,MPI_STATUS_IGNORE);
+  
+  sa_t.average = average;
+  sa_t.count = count_t;
+  sa_t.nrows = sa.nrows;
+  sa_t.ncols = sa.ncols;
+
+  sa_t.sketch_table.resize(sa.nrows);
+  for(int i=0;i<sa.nrows;i++)
+  {
+	sa_t.sketch_table[i].resize(sa.ncols);
+	std::fill(sa_t.sketch_table[i].begin(),sa_t.sketch_table[i].end(),0);
+  } 
+
+  for(int i=0;i<numprocs;i++)
+  {
+     int d = i*sa_t.nrows*sa_t.ncols;
+     for(int j=0;j<sa_t.nrows;j++)
+     {
+	  for(int k=0;k<sa_t.ncols;k++)
+	  {
+	     int p = j*sa_t.ncols+k;
+	     sa_t.sketch_table[j][k] += recv_buffer[d+p];
+	  }
+     }
+  }
+
+  delete reqs;
+}
+
 template<typename T>
 void KeyValueStoreAccessor::flush_invertedlist(std::string &attr_name,bool p)
 {
