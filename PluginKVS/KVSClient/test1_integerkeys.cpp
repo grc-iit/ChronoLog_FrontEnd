@@ -32,7 +32,7 @@ int main(int argc,char **argv)
    int len = sizeof(int)*2+128;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int tdw = 50000;
+   int tdw = 5000;
    int td = tdw/size;
 
    int nloops = 4;

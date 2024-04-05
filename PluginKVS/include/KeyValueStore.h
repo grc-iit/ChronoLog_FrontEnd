@@ -215,6 +215,7 @@ class KeyValueStore
                   tables->create_invertedlist(s,attr_name,io_count,maxsize);
                   io_count++;
                   pos = ka->get_inverted_list_index(attr_name);
+		  ka->create_summary<T,N>(5,100);
                }
 
                std::string type = ka->get_attribute_type(attr_name);

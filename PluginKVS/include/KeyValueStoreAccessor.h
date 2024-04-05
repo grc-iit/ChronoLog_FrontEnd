@@ -35,6 +35,7 @@
 #include "KeyValueStoreIO.h"
 #include "Interface_Queues.h"
 #include <mutex>
+#include <boost/container_hash/hash.hpp>
 
 namespace tl=thallium;
 
@@ -42,6 +43,15 @@ typedef hdf5_invlist<int,uint64_t,inthashfunc,std::equal_to<int>> integer_invlis
 typedef hdf5_invlist<uint64_t,uint64_t,unsignedlonghashfunc,std::equal_to<uint64_t>> unsigned_long_invlist;
 typedef hdf5_invlist<float,uint64_t,floathashfunc,std::equal_to<float>> float_invlist;
 typedef hdf5_invlist<double,uint64_t,doublehashfunc,std::equal_to<double>> double_invlist;
+
+struct stream_analytics
+{
+    double average;
+    double count;
+    std::vector<std::vector<double>> sketch_table;
+    int nrows;
+    int ncols;
+};
 
 class KeyValueStoreAccessor
 {
@@ -57,7 +67,7 @@ class KeyValueStoreAccessor
 	    data_server_client *d;
 	    std::mutex accessor_mutex;
 	    int inserts;
-
+	    struct stream_analytics sa;
    public :
 	  KeyValueStoreAccessor(int np,int p,KeyValueStoreMetadata &m,KeyValueStoreIO *io,Interface_Queues *ifq,data_server_client *ds)
           {
@@ -139,7 +149,9 @@ class KeyValueStoreAccessor
 	  }
 
 	  template<typename T,typename N>
-	  void compute_sketch();
+	  void create_summary(int rows,int cols);
+	  template<typename T,typename N>
+	  void compute_summary(N &);
 	  template<typename T,typename N>
 	  int add_new_inverted_list(std::string &,std::string &,int,int,N&,data_server_client*,KeyValueStoreIO*,Interface_Queues*,int,int);
 	  template<typename T>

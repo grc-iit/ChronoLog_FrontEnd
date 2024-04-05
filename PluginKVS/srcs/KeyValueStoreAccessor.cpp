@@ -91,6 +91,7 @@ bool KeyValueStoreAccessor::Put(int pos,std::string &s,N &key, M &value)
    {
 	T *invlist = reinterpret_cast<T*>(lists[pos].second);
 	b = invlist->put_entry(key,ts[0]);
+	compute_summary<N>(key);
 	if(b) inserts++;
 	return true;
    }
@@ -218,11 +219,39 @@ std::vector<uint64_t> KeyValueStoreAccessor::get_entry(int pos,N &key)
 }
 
 template<typename T,typename N>
-void KeyValueStoreAccessor::compute_sketch()
+void KeyValueStoreAccessor::create_summary(int rows,int cols)
 {
+  sa.average = 0;
+  sa.count = 0;
 
+  sa.sketch_table.resize(rows);
 
+  for(int i=0;i<rows;i++)
+  {
+	sa.sketch_table[i].resize(cols);
+	std::fill(sa.sketch_table[i].begin(),sa.sketch_table[i].end(),0);
+  }
 
+  sa.nrows = rows;
+  sa.ncols = cols;
+}
+
+template<typename T,typename N>
+void KeyValueStoreAccessor::compute_summary(N &key)
+{
+        double sum = sa.average*sa.count;
+	sum += (double)key;
+	sa.count++;
+	sa.average = sum/sa.count;
+
+	for(int i=0;i<sa.sketch_table.size();i++)
+	{
+	    uint64_t seed = (uint64_t)i;
+	    boost::hash_combine(seed,key);
+	    uint64_t key_v = seed;
+            uint64_t pos = key_v %sa.sketch_table[i].size();
+	    sa.sketch_table[i][pos]++; 
+	}
 }
 
 template<typename T>
