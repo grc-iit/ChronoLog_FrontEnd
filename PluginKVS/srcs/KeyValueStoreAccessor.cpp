@@ -233,6 +233,21 @@ void KeyValueStoreAccessor::create_summary(int rows,int cols)
 
   sa.nrows = rows;
   sa.ncols = cols;
+  sa.numleaves = 10;
+  sa.ranges.resize(sa.numleaves);
+  double min = 0; double max = INT_MAX;
+  double res = (max-min)/sa.numleaves;
+  double start = min;
+  for(int i=0;i<sa.numleaves;i++)
+  {
+	std::pair<double,double> p;
+	p.first = i*res;
+	p.second = (i+1)*res;
+	if(i==sa.numleaves-1) p.second = max;
+	sa.ranges[i].first = p.first;
+	sa.ranges[i].second = p.second;
+	sa.min_sketch_tables.push_back(sa.min_sketch_table);
+  }
 }
 
 template<typename T,typename N>
@@ -250,6 +265,25 @@ void KeyValueStoreAccessor::compute_summary(N &key)
 	    uint64_t key_v = seed;
             uint64_t pos = key_v %sa.min_sketch_table[i].size();
 	    sa.min_sketch_table[i][pos]++; 
+	}
+
+	int leafno = -1;
+	for(int i=0;i<sa.ranges.size();i++)
+	{
+	  if(key >= sa.ranges[i].first && key <sa.ranges[i].second)
+	  {
+		leafno = i; break;
+	  }
+
+	}
+
+	for(int i=0;i<sa.min_sketch_tables[leafno].size();i++)
+	{
+	   uint64_t seed = (uint64_t)i;
+	   boost::hash_combine(seed,key);
+	   uint64_t key_v = seed;
+	   uint64_t pos = key_v%sa.min_sketch_tables[leafno][i].size();
+	   sa.min_sketch_tables[leafno][i][pos]++;
 	}
 }
 

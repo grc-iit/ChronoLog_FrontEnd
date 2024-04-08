@@ -49,6 +49,9 @@ struct stream_analytics
     double average;
     double count;
     std::vector<std::vector<double>> min_sketch_table;
+    int numleaves;
+    std::vector<std::pair<double,double>> ranges;
+    std::vector<std::vector<std::vector<double>>> min_sketch_tables;
     int nrows;
     int ncols;
 };
