@@ -215,8 +215,9 @@ class KeyValueStore
                   tables->create_invertedlist(s,attr_name,io_count,maxsize);
                   io_count++;
                   pos = ka->get_inverted_list_index(attr_name);
-		  ka->create_summary<T,N>(5,100);
                }
+
+	       ka->create_summary<T,N>(5,100);
 
                std::string type = ka->get_attribute_type(attr_name);
 	       KeyValueStoreMetadata m = ka->get_metadata();
@@ -466,7 +467,7 @@ class KeyValueStore
 		int numgets = 0;
 		int numputs = 0;
 
-		for(int n=0;n<5;n++)
+		for(int n=0;n<1;n++)
 		{
 		   std::vector<N> keys_p;
 		   int keyp = 0;

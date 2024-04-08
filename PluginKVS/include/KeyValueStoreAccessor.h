@@ -150,7 +150,7 @@ class KeyValueStoreAccessor
 	  }
 
 	  template<typename T,typename N>
-	  void create_summary(int rows,int cols);
+	  void create_summary(int,int);
 	  template<typename T,typename N>
 	  void compute_summary(N &);
 	  template<typename T,typename N>

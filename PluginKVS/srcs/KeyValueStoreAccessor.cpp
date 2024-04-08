@@ -223,7 +223,6 @@ void KeyValueStoreAccessor::create_summary(int rows,int cols)
 {
   sa.average = 0;
   sa.count = 0;
-
   sa.sketch_table.resize(rows);
 
   for(int i=0;i<rows;i++)
@@ -242,7 +241,9 @@ void KeyValueStoreAccessor::compute_summary(N &key)
         double sum = sa.average*sa.count;
 	sum += (double)key;
 	sa.count++;
-	sa.average = sum/sa.count;
+	sa.average = sum/(double)sa.count;
+
+	if(sa.sketch_table.size()!=sa.nrows) std::cout <<" nrows = "<<sa.sketch_table.size()<<std::endl;
 
 	for(int i=0;i<sa.sketch_table.size();i++)
 	{
@@ -250,6 +251,7 @@ void KeyValueStoreAccessor::compute_summary(N &key)
 	    boost::hash_combine(seed,key);
 	    uint64_t key_v = seed;
             uint64_t pos = key_v %sa.sketch_table[i].size();
+	    if(pos < 0 || pos >= sa.ncols) std::cout <<" pos = "<<pos<<" ncols = "<<sa.sketch_table[i].size()<<std::endl;
 	    sa.sketch_table[i][pos]++; 
 	}
 }
@@ -298,7 +300,7 @@ void KeyValueStoreAccessor::collect_summary(int tag)
   std::fill(send_buffer.begin(),send_buffer.end(),0);
   std::fill(recv_buffer.begin(),recv_buffer.end(),0);
 
-  for(int i=0;sa.sketch_table.size();i++)
+  for(int i=0;i<sa.sketch_table.size();i++)
   {
      for(int j=0;j<sa.sketch_table[i].size();j++)
      {
@@ -306,6 +308,7 @@ void KeyValueStoreAccessor::collect_summary(int tag)
      }
   }
 
+  
   nreq = 0;
   for(int i=0;i<numprocs;i++)
   {
@@ -329,6 +332,7 @@ void KeyValueStoreAccessor::collect_summary(int tag)
 	std::fill(sa_t.sketch_table[i].begin(),sa_t.sketch_table[i].end(),0);
   } 
 
+  
   for(int i=0;i<numprocs;i++)
   {
      int d = i*sa_t.nrows*sa_t.ncols;
