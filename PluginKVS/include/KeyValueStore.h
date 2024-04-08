@@ -217,7 +217,7 @@ class KeyValueStore
                   pos = ka->get_inverted_list_index(attr_name);
                }
 
-	       ka->create_summary<T,N>(5,100);
+	       ka->create_summary<T,N>(10,1013);
 
                std::string type = ka->get_attribute_type(attr_name);
 	       KeyValueStoreMetadata m = ka->get_metadata();
@@ -250,109 +250,6 @@ class KeyValueStore
 	       delete reqs;
 	   }
 
-	   template<typename T,typename N>
-	   void create_keyvalues_ordered(int s_id,std::vector<N> &keys,std::vector<std::string> &values,std::vector<int> &ops,int rate)
-	   {
-		std::string s = k_args[s_id].tname;
-                std::string attr_name = k_args[s_id].attr_name;
-                KeyValueStoreAccessor *ka = tables->get_accessor(s);
-                bool b = false;
-                int pos = ka->get_inverted_list_index(attr_name);
-                std::string st = k_args[s_id].tname;
-                KeyValueStoreMetadata m = ka->get_metadata();
-                int datasize = m.value_size();
-		std::vector<int> request_status(keys.size());
-		std::fill(request_status.begin(),request_status.end(),0);
-		std::unordered_map<N,int> pending_requests;
-
-		while(true)
-		{
-		   std::vector<std::pair<int,std::string>> resp_ids = ka->Completed_Gets<T,N>(pos,st);
-
-		   for(int i=0;i<resp_ids.size();i++)
-		   {
-			int id = resp_ids[i].first;
-			N key = keys[id];
-			auto r = pending_requests.find(key);
-			if(r != pending_requests.end())
-			{
-			  pending_requests.erase(r);
-			}
-			if(ops[id]==2)
-			{
-			    int pos1 = values[id].find("=");
-			    std::string fl = "field";
-			    std::string substr1 = values[id].substr(0,pos1);
-			    std::string substr2 = substr1.substr(fl.length());
-			    int atr_id = std::stoi(substr2);
-			    std::string data;
-                            data.resize(datasize);
-			    for(int j=0;j<datasize;j++)
-				 data[j]=resp_ids[i].second[sizeof(uint64_t)+j];
-			    int offset = atr_id*100;
-			    for(int j=0;j<values[id].length();j++)
-				data[sizeof(N)+offset+j] = values[id][j];
-                            if(ka->Put<T,N,std::string>(pos,st,keys[id],data))
-                            {
-
-
-                            }
-			    usleep(rate);
-
-			}
-			request_status[id] = -1;
-		   }
-
-		   int num_completed = 0;
-		   for(int i=0;i<request_status.size();i++)
-			if(request_status[i]==-1) num_completed++;
-		   
-		   if(num_completed == request_status.size()) break;
-
-		   for(int i=0;i<keys.size();i++)
-		   {
-			if(request_status[i] != -1)
-			{
-			   N key = keys[i];
-			   auto r = pending_requests.find(key);
-			   if(r == pending_requests.end())
-			   {
-				if(ops[i]==0)
-				{
-				  std::string data;
-                     		  data.resize(sizeof(N)+values[i].length());
-                     		  char *keystr = (char *)(&keys[i]);
-                     		  for(int j=0;j<sizeof(N);j++)
-                        	    data[j] = keystr[j];
-                     		  for(int j=0;j<values[i].length();j++)
-                        	    data[sizeof(N)+j] = values[i][j];
-
-                                  if(ka->Put<T,N,std::string>(pos,st,keys[i],data))
-                                  {
-
-
-                                  }
-				  request_status[i] = -1;
-				  usleep(rate);
-				}
-				else
-				{
-				   b = ka->Get_resp<T,N>(pos,st,keys[i],i);
-				   std::pair<N,int> p;
-			   	   p.first = keys[i];
-				   p.second = ops[i];	   
-				   pending_requests.insert(p);
-				   usleep(rate);
-				}
-				
-			   }
-
-			}
-		   }
-
-		}
-
-	   }
 	   template<typename T,typename N>
 	   void create_keyvalues(int s_id,std::vector<N> &keys,std::vector<std::string> &values,std::vector<int> &ops,int rate)
 	   {
@@ -467,6 +364,8 @@ class KeyValueStore
 		int numgets = 0;
 		int numputs = 0;
 
+		std::vector<N> keys_query;
+
 		for(int n=0;n<1;n++)
 		{
 		   std::vector<N> keys_p;
@@ -480,7 +379,11 @@ class KeyValueStore
 		         if(!ka->Put<T,N,std::string>(pos,st,key,data))
 		         {
 		         }
-			 else numputs++;
+			 else 
+			 {
+			   numputs++;
+			   keys_query.push_back(key);
+			 }
 		         prevkey = key;
 			 keys_p.push_back(key);
 		         ids++;
@@ -510,6 +413,20 @@ class KeyValueStore
 		int ctag = tag; 
 		ka->collect_summary<T,N>(ctag);
 		//numgets = ka->num_gets<T>(pos);
+		//
+		if(myrank==0)
+		{
+		   int numkeys = 10;
+		   for(int i=0;i<numkeys;i++)
+		   {
+			int p = random()%keys_query.size();
+			N key = keys_query[p];
+			int freq = ka->count_min<T,N>(key);
+			std::cout <<" key = "<<key<<" freq = "<<freq<<std::endl;
+		   }
+
+
+		}
 		return numgets;
 	   }
 

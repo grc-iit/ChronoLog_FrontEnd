@@ -48,7 +48,7 @@ struct stream_analytics
 {
     double average;
     double count;
-    std::vector<std::vector<double>> sketch_table;
+    std::vector<std::vector<double>> min_sketch_table;
     int nrows;
     int ncols;
 };
@@ -155,6 +155,8 @@ class KeyValueStoreAccessor
 	  void compute_summary(N &);
 	  template<typename T,typename N>
 	  void collect_summary(int);
+	  template<typename T,typename N>
+	  int count_min(N &);
 	  template<typename T,typename N>
 	  int add_new_inverted_list(std::string &,std::string &,int,int,N&,data_server_client*,KeyValueStoreIO*,Interface_Queues*,int,int);
 	  template<typename T>

@@ -223,12 +223,12 @@ void KeyValueStoreAccessor::create_summary(int rows,int cols)
 {
   sa.average = 0;
   sa.count = 0;
-  sa.sketch_table.resize(rows);
+  sa.min_sketch_table.resize(rows);
 
   for(int i=0;i<rows;i++)
   {
-	sa.sketch_table[i].resize(cols);
-	std::fill(sa.sketch_table[i].begin(),sa.sketch_table[i].end(),0);
+	sa.min_sketch_table[i].resize(cols);
+	std::fill(sa.min_sketch_table[i].begin(),sa.min_sketch_table[i].end(),0);
   }
 
   sa.nrows = rows;
@@ -243,16 +243,13 @@ void KeyValueStoreAccessor::compute_summary(N &key)
 	sa.count++;
 	sa.average = sum/(double)sa.count;
 
-	if(sa.sketch_table.size()!=sa.nrows) std::cout <<" nrows = "<<sa.sketch_table.size()<<std::endl;
-
-	for(int i=0;i<sa.sketch_table.size();i++)
+	for(int i=0;i<sa.min_sketch_table.size();i++)
 	{
 	    uint64_t seed = (uint64_t)i;
 	    boost::hash_combine(seed,key);
 	    uint64_t key_v = seed;
-            uint64_t pos = key_v %sa.sketch_table[i].size();
-	    if(pos < 0 || pos >= sa.ncols) std::cout <<" pos = "<<pos<<" ncols = "<<sa.sketch_table[i].size()<<std::endl;
-	    sa.sketch_table[i][pos]++; 
+            uint64_t pos = key_v %sa.min_sketch_table[i].size();
+	    sa.min_sketch_table[i][pos]++; 
 	}
 }
 
@@ -300,11 +297,11 @@ void KeyValueStoreAccessor::collect_summary(int tag)
   std::fill(send_buffer.begin(),send_buffer.end(),0);
   std::fill(recv_buffer.begin(),recv_buffer.end(),0);
 
-  for(int i=0;i<sa.sketch_table.size();i++)
+  for(int i=0;i<sa.min_sketch_table.size();i++)
   {
-     for(int j=0;j<sa.sketch_table[i].size();j++)
+     for(int j=0;j<sa.min_sketch_table[i].size();j++)
      {
-        send_buffer[i*sa.ncols+j] = sa.sketch_table[i][j];
+        send_buffer[i*sa.ncols+j] = sa.min_sketch_table[i][j];
      }
   }
 
@@ -325,11 +322,11 @@ void KeyValueStoreAccessor::collect_summary(int tag)
   sa_t.nrows = sa.nrows;
   sa_t.ncols = sa.ncols;
 
-  sa_t.sketch_table.resize(sa.nrows);
+  sa_t.min_sketch_table.resize(sa.nrows);
   for(int i=0;i<sa.nrows;i++)
   {
-	sa_t.sketch_table[i].resize(sa.ncols);
-	std::fill(sa_t.sketch_table[i].begin(),sa_t.sketch_table[i].end(),0);
+	sa_t.min_sketch_table[i].resize(sa.ncols);
+	std::fill(sa_t.min_sketch_table[i].begin(),sa_t.min_sketch_table[i].end(),0);
   } 
 
   
@@ -341,12 +338,30 @@ void KeyValueStoreAccessor::collect_summary(int tag)
 	  for(int k=0;k<sa_t.ncols;k++)
 	  {
 	     int p = j*sa_t.ncols+k;
-	     sa_t.sketch_table[j][k] += recv_buffer[d+p];
+	     sa_t.min_sketch_table[j][k] += recv_buffer[d+p];
 	  }
      }
   }
 
   delete reqs;
+}
+
+template<typename T,typename N>
+int KeyValueStoreAccessor::count_min(N &key)
+{
+    int min_value = INT_MAX;
+
+    for(int i=0;i<sa_t.min_sketch_table.size();i++)
+    {
+         uint64_t seed = (uint64_t)i;
+	 uint64_t k = (uint64_t)key;
+         boost::hash_combine(seed,k);
+	 uint64_t hash_value = seed;
+	 int pos = hash_value%sa_t.min_sketch_table[i].size();
+	 double v = sa_t.min_sketch_table[i][pos];
+	 if(min_value > v) min_value = v;
+    }
+    return min_value;
 }
 
 template<typename T>
