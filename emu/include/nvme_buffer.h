@@ -46,7 +46,7 @@ class nvme_buffers
 	std::mutex n1;
 	std::vector<int> total_blocks;
 	std::vector<std::vector<std::vector<int>>> numblocks;
-        std::vector<uint64_t> maxts;	
+        std::vector<uint64_t> maxts;
   public:
 	nvme_buffers(int np,int rank) : numprocs(np), myrank(rank)
 	{

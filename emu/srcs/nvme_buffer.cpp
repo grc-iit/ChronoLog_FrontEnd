@@ -210,8 +210,6 @@ void nvme_buffers::erase_from_nvme(std::string &s, int numevents,int nblocks)
         remove_blocks(index,nblocks);
       }
 
-      //update_interval(index);
-
 }
 
 void nvme_buffers::remove_blocks(int index,int nc)
@@ -367,10 +365,6 @@ int nvme_buffers::buffer_index(std::string &s)
 
 void nvme_buffers::release_buffer(int index)
 {
-     /*if(myrank==0) 
-     {
-	  blocks[index]->unlock();
-     }*/
      buffer_state[index]->store(0);
 
 }
@@ -380,16 +374,6 @@ int nvme_buffers::get_proc(std::string &s,uint64_t ts)
    int index = buffer_index(s);
 
    int pid = -1;
-
-   /*int prev_value=0;
-   int new_value=4;
-
-   do
-   {
-	prev_value = 0;
-	new_value = 4;
-   }while(!buffer_state[index]->compare_exchange_strong(prev_value,new_value));
-*/
 
    boost::shared_lock<boost::shared_mutex> lk(*(file_locks[index]));
    {
@@ -407,8 +391,6 @@ int nvme_buffers::get_proc(std::string &s,uint64_t ts)
         if(found) break;
    }
    }
-
-   //buffer_state[index]->store(0);
 
    return pid;
 
@@ -428,15 +410,6 @@ bool nvme_buffers::find_event(std::string &s,uint64_t ts,struct event *e)
       em = (r->second).second;
    }
 
-   /*int prev_value = 0;
-   int new_value = 4;
-
-   do
-   {
-	prev_value = 0;
-	new_value = 4;
-   }while(!buffer_state[index]->compare_exchange_strong(prev_value,new_value));
-*/
    bool ret = false;
    boost::shared_lock<boost::shared_mutex> lk(*(file_locks[index]));
    {
@@ -458,7 +431,6 @@ bool nvme_buffers::find_event(std::string &s,uint64_t ts,struct event *e)
      }
    }
 
-   //buffer_state[index]->store(0);
    return ret;
 
 }
@@ -524,11 +496,6 @@ void nvme_buffers::fetch_buffer(std::vector<char> *data_mem,std::string &s,int &
 	blockcounts.push_back(numblocks[index][i]);
      }
      }
-
-     //nvme_ebufs[index]->clear();
-          //nvme_files[index]->flush();
-
-     //buffer_state[index]->store(0);
 
 }
 
