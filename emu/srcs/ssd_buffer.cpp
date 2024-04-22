@@ -1,4 +1,4 @@
-#include "nvme_buffer.h"
+#include "ssd_buffer.h"
 #include <mpi.h>
 
 void nvme_buffers::create_nvme_buffer(std::string &s,event_metadata &em)

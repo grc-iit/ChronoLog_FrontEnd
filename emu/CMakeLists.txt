@@ -1,6 +1,6 @@
 
 include_directories("include")
-add_executable(engine srcs/main.cpp srcs/city.cpp srcs/rw.cpp srcs/distributed_sort.cpp srcs/rw_request.cpp srcs/query_parser.cpp srcs/nvme_buffer.cpp srcs/query_engine.cpp srcs/write_buffer.cpp srcs/process.cpp srcs/event.cpp)
+add_executable(engine srcs/main.cpp srcs/city.cpp srcs/rw.cpp srcs/distributed_sort.cpp srcs/rw_request.cpp srcs/query_parser.cpp srcs/ssd_buffer.cpp srcs/query_engine.cpp srcs/write_buffer.cpp srcs/process.cpp srcs/event.cpp)
 #add_executable(post_processing srcs/post_processing.cpp)
 #add_executable(hdf5_workload hdf5_workload3.cpp)
 add_library(${PROJECT_NAME} SHARED srcs)
