@@ -125,7 +125,7 @@ class data_server_client
 	server_addr = "ofi+tcp://";
         server_addr += myipaddr;
         server_addr = server_addr+":"+std::to_string(port_addr);
-        thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,4);
+        thallium_server = new tl::engine(server_addr.c_str(),THALLIUM_SERVER_MODE,true,16);
         //std::cout <<" server_addr = "<<server_addr<<std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
 

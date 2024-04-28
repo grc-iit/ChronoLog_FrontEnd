@@ -123,9 +123,9 @@ class KeyValueStore
    	 	MPI_Request *reqs = new MPI_Request[2*numprocs];
 
 		bool end_loop = false;
-		//int rate = (k->ifreq < 50) ? 50 : k->ifreq;
-		//rate = (rate > 500) ? 500 : rate;
-		int rate = 50;
+		int rate = (k->ifreq < 50) ? 50 : k->ifreq;
+		rate = (rate > 500) ? 500 : rate;
+		//int rate = 50;
 		int request_count=0;
 
 		while(true)
@@ -366,7 +366,7 @@ class KeyValueStore
 
 		std::vector<N> keys_query;
 
-		for(int n=0;n<1;n++)
+		for(int n=0;n<10;n++)
 		{
 		   std::vector<N> keys_p;
 		   int keyp = 0;
@@ -414,7 +414,7 @@ class KeyValueStore
 		ka->collect_summary<T,N>(ctag);
 		//numgets = ka->num_gets<T>(pos);
 		//
-		if(myrank==0)
+		/*if(myrank==0)
 		{
 		   int numkeys = 10;
 		   for(int i=0;i<numkeys;i++)
@@ -426,7 +426,7 @@ class KeyValueStore
 		   }
 
 
-		}
+		}*/
 		return numgets;
 	   }
 

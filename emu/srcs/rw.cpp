@@ -446,8 +446,6 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
        attr_space[0] = MAXBLOCKS*4+4;
        const char *attr_name[1];
 
-       auto t1 = std::chrono::high_resolution_clock::now();
-
        std::string filename_r = s+"results"+std::to_string(myrank)+".txt";
 
        std::ofstream ost(filename_r.c_str(),std::ios::app);
@@ -617,6 +615,8 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
 
 	std::vector<char> *data_buffer = new std::vector<char> ();
 
+	double diff = 0;
+
 	for(int n=0;n<block_requests.size();n++)
 	{
 	   if(block_requests[n].size()>0)
@@ -634,12 +634,18 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
 
 		total_records = attrs[pos+n*4+3];
             
+		auto t1 = std::chrono::high_resolution_clock::now();
+
                 data_buffer->resize(total_records*keydatasize);
 		hsize_t block_size = (hsize_t)total_records;
                 ret = H5Sselect_hyperslab(file_dataspace, H5S_SELECT_SET,&offset,NULL,&block_size,NULL);
                 mem_dataspace = H5Screate_simple(1,&block_size, NULL);
                 ret = H5Dread(dataset1,s2, mem_dataspace, file_dataspace, xfer_plist,data_buffer->data());
                 H5Sclose(mem_dataspace);
+
+		auto t2 = std::chrono::high_resolution_clock::now();
+
+		diff += std::chrono::duration<double> (t2-t1).count();
 
 		/*point queries only*/
 		if(1)
@@ -692,8 +698,7 @@ double read_write_process::pread(std::vector<std::vector<struct io_request*>>&my
 
 	}
 
-	auto t2 = std::chrono::high_resolution_clock::now();
-	double t = std::chrono::duration<double> (t2-t1).count();
+	double t = diff;
 
 	read_time_i = t;
 	for(int n=0;n<my_requests[i].size();n++)

@@ -32,12 +32,12 @@ int main(int argc,char **argv)
    int len = sizeof(int)*2+128;
    KeyValueStoreMetadata m(sname,n,types,names,lens,len);
 
-   int tdw = 5000;
+   int tdw = 10000;
    int td = tdw/size;
 
-   int nloops = 4;
+   int nloops = 2;
    int nticks = 50;
-   int ifreq = 100;
+   int ifreq = 50;
    /*nticks = freq for backup to nvme
     * nloops*nticks = freq for backup to disk*/
      /*ifreq is frequency for index backups*/

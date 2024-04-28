@@ -10,7 +10,7 @@
 #include "distributed_sort.h"
 #include "data_server_client.h"
 #include "event_metadata.h"
-#include "nvme_buffer.h"
+#include "ssd_buffer.h"
 #include <boost/lockfree/queue.hpp>
 //#include "h5_async_lib.h"
 #include <thread>
