@@ -104,7 +104,7 @@ bool query_parser::sort_events_by_attr(std::string &s, std::vector<struct event>
    return true;
 }
 
-template <typename T,class EqualFcn=std::equal_to<T>>
+template <typename T,class EqualFcn>
 bool query_parser::select_by_attr(std::string &s,std::string &a_name,std::vector<struct event>& r_events,event_metadata &em,T &value,std::vector<view> &resp)
 {
 
